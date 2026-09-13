@@ -406,9 +406,24 @@ export default function TournamentDetail({ tournamentId, onBack }) {
       .sort((a, b) => a.position - b.position);
   }
 
-  const sortedRegs = [...registrations].sort(
-    (a, b) => (a.table_number || 0) - (b.table_number || 0) || (a.seat_number || 0) - (b.seat_number || 0)
-  );
+  const eliminatedByName = new Map();
+  eliminations.forEach((e) => {
+    if (e.eliminated_by) {
+      const byReg = registrations.find((r) => r.id === e.eliminated_by);
+      if (byReg) eliminatedByName.set(e.registration_id, byReg.players?.full_name || "?");
+    }
+  });
+
+  // Actifs d'abord (triés par table/siège), puis éliminés à la suite dans
+  // l'ordre du classement (le plus récemment éliminé — donc le mieux classé
+  // parmi les sortants — en premier, le tout premier éliminé tout en bas).
+  const sortedRegs = [...registrations].sort((a, b) => {
+    const aOut = eliminatedIds.has(a.id);
+    const bOut = eliminatedIds.has(b.id);
+    if (aOut !== bOut) return aOut ? 1 : -1;
+    if (aOut && bOut) return (positionByReg.get(a.id) || 0) - (positionByReg.get(b.id) || 0);
+    return (a.table_number || 0) - (b.table_number || 0) || (a.seat_number || 0) - (b.seat_number || 0);
+  });
   const tableNumbers = [...new Set(registrations.map((r) => r.table_number))].sort((a, b) => a - b);
   let lastTable = null;
 
@@ -549,17 +564,21 @@ export default function TournamentDetail({ tournamentId, onBack }) {
           {sortedRegs.map((reg) => {
             const isOut = eliminatedIds.has(reg.id);
             const koCount = koCounts.get(reg.id) || 0;
-            const showTable = reg.table_number !== lastTable;
-            lastTable = reg.table_number;
+            const showTable = !isOut && reg.table_number !== lastTable;
+            if (!isOut) lastTable = reg.table_number;
+            const position = positionByReg.get(reg.id);
+            const eliminatorName = eliminatedByName.get(reg.id);
 
             return (
               <div key={reg.id} className="relative">
                 <div
                   className={`grid grid-cols-[48px_1fr_90px_32px] sm:grid-cols-[72px_1fr_140px_44px] gap-3 items-center px-4 py-5 mb-2.5 rounded-md bg-felt-bg/50 ${
-                    isOut ? "opacity-40" : ""
+                    isOut ? "opacity-50" : ""
                   }`}
                 >
-                  <div className="text-felt-gold font-display text-lg">{showTable ? reg.table_number : ""}</div>
+                  <div className="text-felt-gold font-display text-lg">
+                    {isOut ? (position ? `${position}e` : "") : showTable ? reg.table_number : ""}
+                  </div>
                   <div className="flex items-center gap-3 min-w-0">
                     {reg.accounts?.avatar_data ? (
                       <img src={reg.accounts.avatar_data} alt="" className="w-12 h-12 rounded-full object-cover shrink-0" />
@@ -573,7 +592,13 @@ export default function TournamentDetail({ tournamentId, onBack }) {
                         {reg.players?.full_name}
                       </div>
                       <div className="text-sm text-felt-cream/40 truncate">
-                        Siège {reg.seat_number}
+                        {isOut ? (
+                          <>
+                            Éliminé{eliminatorName ? ` par ${eliminatorName}` : ""}
+                          </>
+                        ) : (
+                          <>Siège {reg.seat_number}</>
+                        )}
                         {reg.rebuys > 0 && ` · ${reg.rebuys} rebuy(s)`}
                         {reg.addons > 0 && ` · ${reg.addons} addon(s)`}
                         {koCount > 0 && ` · ${koCount} KO`}
