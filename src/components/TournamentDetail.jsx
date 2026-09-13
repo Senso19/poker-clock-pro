@@ -6,6 +6,9 @@ import { selectTournament } from "../lib/tournaments.js";
 import { fetchAllAccounts, assignTableCaptain, fetchTableCaptainAssignments } from "../lib/auth.js";
 import TicketPrint from "./TicketPrint.jsx";
 import SeatPickerModal from "./SeatPickerModal.jsx";
+import RegisterPlayerModal from "./RegisterPlayerModal.jsx";
+import ActionJournalModal from "./ActionJournalModal.jsx";
+import { logEvent } from "../lib/events.js";
 
 /**
  * TournamentDetail — gestion complète d'UN tournoi précis (admin/TD), façon
@@ -25,7 +28,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   const [error, setError] = useState(null);
 
   const [showRegister, setShowRegister] = useState(false);
-  const [newPlayerName, setNewPlayerName] = useState("");
+  const [showJournal, setShowJournal] = useState(false);
   const [importing, setImporting] = useState(false);
   const [ticket, setTicket] = useState(null);
   const [eliminatingReg, setEliminatingReg] = useState(null);
@@ -137,15 +140,23 @@ export default function TournamentDetail({ tournamentId, onBack }) {
       .select("*, players(id, full_name)")
       .single();
     if (regErr) throw regErr;
+    logEvent(tournamentId, "register", player.full_name, { registrationId: reg.id, playerId: player.id });
     return reg;
   }
 
-  async function registerPlayer() {
-    const name = newPlayerName.trim();
-    if (!name) return;
+  async function handleRegisterExisting(player) {
+    try {
+      const reg = await registerOnePlayer(player.full_name, registrations.length);
+      await loadRegistrations();
+      setTicket({ type: "buyin", reg });
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function handleRegisterNew(name) {
     try {
       const reg = await registerOnePlayer(name, registrations.length);
-      setNewPlayerName("");
       await loadRegistrations();
       setTicket({ type: "buyin", reg });
     } catch (e) {
@@ -248,6 +259,8 @@ export default function TournamentDetail({ tournamentId, onBack }) {
           return supabase.from("registrations").update({ table_number: table, seat_number: seat }).eq("id", reg.id);
         })
       );
+      await supabase.from("tournaments").update({ seats_drawn: true }).eq("id", tournamentId);
+      setTournament((t) => ({ ...t, seats_drawn: true }));
       await loadRegistrations();
     } catch (e) {
       setError(e.message);
@@ -289,17 +302,43 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     setBalancing(false);
   }
 
+  // Calcule si un rééquilibrage est possible ET préférable en l'état actuel
+  // (plus de tables utilisées que nécessaire, ou écart de plus d'un joueur
+  // entre la table la plus et la moins garnie) — pilote l'activation du
+  // bouton "Équilibrer les tables".
+  function computeNeedsBalance() {
+    const eliminatedIdsNow = new Set(eliminations.map((e) => e.registration_id));
+    const perTable = tournament?.players_per_table || 9;
+    const active = registrations.filter((r) => !eliminatedIdsNow.has(r.id));
+    if (active.length === 0) return false;
+    const numTables = Math.max(1, Math.ceil(active.length / perTable));
+    const counts = {};
+    active.forEach((r) => {
+      counts[r.table_number] = (counts[r.table_number] || 0) + 1;
+    });
+    const usedTables = Object.keys(counts).length;
+    const values = Object.values(counts);
+    const max = Math.max(...values);
+    const min = Math.min(...values);
+    return usedTables > numTables || max - min > 1;
+  }
+
   async function confirmElimination(reg, eliminatedByRegId) {
     const stillIn = registrations.filter(
       (r) => !eliminations.some((e) => e.registration_id === r.id)
     );
     const position = stillIn.length;
-    await supabase.from("eliminations").insert({
-      tournament_id: tournamentId,
-      registration_id: reg.id,
-      finish_position: position,
-      eliminated_by: eliminatedByRegId || null,
-    });
+    const { data: elim } = await supabase
+      .from("eliminations")
+      .insert({
+        tournament_id: tournamentId,
+        registration_id: reg.id,
+        finish_position: position,
+        eliminated_by: eliminatedByRegId || null,
+      })
+      .select()
+      .single();
+    logEvent(tournamentId, "elimination", reg.players?.full_name || "", { eliminationId: elim?.id, registrationId: reg.id });
     setEliminatingReg(null);
     setOpenMenuId(null);
     loadEliminations();
@@ -435,48 +474,12 @@ export default function TournamentDetail({ tournamentId, onBack }) {
         {/* Colonne droite : liste des joueurs */}
         <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-5">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <button
-              onClick={() => setShowRegister((v) => !v)}
-              className="text-sm text-felt-gold hover:text-felt-gold/80 flex items-center gap-1.5"
-            >
-              <span>➕👤</span> Inscrire un joueur
-            </button>
             <div className="flex flex-wrap items-center gap-3">
               <button
-                onClick={autoBalanceTables}
-                disabled={balancing || registrations.length === 0}
-                title="Répartit les joueurs encore en jeu sur le nombre minimal de tables nécessaire"
-                className="text-sm text-felt-gold hover:text-felt-gold/80 flex items-center gap-1.5 disabled:opacity-40"
+                onClick={() => setShowRegister(true)}
+                className="text-sm text-felt-gold hover:text-felt-gold/80 flex items-center gap-1.5"
               >
-                <span>⚖</span> {balancing ? "Équilibrage…" : "Équilibrer les tables"}
-              </button>
-              <button
-                onClick={shuffleSeats}
-                disabled={shuffling || registrations.length === 0}
-                className="text-sm text-felt-gold hover:text-felt-gold/80 flex items-center gap-1.5 disabled:opacity-40"
-              >
-                <span>⇄</span> {shuffling ? "Tirage…" : "Tirer les places"}
-              </button>
-            </div>
-          </div>
-
-          {showRegister && (
-            <div className="flex flex-wrap items-center gap-2 mb-4 bg-felt-panel border border-felt-cream/10 rounded-md p-3">
-              <input
-                list="club-players-list"
-                value={newPlayerName}
-                onChange={(e) => setNewPlayerName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && registerPlayer()}
-                placeholder="Choisir un joueur du club ou en taper un nouveau"
-                className="flex-1 bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-2 text-felt-cream placeholder:text-felt-cream/40"
-              />
-              <datalist id="club-players-list">
-                {clubPlayers.map((p) => (
-                  <option key={p.id} value={p.full_name} />
-                ))}
-              </datalist>
-              <button onClick={registerPlayer} className="px-4 py-2 bg-felt-gold text-felt-bg rounded-md font-display text-sm">
-                + Inscrire
+                <span>➕👤</span> Inscrire un joueur
               </button>
               <input
                 ref={fileInputRef}
@@ -488,12 +491,43 @@ export default function TournamentDetail({ tournamentId, onBack }) {
               />
               <label
                 htmlFor="excel-import"
-                className="cursor-pointer px-3 py-2 text-xs bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display whitespace-nowrap"
+                className="cursor-pointer px-3 py-1.5 text-xs bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display whitespace-nowrap"
               >
                 {importing ? "Import…" : "Importer Excel"}
               </label>
             </div>
-          )}
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={autoBalanceTables}
+                disabled={balancing || !computeNeedsBalance()}
+                title={
+                  computeNeedsBalance()
+                    ? "Rééquilibrage recommandé : répartit les joueurs encore en jeu sur le nombre minimal de tables nécessaire"
+                    : "Les tables sont déjà équilibrées"
+                }
+                className={`text-sm flex items-center gap-1.5 disabled:opacity-40 ${
+                  computeNeedsBalance() ? "text-felt-gold hover:text-felt-gold/80 font-medium" : "text-felt-cream/40"
+                }`}
+              >
+                <span>⚖</span> {balancing ? "Équilibrage…" : computeNeedsBalance() ? "Rééquilibrage recommandé" : "Équilibrer les tables"}
+              </button>
+              <button
+                onClick={shuffleSeats}
+                disabled={shuffling || registrations.length === 0 || tournament?.seats_drawn}
+                title={tournament?.seats_drawn ? "Les places ont déjà été tirées pour ce tournoi" : ""}
+                className="text-sm text-felt-gold hover:text-felt-gold/80 flex items-center gap-1.5 disabled:opacity-40 disabled:text-felt-cream/40"
+              >
+                <span>⇄</span> {shuffling ? "Tirage…" : "Tirer les places"}
+              </button>
+              <button
+                onClick={() => setShowJournal(true)}
+                className="text-sm text-felt-cream/60 hover:text-felt-cream flex items-center gap-1.5"
+              >
+                <span>↺</span> Annuler des actions
+              </button>
+            </div>
+          </div>
+
 
           {error && <div className="text-felt-alert text-sm mb-3">Erreur : {error}</div>}
 
@@ -651,6 +685,32 @@ export default function TournamentDetail({ tournamentId, onBack }) {
           currentReg={movingReg}
           onSelect={commitSeatMove}
           onClose={() => setMovingReg(null)}
+        />
+      )}
+
+      {showRegister && (
+        <RegisterPlayerModal
+          registeredCount={registrations.length}
+          clubPlayers={clubPlayers}
+          registeredPlayerIds={new Set(registrations.map((r) => r.player_id))}
+          onRegisterExisting={async (p) => {
+            await handleRegisterExisting(p);
+          }}
+          onRegisterNew={async (name) => {
+            await handleRegisterNew(name);
+          }}
+          onClose={() => setShowRegister(false)}
+        />
+      )}
+
+      {showJournal && (
+        <ActionJournalModal
+          tournamentId={tournamentId}
+          onClose={() => setShowJournal(false)}
+          onChanged={() => {
+            loadRegistrations();
+            loadEliminations();
+          }}
         />
       )}
 

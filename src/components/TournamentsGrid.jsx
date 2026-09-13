@@ -6,6 +6,7 @@ import { canManageTournaments } from "../lib/auth.js";
 import { fetchChampionships } from "../lib/points.js";
 import { fetchStructureTemplates, saveLevels, saveStructureConfig } from "../lib/levels.js";
 import { fetchClockTemplates, applyClockTemplateToTournament } from "../lib/clockTemplates.js";
+import { logEvent } from "../lib/events.js";
 
 const MAX_PER_TABLE = 9;
 
@@ -144,6 +145,7 @@ export default function TournamentsGrid({ onOpen }) {
         .select()
         .single();
       if (insErr) throw insErr;
+      logEvent(created.id, "create", created.name);
 
       if (structTemplate) {
         await saveLevels(created.id, structTemplate.levels || []);
