@@ -17,7 +17,7 @@ const UNDOABLE_TYPES = ["register", "elimination"];
  * toutes les actions effectuées, avec la possibilité d'annuler chacune
  * individuellement (pas seulement la dernière).
  */
-export default function ActionJournalModal({ tournamentId, onClose, onChanged }) {
+export default function ActionJournalModal({ tournamentId, playersPerTable, onClose, onChanged }) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [undoingId, setUndoingId] = useState(null);
@@ -38,6 +38,55 @@ export default function ActionJournalModal({ tournamentId, onClose, onChanged })
     setLoading(false);
   }
 
+  // Si le siège d'origine du joueur qu'on ré-active a été repris par
+  // quelqu'un d'autre entre-temps (rééquilibrage, autre inscription...),
+  // on le replace automatiquement sur le prochain siège libre au lieu de
+  // créer un doublon.
+  async function reseatIfConflict(registrationId) {
+    const { data: allRegs } = await supabase
+      .from("registrations")
+      .select("id, table_number, seat_number")
+      .eq("tournament_id", tournamentId);
+    const { data: elims } = await supabase
+      .from("eliminations")
+      .select("registration_id")
+      .eq("tournament_id", tournamentId)
+      .eq("undone", false);
+    const eliminatedSet = new Set((elims || []).map((e) => e.registration_id));
+    const me = (allRegs || []).find((r) => r.id === registrationId);
+    if (!me) return;
+    const conflict = (allRegs || []).some(
+      (r) =>
+        r.id !== registrationId &&
+        !eliminatedSet.has(r.id) &&
+        r.table_number === me.table_number &&
+        r.seat_number === me.seat_number
+    );
+    if (!conflict) return;
+
+    const perTable = playersPerTable || 9;
+    const occupied = new Set(
+      (allRegs || [])
+        .filter((r) => r.id !== registrationId && !eliminatedSet.has(r.id))
+        .map((r) => `${r.table_number}-${r.seat_number}`)
+    );
+    let table = 1;
+    let found = null;
+    while (table < 1000 && !found) {
+      for (let seat = 1; seat <= perTable; seat++) {
+        const key = `${table}-${seat}`;
+        if (!occupied.has(key)) {
+          found = { table, seat };
+          break;
+        }
+      }
+      table += 1;
+    }
+    if (found) {
+      await supabase.from("registrations").update({ table_number: found.table, seat_number: found.seat }).eq("id", registrationId);
+    }
+  }
+
   async function handleUndo(ev) {
     if (!confirm("Annuler cette action ?")) return;
     setUndoingId(ev.id);
@@ -50,6 +99,9 @@ export default function ActionJournalModal({ tournamentId, onClose, onChanged })
         await supabase.from("registrations").delete().eq("id", ev.payload.registrationId);
       } else if (ev.type === "elimination" && ev.payload?.eliminationId) {
         await supabase.from("eliminations").delete().eq("id", ev.payload.eliminationId);
+        if (ev.payload.registrationId) {
+          await reseatIfConflict(ev.payload.registrationId);
+        }
       }
       await markEventUndone(ev.id);
       await load();

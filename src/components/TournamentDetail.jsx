@@ -384,7 +384,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     const values = Object.values(counts);
     const max = Math.max(...values);
     const min = Math.min(...values);
-    return usedTables > numTables || max - min > 1;
+    return usedTables !== numTables || max - min > 1;
   }
 
   async function confirmElimination(reg, eliminatedByRegId) {
@@ -803,6 +803,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
       {showJournal && (
         <ActionJournalModal
           tournamentId={tournamentId}
+          playersPerTable={tournament?.players_per_table}
           onClose={() => setShowJournal(false)}
           onChanged={() => {
             loadRegistrations();
