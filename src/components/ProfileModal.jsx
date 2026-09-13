@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAccount } from "../context/AccountContext.jsx";
 import { updateOwnProfile } from "../lib/auth.js";
+import { compressImageFile } from "../lib/imageUtils.js";
 
 /**
  * ProfileModal — édition du profil (pseudo, nom, prénom, email, avatar).
@@ -20,9 +21,7 @@ export default function ProfileModal({ onClose }) {
   function handleAvatarChange(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setAvatarData(reader.result);
-    reader.readAsDataURL(file);
+    compressImageFile(file, { maxSize: 320 }).then(setAvatarData);
   }
 
   async function handleConfirm() {

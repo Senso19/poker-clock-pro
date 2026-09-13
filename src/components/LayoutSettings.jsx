@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase.js";
 import { useTheme } from "../context/ThemeContext.jsx";
 import { fetchClubSettings, setRegistrationCode, setChatSettings } from "../lib/auth.js";
+import { compressImageFile } from "../lib/imageUtils.js";
 
 const PRESETS = [
   { name: "Feutre (défaut)", value: "#14181C" },
@@ -66,28 +67,22 @@ export default function LayoutSettings() {
     await persist(next);
   }
 
-  function handleBackgroundImage(e) {
+  async function handleBackgroundImage(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const next = { ...theme, background: { type: "image", value: reader.result } };
-      setTheme(next);
-      await persist(next);
-    };
-    reader.readAsDataURL(file);
+    const dataUrl = await compressImageFile(file, { maxSize: 1440, quality: 0.78 });
+    const next = { ...theme, background: { type: "image", value: dataUrl } };
+    setTheme(next);
+    await persist(next);
   }
 
-  function handleLogoUpload(e) {
+  async function handleLogoUpload(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const next = { ...theme, logoData: reader.result };
-      setTheme(next);
-      await persist(next);
-    };
-    reader.readAsDataURL(file);
+    const dataUrl = await compressImageFile(file, { maxSize: 300 });
+    const next = { ...theme, logoData: dataUrl };
+    setTheme(next);
+    await persist(next);
   }
 
   async function removeLogo() {

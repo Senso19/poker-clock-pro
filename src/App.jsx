@@ -1,15 +1,24 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import Sidebar from "./components/Sidebar.jsx";
 import TournamentsGrid from "./components/TournamentsGrid.jsx";
-import TournamentPage from "./components/TournamentPage.jsx";
-import LayoutSettings from "./components/LayoutSettings.jsx";
-import ChampionshipView from "./components/ChampionshipView.jsx";
-import StructureTemplatesManager from "./components/StructureTemplatesManager.jsx";
-import AccountsAdmin from "./components/AccountsAdmin.jsx";
-import EliminationView from "./components/EliminationView.jsx";
 import { useTheme } from "./context/ThemeContext.jsx";
 import { useAccount } from "./context/AccountContext.jsx";
 import { canManageTournaments } from "./lib/auth.js";
+
+// Chargés à la demande (import() dynamique) : ces écrans embarquent des
+// composants lourds (horloge éditable, structure des blinds, xlsx...) qui
+// n'ont pas besoin de peser sur le premier écran affiché (la grille des
+// tournois). Ça réduit sensiblement le temps de chargement initial.
+const TournamentPage = lazy(() => import("./components/TournamentPage.jsx"));
+const LayoutSettings = lazy(() => import("./components/LayoutSettings.jsx"));
+const ChampionshipView = lazy(() => import("./components/ChampionshipView.jsx"));
+const StructureTemplatesManager = lazy(() => import("./components/StructureTemplatesManager.jsx"));
+const AccountsAdmin = lazy(() => import("./components/AccountsAdmin.jsx"));
+const EliminationView = lazy(() => import("./components/EliminationView.jsx"));
+
+function TabFallback() {
+  return <div className="p-6 text-felt-cream/50 font-body">Chargement…</div>;
+}
 
 /**
  * App — les onglets Horloge et Structure autonomes ont été retirés de la
@@ -41,17 +50,19 @@ export default function App() {
     <div className="h-screen w-screen flex" style={bgStyle}>
       <Sidebar tab={tab} setTab={goToTab} />
       <div className="flex-1 min-w-0 h-full overflow-hidden relative pt-14 sm:pt-0">
-        {tab === "tournaments" &&
-          (openTournamentId ? (
-            <TournamentPage tournamentId={openTournamentId} onBack={() => setOpenTournamentId(null)} />
-          ) : (
-            <TournamentsGrid onOpen={setOpenTournamentId} />
-          ))}
-        {tab === "eliminate" && isStaffOnly && <EliminationView />}
-        {tab === "championship" && <ChampionshipView />}
-        {tab === "templates" && manage && <StructureTemplatesManager />}
-        {tab === "accounts" && manage && <AccountsAdmin />}
-        {tab === "settings" && manage && <LayoutSettings />}
+        <Suspense fallback={<TabFallback />}>
+          {tab === "tournaments" &&
+            (openTournamentId ? (
+              <TournamentPage tournamentId={openTournamentId} onBack={() => setOpenTournamentId(null)} />
+            ) : (
+              <TournamentsGrid onOpen={setOpenTournamentId} />
+            ))}
+          {tab === "eliminate" && isStaffOnly && <EliminationView />}
+          {tab === "championship" && <ChampionshipView />}
+          {tab === "templates" && manage && <StructureTemplatesManager />}
+          {tab === "accounts" && manage && <AccountsAdmin />}
+          {tab === "settings" && manage && <LayoutSettings />}
+        </Suspense>
       </div>
     </div>
   );

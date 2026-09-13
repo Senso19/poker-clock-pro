@@ -1,5 +1,3 @@
-import * as XLSX from "xlsx";
-
 /**
  * SheetsSync — import/export Excel + sync optionnelle Google Sheets.
  *
@@ -7,13 +5,18 @@ import * as XLSX from "xlsx";
  * Export: génère un .xlsx des résultats du tournoi (classement, gains)
  * Sync Sheets: POST vers un webhook Google Apps Script (même pattern que
  * tes formulaires 19PokerClub) — l'URL est stockée dans club_settings.sheets_webhook_url
+ *
+ * La librairie "xlsx" (lourde, ~300 Ko) est chargée à la demande (import()
+ * dynamique) plutôt qu'au chargement de l'app, puisqu'elle n'est utile que
+ * pour ces deux actions ponctuelles.
  */
 
 export function importPlayersFromFile(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
+        const XLSX = await import("xlsx");
         const wb = XLSX.read(e.target.result, { type: "binary" });
         const sheet = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(sheet);
@@ -32,8 +35,9 @@ export function importPlayersFromFile(file) {
   });
 }
 
-export function exportResultsToExcel(tournamentName, results) {
+export async function exportResultsToExcel(tournamentName, results) {
   // results: [{ position, playerName, prize }]
+  const XLSX = await import("xlsx");
   const ws = XLSX.utils.json_to_sheet(
     results.map((r) => ({
       Position: r.position,

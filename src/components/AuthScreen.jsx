@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { signup, login } from "../lib/auth.js";
 import { useAccount } from "../context/AccountContext.jsx";
+import { compressImageFile } from "../lib/imageUtils.js";
 
 /**
  * AuthScreen — connexion ou création de compte (avec code secret admin).
@@ -97,9 +98,7 @@ function SignupForm({ onSuccess }) {
   function handleAvatarChange(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setAvatarData(reader.result);
-    reader.readAsDataURL(file);
+    compressImageFile(file, { maxSize: 320 }).then(setAvatarData);
   }
 
   async function handleSubmit() {

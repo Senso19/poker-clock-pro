@@ -4,6 +4,7 @@ import { useTheme } from "../context/ThemeContext.jsx";
 import { fetchCurrentTournament } from "../lib/tournaments.js";
 import { saveClockState } from "../lib/clockState.js";
 import { fetchClubSettings, setLiveAnnouncement } from "../lib/auth.js";
+import { compressImageFile } from "../lib/imageUtils.js";
 
 /**
  * EditableClock — tableau de bord de tournoi façon BlindValet. Panneaux en %
@@ -490,15 +491,12 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   function removeImage(id) {
     persist(panels, images.filter((im) => im.id !== id));
   }
-  function addImage(e) {
+  async function addImage(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const newImg = { id: `img-${Date.now()}`, x: 10, y: 10, w: 40, h: 40, imageData: reader.result, layer: "back", fit: "contain" };
-      persist(panels, [...images, newImg]);
-    };
-    reader.readAsDataURL(file);
+    const dataUrl = await compressImageFile(file, { maxSize: 1000 });
+    const newImg = { id: `img-${Date.now()}`, x: 10, y: 10, w: 40, h: 40, imageData: dataUrl, layer: "back", fit: "contain" };
+    persist(panels, [...images, newImg]);
     e.target.value = "";
   }
 
@@ -1381,16 +1379,7 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
               onChange={(e) => {
                 const files = Array.from(e.target.files || []);
                 if (files.length === 0) return;
-                Promise.all(
-                  files.map(
-                    (file) =>
-                      new Promise((resolve) => {
-                        const reader = new FileReader();
-                        reader.onload = () => resolve(reader.result);
-                        reader.readAsDataURL(file);
-                      })
-                  )
-                ).then((dataUrls) => {
+                Promise.all(files.map((file) => compressImageFile(file, { maxSize: 600 }))).then((dataUrls) => {
                   onChange({ sponsorImages: [...(style.sponsorImages || []), ...dataUrls] });
                 });
                 e.target.value = "";
