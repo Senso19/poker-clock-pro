@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronUp, ChevronDown, Minus, User, LogOut, Bell, Trophy, Target, BarChart3, LayoutGrid, Users, MessageCircle, Mail, Settings } from "lucide-react";
+import { ChevronUp, ChevronDown, Minus, User, LogOut, Bell, Trophy, Target, BarChart3, LayoutGrid, Users, MessageCircle, Mail, Settings, ClipboardList } from "lucide-react";
 import { supabase } from "../lib/supabase.js";
 import { useAccount } from "../context/AccountContext.jsx";
 import { useTheme } from "../context/ThemeContext.jsx";
@@ -22,11 +22,22 @@ const ITEM_DEFS = {
   championship: { icon: BarChart3, label: "Championnats" },
   templates: { icon: LayoutGrid, label: "Gérer les modèles" },
   accounts: { icon: Users, label: "Gérer les membres" },
+  registrations: { icon: ClipboardList, label: "Inscriptions Festival et Open" },
   chat: { icon: MessageCircle, label: "Chat du club" },
   contact: { icon: Mail, label: "Contacter l'administrateur" },
   settings: { icon: Settings, label: "Paramètres du club" },
 };
-const DEFAULT_ORDER = ["tournaments", "eliminate", "championship", "templates", "accounts", "chat", "contact", "settings"];
+const DEFAULT_ORDER = [
+  "tournaments",
+  "eliminate",
+  "championship",
+  "templates",
+  "accounts",
+  "registrations",
+  "chat",
+  "contact",
+  "settings",
+];
 const DEFAULT_SEPARATORS = ["championship", "accounts"];
 const DEFAULT_FONT_SIZE = 14;
 
@@ -205,7 +216,7 @@ export default function Sidebar({ tab, setTab }) {
 
   function isVisible(key) {
     if (key.startsWith("space-")) return true;
-    if (key === "templates" || key === "settings") return manage;
+    if (key === "templates" || key === "settings" || key === "registrations") return manage;
     if (key === "accounts") return manageAccounts;
     if (key === "eliminate") return isStaffOnly;
     return true;

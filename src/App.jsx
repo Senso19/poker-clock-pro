@@ -19,6 +19,7 @@ const ChampionshipView = lazy(() => import("./components/ChampionshipView.jsx"))
 const StructureTemplatesManager = lazy(() => import("./components/StructureTemplatesManager.jsx"));
 const AccountsAdmin = lazy(() => import("./components/AccountsAdmin.jsx"));
 const EliminationView = lazy(() => import("./components/EliminationView.jsx"));
+const FormRegistriesView = lazy(() => import("./components/FormRegistriesView.jsx"));
 
 function TabFallback() {
   return <div className="p-6 text-felt-cream/50 font-body">Chargement…</div>;
@@ -86,6 +87,7 @@ export default function App() {
           {tab === "championship" && <ChampionshipView />}
           {tab === "templates" && manage && <StructureTemplatesManager />}
           {tab === "accounts" && manageAccounts && <AccountsAdmin />}
+          {tab === "registrations" && manage && <FormRegistriesView />}
           {tab === "settings" && manage && <LayoutSettings />}
         </Suspense>
       </div>
