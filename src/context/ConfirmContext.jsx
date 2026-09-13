@@ -35,8 +35,8 @@ export function ConfirmProvider({ children }) {
     <ConfirmContext.Provider value={{ confirmAction }}>
       {children}
       {state && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4">
-          <div className="bg-felt-panel border border-felt-cream/10 rounded-lg w-full max-w-sm p-6 font-body text-felt-cream">
+        <div onClick={() => handle(false)} className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4">
+          <div onClick={(e) => e.stopPropagation()} className="bg-felt-panel border border-felt-cream/10 rounded-lg w-full max-w-sm p-6 font-body text-felt-cream">
             <div className="font-display text-lg mb-2">{state.title}</div>
             <div className="text-sm text-felt-cream/70 whitespace-pre-line">{state.message}</div>
             <div className="flex gap-2 mt-5">

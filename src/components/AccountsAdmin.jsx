@@ -259,8 +259,8 @@ function MergeAccountModal({ account, accounts, onClose, onMerged }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-felt-panel border border-felt-cream/10 rounded-lg w-full max-w-sm p-6 font-body text-felt-cream">
+    <div onClick={onClose} className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div onClick={(e) => e.stopPropagation()} className="bg-felt-panel border border-felt-cream/10 rounded-lg w-full max-w-sm p-6 font-body text-felt-cream">
         <div className="font-display text-lg mb-2">Fusionner un doublon</div>
         <p className="text-sm text-felt-cream/50 mb-4">
           Choisissez le compte doublon de <span className="text-white">{account.pseudo}</span> à fusionner. Ses
@@ -314,8 +314,8 @@ function InviteModal({ onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-felt-panel border border-felt-cream/10 rounded-lg w-full max-w-sm p-6 font-body text-felt-cream text-center">
+    <div onClick={onClose} className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div onClick={(e) => e.stopPropagation()} className="bg-felt-panel border border-felt-cream/10 rounded-lg w-full max-w-sm p-6 font-body text-felt-cream text-center">
         <div className="font-display text-lg mb-2">Inviter un membre</div>
         <p className="text-sm text-felt-cream/50 mb-4">
           Partagez ce code secret : la personne le saisit à l'inscription pour rejoindre le club.
@@ -373,8 +373,8 @@ function AddAccountModal({ onClose, onCreated }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-felt-panel border border-felt-cream/10 rounded-lg w-full max-w-sm p-6 font-body text-felt-cream">
+    <div onClick={onClose} className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div onClick={(e) => e.stopPropagation()} className="bg-felt-panel border border-felt-cream/10 rounded-lg w-full max-w-sm p-6 font-body text-felt-cream">
         <div className="font-display text-lg mb-4">Ajouter un membre</div>
         <div className="space-y-3">
           <Field label="Pseudo" value={pseudo} onChange={setPseudo} />
@@ -459,8 +459,8 @@ function EditAccountModal({ account, onClose, onSaved }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-felt-panel border border-felt-cream/10 rounded-lg w-full max-w-sm p-6 font-body text-felt-cream max-h-[85vh] overflow-y-auto">
+    <div onClick={onClose} className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div onClick={(e) => e.stopPropagation()} className="bg-felt-panel border border-felt-cream/10 rounded-lg w-full max-w-sm p-6 font-body text-felt-cream max-h-[85vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
           <div className="font-display text-lg">Modifier le membre</div>
           <button onClick={onClose} className="text-felt-cream/50 hover:text-felt-cream">

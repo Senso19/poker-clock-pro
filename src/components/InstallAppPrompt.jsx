@@ -23,8 +23,8 @@ export default function InstallAppPrompt({ onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-felt-panel border border-felt-cream/10 rounded-lg w-full max-w-sm p-6 font-body text-felt-cream text-center">
+    <div onClick={onClose} className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div onClick={(e) => e.stopPropagation()} className="bg-felt-panel border border-felt-cream/10 rounded-lg w-full max-w-sm p-6 font-body text-felt-cream text-center">
         <div className="w-16 h-16 mx-auto rounded-2xl bg-felt-bg border border-felt-gold/40 flex items-center justify-center text-felt-gold text-3xl mb-4">
           ♠
         </div>

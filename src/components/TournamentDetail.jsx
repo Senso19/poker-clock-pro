@@ -60,6 +60,14 @@ export default function TournamentDetail({ tournamentId, onBack }) {
       .then(({ data }) => setClubPlayers(data || []));
   }, [tournamentId]);
 
+  // Ferme le menu ⋮ d'un joueur dès qu'on clique ailleurs sur la page.
+  useEffect(() => {
+    if (!openMenuId) return;
+    const close = () => setOpenMenuId(null);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [openMenuId]);
+
   async function loadEverything() {
     setLoading(true);
     try {
@@ -687,7 +695,10 @@ export default function TournamentDetail({ tournamentId, onBack }) {
                     )}
                   </div>
                   <button
-                    onClick={() => setOpenMenuId(openMenuId === reg.id ? null : reg.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setOpenMenuId(openMenuId === reg.id ? null : reg.id);
+                    }}
                     className="text-felt-cream/50 hover:text-felt-cream text-xl leading-none"
                   >
                     ⋮
@@ -898,8 +909,8 @@ function EliminationPicker({ candidates, onConfirm, onCancel }) {
 
 function TicketModal({ children, onClose }) {
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 print:bg-white print:static">
-      <div className="bg-felt-panel rounded-lg p-6 relative print:bg-transparent print:p-0">
+    <div onClick={onClose} className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 print:bg-white print:static">
+      <div onClick={(e) => e.stopPropagation()} className="bg-felt-panel rounded-lg p-6 relative print:bg-transparent print:p-0">
         <button
           onClick={onClose}
           className="absolute top-2 right-2 text-felt-cream/50 hover:text-felt-cream text-sm print:hidden"

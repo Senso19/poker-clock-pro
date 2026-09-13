@@ -44,6 +44,14 @@ export default function TournamentsGrid({ onOpen }) {
     load();
   }, []);
 
+  // Ferme le menu ⋮ d'une carte dès qu'on clique ailleurs sur la page.
+  useEffect(() => {
+    if (!openMenuId) return;
+    const close = () => setOpenMenuId(null);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [openMenuId]);
+
   async function load() {
     setLoading(true);
     try {

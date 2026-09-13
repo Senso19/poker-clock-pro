@@ -55,8 +55,8 @@ export default function ProfileModal({ onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-felt-panel border border-felt-cream/10 rounded-lg w-full max-w-sm p-6 font-body text-felt-cream">
+    <div onClick={onClose} className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div onClick={(e) => e.stopPropagation()} className="bg-felt-panel border border-felt-cream/10 rounded-lg w-full max-w-sm p-6 font-body text-felt-cream">
         <div className="flex items-center justify-between mb-5">
           <div className="font-display text-lg">Profil</div>
           <button onClick={onClose} className="text-felt-cream/50 hover:text-felt-cream">

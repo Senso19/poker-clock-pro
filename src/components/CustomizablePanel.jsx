@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase.js";
 import { useTheme } from "../context/ThemeContext.jsx";
 import { useEditMode } from "../context/EditModeContext.jsx";
@@ -20,6 +20,15 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
   const { theme, setTheme } = useTheme();
   const { isEditMode } = useEditMode();
   const [open, setOpen] = useState(false);
+
+  // Ferme le popover de réglages dès qu'on clique ailleurs sur la page.
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [open]);
+
   const [dragOver, setDragOver] = useState(false);
   const style = theme.panelStyles?.[panelKey] || {};
   const order = style.order ?? defaultOrder;
@@ -125,6 +134,7 @@ function PanelStyleEditor({ style, onChange, onClose }) {
   return (
     <div
       onPointerDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
       className="absolute top-12 right-3 z-30 bg-felt-bg border border-felt-gold/40 rounded-md p-3 w-64 text-xs text-felt-cream shadow-lg max-h-96 overflow-y-auto"
     >
       <div className="flex items-center justify-between mb-2">

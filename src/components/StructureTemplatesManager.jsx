@@ -304,8 +304,8 @@ export default function StructureTemplatesManager() {
       )}
 
       {applyingStructTemplate && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-felt-panel border border-felt-cream/10 rounded-lg w-full max-w-sm p-6 font-body text-felt-cream">
+        <div onClick={() => setApplyingStructTemplate(null)} className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div onClick={(e) => e.stopPropagation()} className="bg-felt-panel border border-felt-cream/10 rounded-lg w-full max-w-sm p-6 font-body text-felt-cream">
             <div className="font-display text-lg mb-4">Appliquer « {applyingStructTemplate.name} » à…</div>
             {tournaments.length === 0 ? (
               <div className="text-sm text-felt-cream/50 mb-4">Aucun tournoi créé pour le moment.</div>
@@ -333,8 +333,8 @@ export default function StructureTemplatesManager() {
       )}
 
       {applyingClockTemplate && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-felt-panel border border-felt-cream/10 rounded-lg w-full max-w-sm p-6 font-body text-felt-cream">
+        <div onClick={() => setApplyingClockTemplate(null)} className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div onClick={(e) => e.stopPropagation()} className="bg-felt-panel border border-felt-cream/10 rounded-lg w-full max-w-sm p-6 font-body text-felt-cream">
             <div className="font-display text-lg mb-4">Appliquer « {applyingClockTemplate.name} » à…</div>
             {tournaments.length === 0 ? (
               <div className="text-sm text-felt-cream/50 mb-4">Aucun tournoi créé pour le moment.</div>

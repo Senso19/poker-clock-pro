@@ -56,8 +56,8 @@ export default function PendingAccountsModal({ onClose, onChanged }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-felt-panel border border-felt-cream/10 rounded-lg w-full max-w-md p-6 font-body text-felt-cream max-h-[85vh] flex flex-col">
+    <div onClick={onClose} className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div onClick={(e) => e.stopPropagation()} className="bg-felt-panel border border-felt-cream/10 rounded-lg w-full max-w-md p-6 font-body text-felt-cream max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between mb-5">
           <div className="font-display text-lg">Inscriptions en attente</div>
           <button onClick={onClose} className="text-felt-cream/50 hover:text-felt-cream">

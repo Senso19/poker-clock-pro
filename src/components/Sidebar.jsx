@@ -356,6 +356,14 @@ export default function Sidebar({ tab, setTab }) {
       persistSidebarConfig({ ...sidebarCfg, header: { ...hcfg, ...patch } });
     }
 
+    // Ferme le popover de réglages du bandeau dès qu'on clique ailleurs.
+    useEffect(() => {
+      if (!showHeaderStyle) return;
+      const close = () => setShowHeaderStyle(false);
+      document.addEventListener("click", close);
+      return () => document.removeEventListener("click", close);
+    }, [showHeaderStyle]);
+
     return (
       <div
         style={{ paddingTop: py, paddingBottom: py }}
@@ -414,6 +422,7 @@ export default function Sidebar({ tab, setTab }) {
         {showHeaderStyle && (
           <div
             onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
             className="absolute top-full right-3 mt-1 z-30 bg-felt-bg border border-felt-gold/40 rounded-md p-3 w-56 text-xs text-felt-cream shadow-lg"
           >
             <div className="flex items-center justify-between mb-2">
