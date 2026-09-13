@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTheme } from "../context/ThemeContext.jsx";
 import {
   fetchActiveTournament,
   fetchLevels,
@@ -26,6 +27,8 @@ import {
  * tournoi actif. mode="template" : édite un modèle réutilisable directement.
  */
 export default function StructureEditor({ onSaved, mode = "tournament", template = null }) {
+  const { theme } = useTheme();
+  const panelStyle = theme.panelBgColor ? { backgroundColor: theme.panelBgColor } : undefined;
   const [tournament, setTournament] = useState(null);
   const [levels, setLevels] = useState(mode === "template" ? template?.levels || [] : []);
   const [config, setConfig] = useState(mode === "template" ? template?.structure_config || defaultStructureConfig() : defaultStructureConfig());
@@ -212,8 +215,8 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
             />
           ) : (
             <div>
-              <div className="font-display text-xl">Structure des blinds</div>
-              <div className="text-xs text-felt-cream/40">Paramètres</div>
+              <div className="font-display text-2xl">Structure des blinds</div>
+              <div className="text-sm text-felt-cream/50 mt-0.5">Paramètres</div>
             </div>
           )}
           <div className="flex items-center gap-3">
@@ -230,9 +233,9 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
 
         {error && <div className="text-felt-alert text-sm mb-3">Erreur : {error}</div>}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
           {/* Colonne gauche — Paramètres */}
-          <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-6 space-y-4">
+          <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-7 space-y-5" style={panelStyle}>
             <DriverField label="Joueurs Anticipés">
               <input
                 type="number"
@@ -307,8 +310,8 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
           </div>
 
           {/* Colonne droite — Structure */}
-          <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-6">
-            <div className="flex flex-wrap items-center justify-end gap-2 mb-5">
+          <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-7" style={panelStyle}>
+            <div className="flex flex-wrap items-center justify-end gap-2 mb-6">
               <button onClick={addBreak} className="text-xs px-3 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display">
                 Ajouter pause
               </button>

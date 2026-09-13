@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase.js";
+import { useTheme } from "../context/ThemeContext.jsx";
 import { importPlayersFromFile, exportResultsToExcel } from "./SheetsSync.jsx";
 import { computeTournamentPoints, fetchChampionships } from "../lib/points.js";
 import { selectTournament } from "../lib/tournaments.js";
@@ -19,6 +20,8 @@ import { logEvent } from "../lib/events.js";
  * éliminer, désinscrire).
  */
 export default function TournamentDetail({ tournamentId, onBack }) {
+  const { theme } = useTheme();
+  const panelStyle = theme.panelBgColor ? { backgroundColor: theme.panelBgColor } : undefined;
   const [tournament, setTournament] = useState(null);
   const [registrations, setRegistrations] = useState([]);
   const [eliminations, setEliminations] = useState([]);
@@ -412,13 +415,13 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   return (
     <div className="h-full overflow-y-auto font-body text-felt-cream">
       <div className="max-w-6xl mx-auto p-4 sm:p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
         {/* Colonne gauche : paramètres du tournoi */}
-        <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-5">
-          <div className="font-display text-lg tracking-wide mb-1">JOUEURS</div>
-          <div className="text-xs text-felt-cream/40 mb-4">Paramètres</div>
+        <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-7" style={panelStyle}>
+          <div className="font-display text-2xl tracking-wide mb-1">JOUEURS</div>
+          <div className="text-sm text-felt-cream/50 mb-5">Paramètres</div>
 
-          <div className="space-y-3">
+          <div className="space-y-4">
             <SettingField label="Max Joueurs" value={tournament.max_players} onChange={(v) => updateSetting("max_players", v)} />
             <SettingField label="Joueurs par table" value={tournament.players_per_table} onChange={(v) => updateSetting("players_per_table", v)} />
             <SettingField label="Nombre de joueurs à la table finale" value={tournament.final_table_size} onChange={(v) => updateSetting("final_table_size", v)} />
@@ -475,8 +478,8 @@ export default function TournamentDetail({ tournamentId, onBack }) {
         </div>
 
         {/* Colonne droite : liste des joueurs */}
-        <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-7" style={panelStyle}>
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
             <div className="flex flex-wrap items-center gap-3">
               <button
                 onClick={() => setShowRegister(true)}
@@ -534,7 +537,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
 
           {error && <div className="text-felt-alert text-sm mb-3">Erreur : {error}</div>}
 
-          <div className="grid grid-cols-[40px_1fr_80px_28px] sm:grid-cols-[56px_1fr_100px_36px] gap-3 px-3 pb-3 mb-1 border-b border-felt-cream/10 text-xs uppercase tracking-wide text-felt-cream/40">
+          <div className="grid grid-cols-[40px_1fr_80px_28px] sm:grid-cols-[56px_1fr_100px_36px] gap-3 px-3 pb-3 mb-2 border-b border-felt-cream/10 text-xs uppercase tracking-wide text-felt-cream/40">
             <div>Place</div>
             <div>Nom ({registrations.length})</div>
             <div>Tapis</div>
@@ -550,7 +553,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
             return (
               <div key={reg.id} className="relative">
                 <div
-                  className={`grid grid-cols-[40px_1fr_80px_28px] sm:grid-cols-[56px_1fr_100px_36px] gap-3 items-center px-3 py-4 mb-1 rounded-md bg-felt-bg/50 ${
+                  className={`grid grid-cols-[40px_1fr_80px_28px] sm:grid-cols-[56px_1fr_100px_36px] gap-3 items-center px-3 py-4 mb-2 rounded-md bg-felt-bg/50 ${
                     isOut ? "opacity-40" : ""
                   }`}
                 >

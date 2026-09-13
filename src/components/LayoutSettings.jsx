@@ -104,6 +104,12 @@ export default function LayoutSettings() {
     await persist(next);
   }
 
+  async function updatePanelBgColor(value) {
+    const next = { ...theme, panelBgColor: value };
+    setTheme(next);
+    await persist(next);
+  }
+
   async function persist(next) {
     setSaving(true);
     setError(null);
@@ -266,6 +272,26 @@ export default function LayoutSettings() {
               onClick={() => updatePanelBorderColor(null)}
               className="text-xs text-felt-cream/40 hover:text-felt-cream"
             >
+              Réinitialiser
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="mb-6 bg-felt-panel border border-felt-cream/10 rounded-md px-4 py-3">
+        <div className="font-medium mb-1">Couleur de fond des tableaux</div>
+        <div className="text-xs text-felt-cream/50 mb-3">
+          S'applique aux cartes des onglets Structure des blinds et Joueurs (paramètres et tableau).
+        </div>
+        <div className="flex items-center gap-3">
+          <input
+            type="color"
+            value={theme.panelBgColor || "#1B2027"}
+            onChange={(e) => updatePanelBgColor(e.target.value)}
+            className="w-10 h-10 rounded-md border-2 border-felt-cream/10 bg-transparent cursor-pointer"
+          />
+          {theme.panelBgColor && (
+            <button onClick={() => updatePanelBgColor(null)} className="text-xs text-felt-cream/40 hover:text-felt-cream">
               Réinitialiser
             </button>
           )}

@@ -74,12 +74,13 @@ export default function TournamentPage({ tournamentId, onBack }) {
         <button onClick={onBack} className="text-xs sm:text-sm text-felt-cream/50 hover:text-felt-cream flex items-center gap-1 shrink-0">
           ← Lobby
         </button>
-        <div className="flex-1 text-center min-w-0 px-2 flex items-center justify-center gap-2">
+        <div className="flex-1 text-center min-w-0 px-2 flex items-center justify-center gap-3">
           <div className="min-w-0">
-            <div className="font-display text-lg sm:text-2xl text-felt-cream truncate">{tournament.name}</div>
-            {tournament.stage_label && (
-              <div className="text-sm text-felt-cream/50 truncate">
-                {tournament.championships?.name} — {tournament.stage_label}
+            <div className="font-display text-2xl sm:text-3xl text-felt-cream truncate">{tournament.name}</div>
+            {tournament.championships?.name && (
+              <div className="text-base sm:text-lg text-felt-gold/80 truncate mt-0.5">
+                🏆 {tournament.championships.name}
+                {tournament.stage_label ? ` — ${tournament.stage_label}` : ""}
               </div>
             )}
           </div>
@@ -87,7 +88,7 @@ export default function TournamentPage({ tournamentId, onBack }) {
             <button
               onClick={() => setShowSettings(true)}
               title="Réglages du tournoi"
-              className="text-felt-cream/40 hover:text-felt-gold shrink-0"
+              className="text-felt-cream/40 hover:text-felt-gold shrink-0 text-lg"
             >
               ⚙
             </button>
