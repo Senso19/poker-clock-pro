@@ -105,7 +105,9 @@ export async function fetchPendingAccounts() {
 }
 
 export async function approveAccount(id) {
-  const { error } = await supabase.from("accounts").update({ validated: true }).eq("id", id);
+  // Un nouveau membre validé obtient par défaut le rôle "joueur" (l'admin
+  // peut ensuite le changer depuis Gérer les membres si besoin).
+  const { error } = await supabase.from("accounts").update({ validated: true, role: "player" }).eq("id", id);
   if (error) throw error;
 }
 
@@ -120,7 +122,37 @@ export function canParticipate(account) {
   return account?.validated !== false;
 }
 
+// Messages "Contacter l'administrateur" : gérés directement dans l'app
+// (pas d'envoi d'e-mail), consultés par l'admin/TD via la cloche.
+export async function submitContactMessage({ accountId, firstName, lastName, description }) {
+  const { error } = await supabase
+    .from("contact_messages")
+    .insert({ account_id: accountId || null, first_name: firstName, last_name: lastName, description });
+  if (error) throw error;
+}
+
+export async function fetchContactMessages() {
+  const { data, error } = await supabase.from("contact_messages").select("*").order("created_at", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function markContactMessageRead(id) {
+  const { error } = await supabase.from("contact_messages").update({ status: "read" }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteContactMessage(id) {
+  const { error } = await supabase.from("contact_messages").delete().eq("id", id);
+  if (error) throw error;
+}
+
 export async function updateAccountRole(id, role) {
+  // Le rôle admin est verrouillé une fois attribué : on ne le change qu'en
+  // donnant le rôle admin à quelqu'un d'autre puis en supprimant ce compte
+  // (voir mergeAccounts / deleteAccount), jamais en rétrogradant en place.
+  const { data: current } = await supabase.from("accounts").select("role").eq("id", id).maybeSingle();
+  if (current?.role === "admin") throw new Error("Le rôle administrateur ne peut pas être changé.");
   const { error } = await supabase.from("accounts").update({ role }).eq("id", id);
   if (error) throw error;
 }

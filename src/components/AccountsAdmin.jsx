@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Pencil, Trash2, Merge, Search, UserPlus, Mail, Download, Copy } from "lucide-react";
+import { Pencil, Trash2, Merge, Search, UserPlus, Mail, Download, Copy, Lock } from "lucide-react";
 import {
   fetchAllAccounts,
   updateAccountRole,
@@ -166,17 +166,26 @@ export default function AccountsAdmin() {
                 </div>
               )}
             </button>
-            <select
-              value={a.role}
-              onChange={(e) => handleRoleChange(a.id, e.target.value)}
-              className="bg-felt-bg border border-felt-cream/10 rounded-md px-2 py-1.5 text-sm text-felt-gold shrink-0"
-            >
-              {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
+            {a.role === "admin" ? (
+              <span
+                title="Le rôle administrateur ne peut pas être changé ici : donnez le rôle admin à quelqu'un d'autre puis supprimez ce compte pour transférer l'accès."
+                className="flex items-center gap-1.5 bg-felt-bg border border-felt-cream/10 rounded-md px-2 py-1.5 text-sm text-felt-gold shrink-0"
+              >
+                <Lock size={13} /> Admin
+              </span>
+            ) : (
+              <select
+                value={a.role}
+                onChange={(e) => handleRoleChange(a.id, e.target.value)}
+                className="bg-felt-bg border border-felt-cream/10 rounded-md px-2 py-1.5 text-sm text-felt-gold shrink-0"
+              >
+                {Object.entries(ROLE_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            )}
             <div className="flex items-center gap-3 shrink-0 text-felt-cream/50">
               <button onClick={() => setEditingAccount(a)} title="Modifier" className="hover:text-white">
                 <Pencil size={16} />

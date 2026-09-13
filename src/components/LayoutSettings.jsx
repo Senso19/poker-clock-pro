@@ -179,7 +179,7 @@ export default function LayoutSettings() {
         </div>
         <div className="flex items-center gap-3">
           {theme.logoData ? (
-            <img src={theme.logoData} alt="" className="w-12 h-12 rounded-full object-cover border border-felt-gold" />
+            <img src={theme.logoData} alt="" className="h-12 w-auto max-w-[140px] object-contain" />
           ) : (
             <div className="w-12 h-12 rounded-full bg-felt-gold/15 border border-felt-gold/40 flex items-center justify-center text-felt-gold text-lg">
               ♠

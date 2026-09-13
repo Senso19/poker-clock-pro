@@ -4,7 +4,7 @@ import { supabase } from "../lib/supabase.js";
 import { useAccount } from "../context/AccountContext.jsx";
 import { useTheme } from "../context/ThemeContext.jsx";
 import { useEditMode } from "../context/EditModeContext.jsx";
-import { canManageTournaments, canManageAccounts, ROLE_LABELS, fetchClubSettings, fetchPendingAccounts } from "../lib/auth.js";
+import { canManageTournaments, canManageAccounts, ROLE_LABELS, fetchClubSettings, fetchPendingAccounts, fetchContactMessages } from "../lib/auth.js";
 import ProfileModal from "./ProfileModal.jsx";
 import ContactAdminModal from "./ContactAdminModal.jsx";
 import PendingAccountsModal from "./PendingAccountsModal.jsx";
@@ -86,8 +86,11 @@ export default function Sidebar({ tab, setTab }) {
 
   function refreshPendingCount() {
     if (!manage) return;
-    fetchPendingAccounts()
-      .then((list) => setPendingCount(list.length))
+    Promise.all([fetchPendingAccounts(), fetchContactMessages()])
+      .then(([accounts, messages]) => {
+        const unreadMessages = messages.filter((m) => m.status === "new").length;
+        setPendingCount(accounts.length + unreadMessages);
+      })
       .catch(() => {});
   }
 
@@ -384,8 +387,8 @@ export default function Sidebar({ tab, setTab }) {
           <img
             src={logoData}
             alt=""
-            style={{ width: logoSize, height: logoSize }}
-            className="rounded-full object-cover shrink-0"
+            style={{ height: logoSize, width: "auto", maxWidth: 160 }}
+            className="object-contain shrink-0"
           />
         ) : (
           <div
@@ -407,7 +410,7 @@ export default function Sidebar({ tab, setTab }) {
         {manage && (
           <button
             onClick={() => setShowPending(true)}
-            title="Inscriptions en attente"
+            title="Notifications"
             className="relative text-felt-cream/60 hover:text-white shrink-0"
           >
             <Bell size={18} />
@@ -528,7 +531,7 @@ export default function Sidebar({ tab, setTab }) {
           ☰
         </button>
         {logoData ? (
-          <img src={logoData} alt="" className="w-7 h-7 rounded-full object-cover shrink-0" />
+          <img src={logoData} alt="" className="h-7 w-auto max-w-[100px] object-contain shrink-0" />
         ) : (
           <div className="w-7 h-7 rounded-full bg-felt-gold/15 border border-felt-gold/40 flex items-center justify-center text-felt-gold text-sm shrink-0">
             ♠

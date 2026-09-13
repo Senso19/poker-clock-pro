@@ -17,6 +17,7 @@ const FIELD_TYPES = [
   ["email", "Email"],
   ["tel", "Téléphone"],
   ["number", "Nombre"],
+  ["date", "Date"],
   ["select", "Liste déroulante"],
   ["checkbox", "Case à cocher"],
 ];
@@ -101,6 +102,17 @@ export default function FormRegistryDetail({ registryId, onBack }) {
     const pages = (registry.pages || []).map((p) => {
       if (p.id !== pageId) return p;
       return { ...p, fields: p.fields.filter((f) => f.id !== fieldId) };
+    });
+    updatePages(pages);
+  }
+  function moveField(pageId, index, dir) {
+    const pages = (registry.pages || []).map((p) => {
+      if (p.id !== pageId) return p;
+      const fields = [...p.fields];
+      const j = index + dir;
+      if (j < 0 || j >= fields.length) return p;
+      [fields[index], fields[j]] = [fields[j], fields[index]];
+      return { ...p, fields };
     });
     updatePages(pages);
   }
@@ -294,39 +306,62 @@ export default function FormRegistryDetail({ registryId, onBack }) {
                   </div>
 
                   <div className="space-y-2">
-                    {page.fields.map((f) => (
-                      <div key={f.id} className="flex flex-wrap items-center gap-2 bg-felt-bg rounded-md px-3 py-2">
-                        <input
-                          value={f.label}
-                          onChange={(e) => updateField(page.id, f.id, { label: e.target.value })}
-                          className="flex-1 min-w-[100px] bg-transparent text-sm text-felt-cream"
-                        />
-                        <select
-                          value={f.type}
-                          onChange={(e) => updateField(page.id, f.id, { type: e.target.value })}
-                          className="bg-felt-panel border border-felt-cream/10 rounded px-2 py-1 text-xs text-felt-cream"
-                        >
-                          {FIELD_TYPES.map(([v, label]) => (
-                            <option key={v} value={v}>
-                              {label}
-                            </option>
-                          ))}
-                        </select>
-                        {f.type === "select" && (
+                    {page.fields.map((f, fi) => (
+                      <div key={f.id} className="bg-felt-bg rounded-md px-3 py-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="flex flex-col shrink-0">
+                            <button
+                              onClick={() => moveField(page.id, fi, -1)}
+                              disabled={fi === 0}
+                              className="text-felt-cream/40 hover:text-white disabled:opacity-20"
+                            >
+                              <ChevronUp size={14} />
+                            </button>
+                            <button
+                              onClick={() => moveField(page.id, fi, 1)}
+                              disabled={fi === page.fields.length - 1}
+                              className="text-felt-cream/40 hover:text-white disabled:opacity-20"
+                            >
+                              <ChevronDown size={14} />
+                            </button>
+                          </div>
                           <input
-                            value={(f.options || []).join(", ")}
-                            onChange={(e) => updateField(page.id, f.id, { options: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })}
-                            placeholder="Options séparées par des virgules"
-                            className="flex-1 min-w-[140px] bg-felt-panel border border-felt-cream/10 rounded px-2 py-1 text-xs text-felt-cream"
+                            value={f.label}
+                            onChange={(e) => updateField(page.id, f.id, { label: e.target.value })}
+                            className="flex-1 min-w-[100px] bg-transparent text-sm text-felt-cream"
                           />
+                          <select
+                            value={f.type}
+                            onChange={(e) => updateField(page.id, f.id, { type: e.target.value })}
+                            className="bg-felt-panel border border-felt-cream/10 rounded px-2 py-1 text-xs text-felt-cream"
+                          >
+                            {FIELD_TYPES.map(([v, label]) => (
+                              <option key={v} value={v}>
+                                {label}
+                              </option>
+                            ))}
+                          </select>
+                          <label className="flex items-center gap-1 text-xs text-felt-cream/50">
+                            <input type="checkbox" checked={!!f.required} onChange={(e) => updateField(page.id, f.id, { required: e.target.checked })} />
+                            Requis
+                          </label>
+                          <button onClick={() => deleteField(page.id, f.id)} className="text-felt-alert/60 hover:text-felt-alert">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                        {f.type === "select" && (
+                          <label className="block text-[11px] text-felt-cream/40 mt-2">
+                            Options de la liste (séparées par des virgules)
+                            <input
+                              value={(f.options || []).join(", ")}
+                              onChange={(e) =>
+                                updateField(page.id, f.id, { options: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })
+                              }
+                              placeholder="Ex : Débutant, Intermédiaire, Confirmé"
+                              className="w-full mt-1 bg-felt-panel border border-felt-cream/10 rounded px-2 py-1.5 text-xs text-felt-cream placeholder:text-felt-cream/30"
+                            />
+                          </label>
                         )}
-                        <label className="flex items-center gap-1 text-xs text-felt-cream/50">
-                          <input type="checkbox" checked={!!f.required} onChange={(e) => updateField(page.id, f.id, { required: e.target.checked })} />
-                          Requis
-                        </label>
-                        <button onClick={() => deleteField(page.id, f.id)} className="text-felt-alert/60 hover:text-felt-alert">
-                          <Trash2 size={14} />
-                        </button>
                       </div>
                     ))}
                   </div>
