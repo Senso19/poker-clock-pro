@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import Sidebar from "./components/Sidebar.jsx";
 import TournamentsGrid from "./components/TournamentsGrid.jsx";
 import InstallAppPrompt from "./components/InstallAppPrompt.jsx";
+import EditModeToggleButton from "./components/EditModeToggleButton.jsx";
 import { useTheme } from "./context/ThemeContext.jsx";
 import { useAccount } from "./context/AccountContext.jsx";
 import { canManageTournaments, canManageAccounts } from "./lib/auth.js";
@@ -89,6 +90,7 @@ export default function App() {
         </Suspense>
       </div>
       {showInstallPrompt && <InstallAppPrompt onClose={() => setShowInstallPrompt(false)} />}
+      <EditModeToggleButton />
     </div>
   );
 }

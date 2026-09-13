@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase.js";
-import { useTheme } from "../context/ThemeContext.jsx";
 import { importPlayersFromFile, exportResultsToExcel } from "./SheetsSync.jsx";
 import { computeTournamentPoints, fetchChampionships } from "../lib/points.js";
 import { selectTournament } from "../lib/tournaments.js";
@@ -10,6 +9,7 @@ import SeatPickerModal from "./SeatPickerModal.jsx";
 import RegisterPlayerModal from "./RegisterPlayerModal.jsx";
 import TableSeatingModal from "./TableSeatingModal.jsx";
 import ActionJournalModal from "./ActionJournalModal.jsx";
+import CustomizablePanel from "./CustomizablePanel.jsx";
 import { logEvent } from "../lib/events.js";
 
 /**
@@ -21,8 +21,6 @@ import { logEvent } from "../lib/events.js";
  * éliminer, désinscrire).
  */
 export default function TournamentDetail({ tournamentId, onBack }) {
-  const { theme } = useTheme();
-  const panelStyle = theme.panelBgColor ? { backgroundColor: theme.panelBgColor } : undefined;
   const [tournament, setTournament] = useState(null);
   const [registrations, setRegistrations] = useState([]);
   const [eliminations, setEliminations] = useState([]);
@@ -488,9 +486,9 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   return (
     <div className="h-full overflow-y-auto font-body text-felt-cream">
       <div className="max-w-[92rem] mx-auto p-4 sm:p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+        <div className="flex flex-col lg:flex-row gap-8 items-start">
         {/* Colonne gauche : paramètres du tournoi */}
-        <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-7" style={panelStyle}>
+        <CustomizablePanel panelKey="players-params" className="bg-felt-panel border border-felt-cream/10 rounded-lg p-7">
           <div className="font-display text-2xl tracking-wide mb-1">JOUEURS</div>
           <div className="text-sm text-felt-cream/50 mb-5">Paramètres</div>
 
@@ -550,10 +548,10 @@ export default function TournamentDetail({ tournamentId, onBack }) {
               ↩ Annuler la dernière élimination
             </button>
           )}
-        </div>
+        </CustomizablePanel>
 
         {/* Colonne droite : liste des joueurs */}
-        <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-7" style={panelStyle}>
+        <CustomizablePanel panelKey="players-table" className="bg-felt-panel border border-felt-cream/10 rounded-lg p-7">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
             <div className="flex flex-wrap items-center gap-3">
               <button
@@ -636,7 +634,8 @@ export default function TournamentDetail({ tournamentId, onBack }) {
             return (
               <div key={reg.id} className="relative">
                 <div
-                  className={`grid grid-cols-[48px_1fr_90px_32px] sm:grid-cols-[72px_1fr_140px_44px] gap-3 items-center px-4 py-5 mb-2.5 rounded-md bg-felt-bg/50 ${
+                  style={{ backgroundColor: "var(--pcp-cell-bg, rgba(20,24,28,0.5))", color: "var(--pcp-cell-text, inherit)" }}
+                  className={`grid grid-cols-[48px_1fr_90px_32px] sm:grid-cols-[72px_1fr_140px_44px] gap-3 items-center px-4 py-5 mb-2.5 rounded-md ${
                     isOut ? "opacity-50" : ""
                   }`}
                 >
@@ -733,7 +732,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
           {registrations.length === 0 && (
             <div className="text-felt-cream/50 text-sm py-6">Aucun joueur inscrit pour le moment.</div>
           )}
-        </div>
+        </CustomizablePanel>
         </div>
 
       {isFinished && (

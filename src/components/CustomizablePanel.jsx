@@ -1,0 +1,137 @@
+import { useState } from "react";
+import { supabase } from "../lib/supabase.js";
+import { useTheme } from "../context/ThemeContext.jsx";
+import { useEditMode } from "../context/EditModeContext.jsx";
+
+/**
+ * CustomizablePanel — enveloppe générique et réutilisable pour rendre
+ * N'IMPORTE QUEL tableau/panneau de l'app personnalisable par l'admin :
+ * largeur, couleur de fond, couleur de texte, couleur des cellules. Le
+ * réglage se fait via une icône 🎨 qui n'apparaît qu'en "mode
+ * personnalisation" (activé par l'admin via le bouton flottant en bas à
+ * droite), et est mémorisé par panelKey dans club_settings.theme.
+ *
+ * Les enfants peuvent utiliser les variables CSS --pcp-cell-bg et
+ * --pcp-cell-text pour que leurs propres cellules/champs suivent la
+ * couleur de cellule choisie (voir StructureEditor / TournamentDetail).
+ */
+export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", className, children }) {
+  const { theme, setTheme } = useTheme();
+  const { isEditMode } = useEditMode();
+  const [open, setOpen] = useState(false);
+  const style = theme.panelStyles?.[panelKey] || {};
+
+  async function persist(nextTheme) {
+    const { data: existing } = await supabase.from("club_settings").select("id").limit(1).maybeSingle();
+    const payload = { club_name: "19PokerClub", theme: nextTheme };
+    if (existing) await supabase.from("club_settings").update(payload).eq("id", existing.id);
+    else await supabase.from("club_settings").insert(payload);
+  }
+
+  function update(patch) {
+    const nextStyle = { ...style, ...patch };
+    const nextTheme = { ...theme, panelStyles: { ...(theme.panelStyles || {}), [panelKey]: nextStyle } };
+    setTheme(nextTheme);
+    persist(nextTheme);
+  }
+
+  const flexBasis = style.width ? `0 0 ${style.width}` : defaultWidth;
+
+  return (
+    <div
+      style={{
+        flex: flexBasis,
+        minWidth: 0,
+        backgroundColor: style.bgColor || theme.panelBgColor || undefined,
+        color: style.textColor || undefined,
+        "--pcp-cell-bg": style.cellBgColor || undefined,
+        "--pcp-cell-text": style.cellTextColor || undefined,
+      }}
+      className={`relative ${className || ""}`}
+    >
+      {isEditMode && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setOpen((v) => !v);
+          }}
+          title="Personnaliser ce tableau"
+          className="absolute top-3 right-3 z-20 w-8 h-8 rounded-md bg-felt-gold text-felt-bg flex items-center justify-center text-sm shadow"
+        >
+          🎨
+        </button>
+      )}
+      {open && <PanelStyleEditor style={style} onChange={update} onClose={() => setOpen(false)} />}
+      {children}
+    </div>
+  );
+}
+
+function PanelStyleEditor({ style, onChange, onClose }) {
+  return (
+    <div
+      onPointerDown={(e) => e.stopPropagation()}
+      className="absolute top-12 right-3 z-30 bg-felt-bg border border-felt-gold/40 rounded-md p-3 w-64 text-xs text-felt-cream shadow-lg max-h-96 overflow-y-auto"
+    >
+      <div className="flex items-center justify-between mb-2">
+        <span className="font-display">Personnaliser ce tableau</span>
+        <button onClick={onClose} className="text-felt-cream/40 hover:text-felt-cream">
+          ✕
+        </button>
+      </div>
+      <label className="flex items-center justify-between mb-2">
+        Largeur (ex : 50%, 400px)
+        <input
+          type="text"
+          value={style.width || ""}
+          placeholder="auto"
+          onChange={(e) => onChange({ width: e.target.value || null })}
+          className="w-24 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
+        />
+      </label>
+      <label className="flex items-center justify-between mb-2">
+        Fond du tableau
+        <input
+          type="color"
+          value={style.bgColor || "#1B2027"}
+          onChange={(e) => onChange({ bgColor: e.target.value })}
+          className="w-8 h-6 bg-transparent cursor-pointer"
+        />
+      </label>
+      <label className="flex items-center justify-between mb-2">
+        Couleur du texte
+        <input
+          type="color"
+          value={style.textColor || "#EDEAE3"}
+          onChange={(e) => onChange({ textColor: e.target.value })}
+          className="w-8 h-6 bg-transparent cursor-pointer"
+        />
+      </label>
+      <div className="border-t border-felt-cream/10 my-2 pt-2 text-felt-cream/50">Cellules / champs</div>
+      <label className="flex items-center justify-between mb-2">
+        Fond des cellules
+        <input
+          type="color"
+          value={style.cellBgColor || "#14181C"}
+          onChange={(e) => onChange({ cellBgColor: e.target.value })}
+          className="w-8 h-6 bg-transparent cursor-pointer"
+        />
+      </label>
+      <label className="flex items-center justify-between mb-2">
+        Texte des cellules
+        <input
+          type="color"
+          value={style.cellTextColor || "#EDEAE3"}
+          onChange={(e) => onChange({ cellTextColor: e.target.value })}
+          className="w-8 h-6 bg-transparent cursor-pointer"
+        />
+      </label>
+      <button
+        onClick={() => onChange({ width: null, bgColor: null, textColor: null, cellBgColor: null, cellTextColor: null })}
+        className="w-full text-center text-felt-cream/40 hover:text-felt-cream mt-1 py-1"
+      >
+        Réinitialiser ce tableau
+      </button>
+    </div>
+  );
+}

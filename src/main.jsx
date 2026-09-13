@@ -4,6 +4,7 @@ import App from "./App.jsx";
 import AuthScreen from "./components/AuthScreen.jsx";
 import { ThemeProvider } from "./context/ThemeContext.jsx";
 import { AccountProvider, useAccount } from "./context/AccountContext.jsx";
+import { EditModeProvider } from "./context/EditModeContext.jsx";
 import "./lib/installPrompt.js";
 import "./index.css";
 
@@ -25,7 +26,9 @@ ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <AccountProvider>
       <ThemeProvider>
-        <Root />
+        <EditModeProvider>
+          <Root />
+        </EditModeProvider>
       </ThemeProvider>
     </AccountProvider>
   </React.StrictMode>

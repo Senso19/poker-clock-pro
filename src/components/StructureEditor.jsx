@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTheme } from "../context/ThemeContext.jsx";
+import CustomizablePanel from "./CustomizablePanel.jsx";
 import {
   fetchActiveTournament,
   fetchLevels,
@@ -28,7 +29,6 @@ import {
  */
 export default function StructureEditor({ onSaved, mode = "tournament", template = null }) {
   const { theme } = useTheme();
-  const panelStyle = theme.panelBgColor ? { backgroundColor: theme.panelBgColor } : undefined;
   const [tournament, setTournament] = useState(null);
   const [levels, setLevels] = useState(mode === "template" ? template?.levels || [] : []);
   const [config, setConfig] = useState(mode === "template" ? template?.structure_config || defaultStructureConfig() : defaultStructureConfig());
@@ -233,9 +233,12 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
 
         {error && <div className="text-felt-alert text-sm mb-3">Erreur : {error}</div>}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+        <div className="flex flex-col lg:flex-row gap-8 items-start">
           {/* Colonne gauche — Paramètres */}
-          <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-7 space-y-5" style={panelStyle}>
+          <CustomizablePanel
+            panelKey="structure-params"
+            className="bg-felt-panel border border-felt-cream/10 rounded-lg p-7 space-y-5"
+          >
             <DriverField label="Joueurs Anticipés">
               <input
                 type="number"
@@ -307,10 +310,10 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
             <AutoField label="Jetons de recave" fieldKey="rebuyChips" config={config} setFieldMode={setFieldMode} setFieldValue={setFieldValue} />
             <AutoField label="Addons Anticipés" fieldKey="expectedAddons" config={config} setFieldMode={setFieldMode} setFieldValue={setFieldValue} />
             <AutoField label="Jetons d'addon" fieldKey="addonChips" config={config} setFieldMode={setFieldMode} setFieldValue={setFieldValue} />
-          </div>
+          </CustomizablePanel>
 
           {/* Colonne droite — Structure */}
-          <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-7" style={panelStyle}>
+          <CustomizablePanel panelKey="structure-table" className="bg-felt-panel border border-felt-cream/10 rounded-lg p-7">
             <div className="flex flex-wrap items-center justify-end gap-2 mb-6">
               <button onClick={addBreak} className="text-xs px-3 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display">
                 Ajouter pause
@@ -385,7 +388,8 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                                   type="number"
                                   value={level.durationMinutes}
                                   onChange={(e) => updateLevel(i, "durationMinutes", e.target.value)}
-                                  className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-2 py-1.5 text-sm text-felt-cream"
+                                  style={{ backgroundColor: "var(--pcp-cell-bg, #1B2027)", color: "var(--pcp-cell-text, #EDEAE3)" }}
+                                  className="w-16 border border-felt-cream/10 rounded px-2 py-1.5 text-sm"
                                 />
                                 <span className="text-felt-cream/30 text-sm">({elapsed})</span>
                               </div>
@@ -395,7 +399,8 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                                 value={level.breakLabel || ""}
                                 onChange={(e) => updateLevel(i, "breakLabel", e.target.value)}
                                 placeholder="Libellé de la pause"
-                                className="w-full bg-felt-bg border border-felt-cream/10 rounded px-3 py-1.5 text-sm text-felt-cream"
+                                style={{ backgroundColor: "var(--pcp-cell-bg, #14181C)", color: "var(--pcp-cell-text, #EDEAE3)" }}
+                                className="w-full border border-felt-cream/10 rounded px-3 py-1.5 text-sm"
                               />
                             </td>
                           </>
@@ -407,7 +412,8 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                                   type="number"
                                   value={level.durationMinutes}
                                   onChange={(e) => updateLevel(i, "durationMinutes", e.target.value)}
-                                  className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-2 py-1.5 text-sm text-felt-cream"
+                                  style={{ backgroundColor: "var(--pcp-cell-bg, #1B2027)", color: "var(--pcp-cell-text, #EDEAE3)" }}
+                                  className="w-16 border border-felt-cream/10 rounded px-2 py-1.5 text-sm"
                                 />
                                 <span className="text-felt-cream/30 text-sm">({elapsed})</span>
                               </div>
@@ -417,7 +423,8 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                                 type="number"
                                 value={level.smallBlind}
                                 onChange={(e) => updateLevel(i, "smallBlind", e.target.value)}
-                                className="w-24 bg-felt-bg border border-felt-cream/10 rounded px-2 py-1.5 text-sm text-felt-cream text-right font-medium"
+                                style={{ backgroundColor: "var(--pcp-cell-bg, #14181C)", color: "var(--pcp-cell-text, #EDEAE3)" }}
+                                className="w-24 border border-felt-cream/10 rounded px-2 py-1.5 text-sm text-right font-medium"
                               />
                             </td>
                             <td className="py-4 pr-3 text-right">
@@ -425,7 +432,8 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                                 type="number"
                                 value={level.bigBlind}
                                 onChange={(e) => updateLevel(i, "bigBlind", e.target.value)}
-                                className="w-24 bg-felt-panel border border-felt-cream/10 rounded px-2 py-1.5 text-sm text-felt-cream text-right font-medium"
+                                style={{ backgroundColor: "var(--pcp-cell-bg, #1B2027)", color: "var(--pcp-cell-text, #EDEAE3)" }}
+                                className="w-24 border border-felt-cream/10 rounded px-2 py-1.5 text-sm text-right font-medium"
                               />
                             </td>
                             <td className="py-4 pr-3 text-right">
@@ -433,7 +441,8 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                                 type="number"
                                 value={level.ante}
                                 onChange={(e) => updateLevel(i, "ante", e.target.value)}
-                                className="w-24 bg-felt-panel border border-felt-cream/10 rounded px-2 py-1.5 text-sm text-felt-cream text-right"
+                                style={{ backgroundColor: "var(--pcp-cell-bg, #1B2027)", color: "var(--pcp-cell-text, #EDEAE3)" }}
+                                className="w-24 border border-felt-cream/10 rounded px-2 py-1.5 text-sm text-right"
                               />
                             </td>
                           </>
@@ -458,7 +467,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
             >
               + Niveau
             </button>
-          </div>
+          </CustomizablePanel>
         </div>
       </div>
     </div>
