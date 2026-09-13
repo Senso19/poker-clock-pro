@@ -488,7 +488,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
       <div className="max-w-[92rem] mx-auto p-4 sm:p-6">
         <div className="flex flex-col lg:flex-row gap-8 items-start">
         {/* Colonne gauche : paramètres du tournoi */}
-        <CustomizablePanel panelKey="players-params" className="bg-felt-panel border border-felt-cream/10 rounded-lg p-7">
+        <CustomizablePanel panelKey="players-params" defaultOrder={0} className="bg-felt-panel border border-felt-cream/10 rounded-lg p-7">
           <div className="font-display text-2xl tracking-wide mb-1">JOUEURS</div>
           <div className="text-sm text-felt-cream/50 mb-5">Paramètres</div>
 
@@ -551,7 +551,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
         </CustomizablePanel>
 
         {/* Colonne droite : liste des joueurs */}
-        <CustomizablePanel panelKey="players-table" className="bg-felt-panel border border-felt-cream/10 rounded-lg p-7">
+        <CustomizablePanel panelKey="players-table" defaultOrder={1} className="bg-felt-panel border border-felt-cream/10 rounded-lg p-7">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
             <div className="flex flex-wrap items-center gap-3">
               <button

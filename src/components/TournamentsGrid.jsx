@@ -228,7 +228,7 @@ export default function TournamentsGrid({ onOpen }) {
           <div className="text-xs font-display uppercase tracking-widest text-felt-cream/40 mb-3">
             Actifs aujourd'hui
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {activeToday.map((t) => (
               <TournamentCard
                 key={t.id}
@@ -299,7 +299,7 @@ export default function TournamentsGrid({ onOpen }) {
       {listed.length === 0 ? (
         <div className="text-felt-cream/50 text-sm">Aucun tournoi ne correspond.</div>
       ) : view === "grid" ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {listed.map((t) => (
             <TournamentCard
               key={t.id}

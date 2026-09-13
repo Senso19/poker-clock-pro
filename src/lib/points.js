@@ -122,6 +122,9 @@ export async function fetchChampionshipStandings(championshipId) {
   if (stagesErr) throw stagesErr;
 
   const standings = new Map();
+  const finishedStages = [];
+  const upcomingStages = [];
+  const now = new Date();
 
   // Une requête par étape en parallèle (plutôt qu'en séquence) : avec des
   // dizaines d'étapes dans un même championnat, l'ancienne boucle
@@ -138,11 +141,16 @@ export async function fetchChampionshipStandings(championshipId) {
   );
 
   for (const { stage, registrations, eliminations } of stageData) {
+    if (stage.scheduled_at && new Date(stage.scheduled_at) > now) {
+      upcomingStages.push(stage);
+    }
+
     if (registrations.length === 0) continue;
 
     const eliminatedIds = new Set(eliminations.map((e) => e.registration_id));
     const stillIn = registrations.filter((r) => !eliminatedIds.has(r.id));
     if (stillIn.length !== 1) continue; // seules les étapes terminées comptent
+    finishedStages.push(stage);
 
     const totalPlayers = registrations.length;
     const totalRebuys = registrations.reduce((s, r) => s + (r.rebuys || 0), 0);
@@ -195,7 +203,29 @@ export async function fetchChampionshipStandings(championshipId) {
     results = results.map((r) => ({ ...r, totalPoints: Math.round(r.totalPoints * 100) / 100 }));
   }
   results.sort((a, b) => b.totalPoints - a.totalPoints);
-  return { championship: champ, standings: results };
+
+  finishedStages.sort((a, b) => new Date(b.scheduled_at || b.created_at) - new Date(a.scheduled_at || a.created_at));
+  upcomingStages.sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
+  const allDates = stages
+    .map((s) => new Date(s.scheduled_at || s.created_at))
+    .filter((d) => !Number.isNaN(d.getTime()));
+  const dateRange =
+    allDates.length > 0
+      ? { start: new Date(Math.min(...allDates)), end: new Date(Math.max(...allDates)) }
+      : null;
+
+  return {
+    championship: champ,
+    standings: results,
+    stageCount: stages.length,
+    playerCount: results.length,
+    leader: results[0] || null,
+    top3: results.slice(0, 3),
+    previousStage: finishedStages[0] || null,
+    nextStage: upcomingStages[0] || null,
+    isActive: upcomingStages.length > 0 || finishedStages.length < stages.length,
+    dateRange,
+  };
 }
 
 export { DEFAULT_FORMULA };

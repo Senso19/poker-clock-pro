@@ -6,8 +6,9 @@ import { useEditMode } from "../context/EditModeContext.jsx";
 /**
  * CustomizablePanel — enveloppe générique et réutilisable pour rendre
  * N'IMPORTE QUEL tableau/panneau de l'app personnalisable par l'admin :
- * largeur, couleur de fond, couleur de texte, couleur des cellules. Le
- * réglage se fait via une icône 🎨 qui n'apparaît qu'en "mode
+ * largeur, couleur de fond, couleur de texte, couleur des cellules, ET
+ * position (glisser la poignée ⠿ sur un autre tableau pour échanger leur
+ * ordre). Le réglage se fait via une icône 🎨 qui n'apparaît qu'en "mode
  * personnalisation" (activé par l'admin via le bouton flottant en bas à
  * droite), et est mémorisé par panelKey dans club_settings.theme.
  *
@@ -15,11 +16,13 @@ import { useEditMode } from "../context/EditModeContext.jsx";
  * --pcp-cell-text pour que leurs propres cellules/champs suivent la
  * couleur de cellule choisie (voir StructureEditor / TournamentDetail).
  */
-export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", className, children }) {
+export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", defaultOrder = 0, className, children }) {
   const { theme, setTheme } = useTheme();
   const { isEditMode } = useEditMode();
   const [open, setOpen] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const style = theme.panelStyles?.[panelKey] || {};
+  const order = style.order ?? defaultOrder;
 
   async function persist(nextTheme) {
     const { data: existing } = await supabase.from("club_settings").select("id").limit(1).maybeSingle();
@@ -35,31 +38,76 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", c
     persist(nextTheme);
   }
 
+  function handleDragStart(e) {
+    e.dataTransfer.setData("text/plain", `${panelKey}|${order}`);
+    e.dataTransfer.effectAllowed = "move";
+  }
+  function handleDragOver(e) {
+    if (!isEditMode) return;
+    e.preventDefault();
+    setDragOver(true);
+  }
+  function handleDragLeave() {
+    setDragOver(false);
+  }
+  function handleDrop(e) {
+    if (!isEditMode) return;
+    e.preventDefault();
+    setDragOver(false);
+    const data = e.dataTransfer.getData("text/plain");
+    if (!data) return;
+    const [sourceKey, sourceOrderStr] = data.split("|");
+    if (!sourceKey || sourceKey === panelKey) return;
+    const sourceOrder = Number(sourceOrderStr);
+    const nextPanelStyles = {
+      ...(theme.panelStyles || {}),
+      [panelKey]: { ...(theme.panelStyles?.[panelKey] || {}), order: sourceOrder },
+      [sourceKey]: { ...(theme.panelStyles?.[sourceKey] || {}), order },
+    };
+    const nextTheme = { ...theme, panelStyles: nextPanelStyles };
+    setTheme(nextTheme);
+    persist(nextTheme);
+  }
+
   const flexBasis = style.width ? `0 0 ${style.width}` : defaultWidth;
 
   return (
     <div
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
       style={{
         flex: flexBasis,
+        order,
         minWidth: 0,
         backgroundColor: style.bgColor || theme.panelBgColor || undefined,
         color: style.textColor || undefined,
         "--pcp-cell-bg": style.cellBgColor || undefined,
         "--pcp-cell-text": style.cellTextColor || undefined,
       }}
-      className={`relative ${className || ""}`}
+      className={`relative ${dragOver ? "ring-2 ring-felt-gold" : ""} ${className || ""}`}
     >
       {isEditMode && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setOpen((v) => !v);
-          }}
-          title="Personnaliser ce tableau"
-          className="absolute top-3 right-3 z-20 w-8 h-8 rounded-md bg-felt-gold text-felt-bg flex items-center justify-center text-sm shadow"
-        >
-          🎨
-        </button>
+        <div className="absolute top-3 right-3 z-20 flex gap-2">
+          <button
+            draggable
+            onDragStart={handleDragStart}
+            title="Glisser sur un autre tableau pour échanger leur place"
+            className="w-8 h-8 rounded-md bg-felt-bg border border-felt-gold/40 text-felt-gold flex items-center justify-center text-sm shadow cursor-move"
+          >
+            ⠿
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen((v) => !v);
+            }}
+            title="Personnaliser ce tableau"
+            className="w-8 h-8 rounded-md bg-felt-gold text-felt-bg flex items-center justify-center text-sm shadow"
+          >
+            🎨
+          </button>
+        </div>
       )}
       {open && <PanelStyleEditor style={style} onChange={update} onClose={() => setOpen(false)} />}
       {children}
@@ -127,7 +175,7 @@ function PanelStyleEditor({ style, onChange, onClose }) {
         />
       </label>
       <button
-        onClick={() => onChange({ width: null, bgColor: null, textColor: null, cellBgColor: null, cellTextColor: null })}
+        onClick={() => onChange({ width: null, bgColor: null, textColor: null, cellBgColor: null, cellTextColor: null, order: null })}
         className="w-full text-center text-felt-cream/40 hover:text-felt-cream mt-1 py-1"
       >
         Réinitialiser ce tableau

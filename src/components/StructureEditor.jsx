@@ -237,6 +237,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
           {/* Colonne gauche — Paramètres */}
           <CustomizablePanel
             panelKey="structure-params"
+            defaultOrder={0}
             className="bg-felt-panel border border-felt-cream/10 rounded-lg p-7 space-y-5"
           >
             <DriverField label="Joueurs Anticipés">
@@ -313,7 +314,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
           </CustomizablePanel>
 
           {/* Colonne droite — Structure */}
-          <CustomizablePanel panelKey="structure-table" className="bg-felt-panel border border-felt-cream/10 rounded-lg p-7">
+          <CustomizablePanel panelKey="structure-table" defaultOrder={1} className="bg-felt-panel border border-felt-cream/10 rounded-lg p-7">
             <div className="flex flex-wrap items-center justify-end gap-2 mb-6">
               <button onClick={addBreak} className="text-xs px-3 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display">
                 Ajouter pause

@@ -27,16 +27,42 @@ const VARIABLES = [
   ["d", "tours depuis la table finale (toujours 1 ici)"],
 ];
 
+const AVATAR_COLORS = ["#C9A15A", "#8C3A3A", "#3A6B8C", "#3A8C5E", "#8C5A3A", "#6B3A8C"];
+function avatarColor(name) {
+  let hash = 0;
+  for (let i = 0; i < (name || "").length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+function initials(name) {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+function MiniAvatar({ name, size = 36 }) {
+  return (
+    <div
+      style={{ width: size, height: size, backgroundColor: avatarColor(name) }}
+      className="rounded-full flex items-center justify-center text-felt-cream font-display text-xs shrink-0"
+    >
+      {initials(name)}
+    </div>
+  );
+}
+function formatShortDate(d) {
+  if (!d) return "";
+  return new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
 /**
  * ChampionshipView — création de championnats avec formule libre (façon BlindValet),
- * aperçu en direct, classement général, suppression.
+ * bandeaux "Actif"/"Terminé" avec joueur en tête ou podium, classement général.
  */
 export default function ChampionshipView() {
   const { account } = useAccount();
   const manage = canManageTournaments(account.role);
-  const [championships, setChampionships] = useState([]);
+  const [summaries, setSummaries] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
-  const [standings, setStandings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -44,33 +70,24 @@ export default function ChampionshipView() {
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    if (selectedId) loadStandings(selectedId);
-    else setStandings(null);
-  }, [selectedId]);
 
   async function load() {
     setLoading(true);
     try {
       const list = await fetchChampionships();
-      setChampionships(list);
-      if (list.length > 0 && !selectedId) setSelectedId(list[0].id);
-      if (list.length === 0 && manage) setShowCreate(true);
+      if (list.length === 0) {
+        setSummaries([]);
+        if (manage) setShowCreate(true);
+      } else {
+        const results = await Promise.all(list.map((c) => fetchChampionshipStandings(c.id).catch(() => null)));
+        setSummaries(results.filter(Boolean));
+      }
     } catch (e) {
       setError(e.message);
     }
     setLoading(false);
-  }
-
-  async function loadStandings(id) {
-    try {
-      const result = await fetchChampionshipStandings(id);
-      setStandings(result);
-    } catch (e) {
-      setError(e.message);
-    }
   }
 
   async function handleCreate(form) {
@@ -101,7 +118,7 @@ export default function ChampionshipView() {
     return <div className="p-6 text-felt-cream/60 font-body">Chargement…</div>;
   }
 
-  if (championships.length === 0 && !manage) {
+  if (summaries.length === 0 && !manage) {
     return <div className="p-6 text-felt-cream/50 font-body text-sm">Aucun championnat pour le moment.</div>;
   }
 
@@ -109,12 +126,20 @@ export default function ChampionshipView() {
     return (
       <div className="h-full overflow-y-auto">
         <ChampionshipEditor
-          onCancel={championships.length > 0 ? () => setShowCreate(false) : null}
+          onCancel={summaries.length > 0 ? () => setShowCreate(false) : null}
           onCreate={handleCreate}
           loading={creating}
         />
       </div>
     );
+  }
+
+  const active = summaries.filter((s) => s.isActive || s.stageCount === 0);
+  const finished = summaries.filter((s) => !s.isActive && s.stageCount > 0);
+  const selected = summaries.find((s) => s.championship.id === selectedId);
+
+  function toggleSelect(id) {
+    setSelectedId(selectedId === id ? null : id);
   }
 
   return (
@@ -133,35 +158,45 @@ export default function ChampionshipView() {
 
       {error && <div className="text-felt-alert text-sm mb-3">Erreur : {error}</div>}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        {championships.map((c) => (
-          <button
-            key={c.id}
-            onClick={() => setSelectedId(c.id)}
-            className={`text-left rounded-xl p-4 border transition-colors ${
-              selectedId === c.id
-                ? "bg-felt-gold/10 border-felt-gold"
-                : "bg-felt-panel border-felt-cream/10 hover:border-felt-cream/30"
-            }`}
-          >
-            <div className={`font-display text-base mb-2 ${selectedId === c.id ? "text-felt-gold" : "text-white"}`}>
-              {c.name}
-            </div>
-            <div className="text-xs text-felt-cream/40 font-mono truncate">{c.formula_text}</div>
-            <div className="inline-block text-[11px] px-2 py-1 rounded bg-felt-gold/10 text-felt-gold mt-2">
-              {c.best_stages_count ? `${c.best_stages_count} meilleures étapes` : "Toutes les étapes comptent"}
-            </div>
-          </button>
-        ))}
-      </div>
+      {active.length > 0 && (
+        <div className="mb-8">
+          <div className="text-xs font-display uppercase tracking-widest text-felt-cream/40 mb-3">Actif</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {active.map((s) => (
+              <ActiveChampionshipCard
+                key={s.championship.id}
+                s={s}
+                selected={selectedId === s.championship.id}
+                onClick={() => toggleSelect(s.championship.id)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
-      {standings && (
-        <div className="bg-felt-panel border border-felt-cream/10 rounded-xl p-4">
+      {finished.length > 0 && (
+        <div className="mb-8">
+          <div className="text-xs font-display uppercase tracking-widest text-felt-cream/40 mb-3">Terminé</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {finished.map((s) => (
+              <FinishedChampionshipCard
+                key={s.championship.id}
+                s={s}
+                selected={selectedId === s.championship.id}
+                onClick={() => toggleSelect(s.championship.id)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {selected && (
+        <div className="bg-felt-panel border border-felt-cream/10 rounded-xl p-5">
           <div className="flex items-start justify-between mb-1">
-            <div className="font-display text-lg text-felt-gold">{standings.championship.name}</div>
+            <div className="font-display text-lg text-felt-gold">{selected.championship.name}</div>
             {manage && (
               <button
-                onClick={() => handleDelete(standings.championship.id)}
+                onClick={() => handleDelete(selected.championship.id)}
                 className="text-xs px-2 py-1 text-felt-alert/70 hover:text-felt-alert"
               >
                 🗑 Supprimer
@@ -169,17 +204,17 @@ export default function ChampionshipView() {
             )}
           </div>
           <div className="text-xs text-felt-cream/40 mb-4 font-mono">
-            {standings.championship.formula_text}
-            {standings.championship.best_stages_count
-              ? ` — ${standings.championship.best_stages_count} meilleures étapes`
+            {selected.championship.formula_text}
+            {selected.championship.best_stages_count
+              ? ` — ${selected.championship.best_stages_count} meilleures étapes`
               : " — toutes les étapes comptent"}
           </div>
-          {standings.standings.length === 0 ? (
+          {selected.standings.length === 0 ? (
             <div className="text-sm text-felt-cream/50">Aucune étape terminée pour l'instant.</div>
           ) : (
             <div className="space-y-1 text-sm">
-              {standings.standings.map((s, i) => (
-                <div key={s.playerId} className="flex justify-between border-b border-felt-cream/5 py-1">
+              {selected.standings.map((s, i) => (
+                <div key={s.playerId} className="flex justify-between border-b border-felt-cream/5 py-1.5">
                   <span>
                     {i + 1}. {s.name}{" "}
                     <span className="text-felt-cream/30 text-xs">
@@ -194,6 +229,83 @@ export default function ChampionshipView() {
         </div>
       )}
     </div>
+  );
+}
+
+function ActiveChampionshipCard({ s, selected, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`text-left rounded-xl p-4 border transition-colors ${
+        selected ? "bg-felt-gold/10 border-felt-gold" : "bg-felt-panel border-felt-cream/10 hover:border-felt-cream/30"
+      }`}
+    >
+      <div className="font-display text-base text-white mb-2 truncate">{s.championship.name}</div>
+      <div className="flex items-center gap-2 mb-4">
+        <span className="text-[11px] px-2 py-1 rounded bg-felt-bg text-felt-cream/50">{s.playerCount} joueurs</span>
+        <span className="text-[11px] px-2 py-1 rounded bg-felt-bg text-felt-cream/50">{s.stageCount} tournois</span>
+      </div>
+      {s.leader ? (
+        <div className="flex items-center gap-3 bg-felt-bg rounded-lg px-3 py-2 mb-3">
+          <MiniAvatar name={s.leader.name} />
+          <div className="min-w-0 flex-1">
+            <div className="text-[10px] text-felt-cream/40 uppercase tracking-wide">Joueur en tête</div>
+            <div className="text-sm text-white truncate">{s.leader.name}</div>
+          </div>
+          <div className="text-felt-gold font-display text-lg">{s.leader.totalPoints}</div>
+        </div>
+      ) : (
+        <div className="text-xs text-felt-cream/40 mb-3">Aucun résultat pour l'instant.</div>
+      )}
+      <div className="grid grid-cols-2 gap-2 text-[11px]">
+        <div>
+          <div className="text-felt-cream/30 uppercase tracking-wide mb-0.5">Précédent</div>
+          <div className="text-felt-cream/60 truncate">
+            {s.previousStage ? s.previousStage.stage_label || s.previousStage.name : "—"}
+          </div>
+        </div>
+        <div>
+          <div className="text-felt-cream/30 uppercase tracking-wide mb-0.5">À venir</div>
+          <div className="text-felt-cream/60 truncate">{s.nextStage ? s.nextStage.stage_label || s.nextStage.name : "—"}</div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function FinishedChampionshipCard({ s, selected, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`text-left rounded-xl p-4 border transition-colors ${
+        selected ? "bg-felt-gold/10 border-felt-gold" : "bg-felt-panel border-felt-cream/10 hover:border-felt-cream/30"
+      }`}
+    >
+      <div className="font-display text-base text-white mb-2 truncate">{s.championship.name}</div>
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-[11px] px-2 py-1 rounded bg-felt-bg text-felt-cream/50">{s.playerCount} joueurs</span>
+        <span className="text-[11px] px-2 py-1 rounded bg-felt-bg text-felt-cream/50">{s.stageCount} tournois</span>
+      </div>
+      <div className="space-y-1.5 mb-3">
+        {s.top3.length === 0 && <div className="text-xs text-felt-cream/40">Aucun résultat.</div>}
+        {s.top3.map((p, i) => (
+          <div key={p.playerId} className="flex items-center gap-2">
+            <span className="w-4 text-center text-xs text-felt-cream/40">{i === 0 ? "🏆" : i + 1}</span>
+            <MiniAvatar name={p.name} size={28} />
+            <div className="min-w-0 flex-1">
+              <div className="text-sm text-white truncate">{p.name}</div>
+              {i === 0 && <div className="text-[10px] text-felt-gold uppercase tracking-wide">Champion</div>}
+            </div>
+            <div className="text-felt-gold text-sm font-display">{p.totalPoints}</div>
+          </div>
+        ))}
+      </div>
+      {s.dateRange && (
+        <div className="text-[11px] text-felt-cream/40">
+          {formatShortDate(s.dateRange.start)} – {formatShortDate(s.dateRange.end)}
+        </div>
+      )}
+    </button>
   );
 }
 
