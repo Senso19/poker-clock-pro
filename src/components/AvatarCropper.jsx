@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
-const BOX = 240;
-const OUTPUT = 320;
+const BOX = 340;
+const OUTPUT = 480;
 
 /**
  * AvatarCropper — petite fenêtre de recadrage : zoom (curseur) et
@@ -85,7 +85,7 @@ export default function AvatarCropper({ file, onConfirm, onCancel }) {
 
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4">
-      <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-6 font-body text-felt-cream w-full max-w-xs">
+      <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-6 font-body text-felt-cream w-full max-w-sm">
         <div className="font-display text-lg mb-4 text-center">Ajuster l'avatar</div>
 
         <div
