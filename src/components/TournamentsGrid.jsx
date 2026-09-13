@@ -12,9 +12,10 @@ const MAX_PER_TABLE = 9;
 
 /**
  * TournamentsGrid — page d'accueil : grille de tous les tournois, façon
- * BlindValet. Admin/TD peuvent créer/ouvrir en gestion ; tout le monde peut
- * s'inscrire ou se désinscrire directement depuis la carte si les
- * inscriptions sont ouvertes.
+ * BlindValet (bandeau "Actifs aujourd'hui", puis "Tous les tournois" avec
+ * recherche/filtres/tri et bascule grille/liste). Admin/TD peuvent
+ * créer/ouvrir en gestion ; tout le monde peut s'inscrire ou se désinscrire
+ * directement depuis la carte si les inscriptions sont ouvertes.
  */
 export default function TournamentsGrid({ onOpen }) {
   const { account } = useAccount();
@@ -30,7 +31,11 @@ export default function TournamentsGrid({ onOpen }) {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
+  const [openMenuId, setOpenMenuId] = useState(null);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("upcoming");
+  const [sortOrder, setSortOrder] = useState("date_asc");
+  const [view, setView] = useState("grid");
 
   useEffect(() => {
     load();
@@ -118,6 +123,7 @@ export default function TournamentsGrid({ onOpen }) {
   }
 
   async function handleDelete(t) {
+    setOpenMenuId(null);
     if (!confirm(`Supprimer définitivement "${t.name}" et toutes ses données ?`)) return;
     try {
       await deleteTournament(t.id);
@@ -164,28 +170,39 @@ export default function TournamentsGrid({ onOpen }) {
     setCreating(false);
   }
 
+  function isUpcoming(t) {
+    return !!t.scheduled_at && new Date(t.scheduled_at) > new Date();
+  }
+
   function statusBadge(t) {
-    if (t.scheduled_at && new Date(t.scheduled_at) > new Date()) {
-      return { label: "Programmé", cls: "bg-blue-500/20 text-blue-300" };
-    }
-    if (t.registration_open) {
-      return { label: "Inscriptions ouvertes", cls: "bg-felt-gold/20 text-felt-gold" };
-    }
-    return { label: "En cours", cls: "bg-felt-cream/10 text-felt-cream/60" };
+    if (isUpcoming(t)) return { label: "Programmé", cls: "bg-blue-500/20 text-blue-300" };
+    return { label: "En cours", cls: "bg-emerald-500/15 text-emerald-400", dot: true };
   }
 
   if (loading) {
     return <div className="p-6 text-felt-cream/60 font-body">Chargement…</div>;
   }
 
+  const activeToday = tournaments.filter((t) => !isUpcoming(t));
+
+  let listed = tournaments.filter((t) => t.name.toLowerCase().includes(search.trim().toLowerCase()));
+  if (statusFilter === "upcoming") listed = listed.filter(isUpcoming);
+  else if (statusFilter === "active") listed = listed.filter((t) => !isUpcoming(t));
+
+  listed = [...listed].sort((a, b) => {
+    if (sortOrder === "name") return a.name.localeCompare(b.name);
+    const da = new Date(a.scheduled_at || a.created_at).getTime();
+    const db = new Date(b.scheduled_at || b.created_at).getTime();
+    return sortOrder === "date_desc" ? db - da : da - db;
+  });
+
   return (
-    <div className="p-4 sm:p-6 font-body text-felt-cream h-full overflow-y-auto">
-      <div className="flex items-baseline justify-between mb-4">
-        <div className="font-display text-xl">Tous les tournois</div>
+    <div className="p-4 sm:p-6 font-body text-white h-full overflow-y-auto">
+      <div className="flex items-center justify-end gap-3 mb-6">
         {manage && (
           <button
             onClick={() => setShowCreateForm((s) => !s)}
-            className="px-4 py-2 bg-felt-gold text-felt-bg rounded-md font-display text-sm"
+            className="flex items-center gap-2 px-4 py-2.5 bg-felt-gold text-felt-bg rounded-lg font-display text-sm hover:bg-felt-gold/90"
           >
             🏆 Créer un tournoi
           </button>
@@ -206,82 +223,242 @@ export default function TournamentsGrid({ onOpen }) {
         </div>
       )}
 
-      <input
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="🔍 Rechercher des tournois…"
-        className="w-full mb-6 bg-felt-panel border border-felt-cream/10 rounded-md px-4 py-2.5 text-felt-cream placeholder:text-felt-cream/40"
-      />
-
-      {(() => {
-        const filtered = tournaments.filter((t) => t.name.toLowerCase().includes(search.trim().toLowerCase()));
-        if (filtered.length === 0) {
-          return <div className="text-felt-cream/50 text-sm">Aucun tournoi ne correspond à la recherche.</div>;
-        }
-        return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filtered.map((t) => {
-            const badge = statusBadge(t);
-            const already = myRegs.has(t.id);
-            return (
-              <div
+      {activeToday.length > 0 && (
+        <div className="mb-8">
+          <div className="text-xs font-display uppercase tracking-widest text-felt-cream/40 mb-3">
+            Actifs aujourd'hui
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {activeToday.map((t) => (
+              <TournamentCard
                 key={t.id}
-                className="bg-felt-panel border border-felt-cream/10 rounded-lg p-4 flex flex-col"
-              >
-                <div className="font-display text-base mb-1">{t.name}</div>
-                <div className="text-xs text-felt-cream/40 mb-2">
-                  {t.scheduled_at
-                    ? new Date(t.scheduled_at).toLocaleString("fr-FR")
-                    : new Date(t.created_at).toLocaleDateString("fr-FR")}
-                </div>
-                <span className={`self-start text-[11px] px-2 py-0.5 rounded-full mb-3 ${badge.cls}`}>
-                  {badge.label}
-                </span>
-                <div className="flex items-center gap-1 text-sm text-felt-cream/60 mb-3">
-                  <span>👥</span>
-                  <span>{counts[t.id] || 0}</span>
-                </div>
-                {t.championships?.name && (
-                  <div className="text-[11px] px-2 py-1 rounded bg-felt-bg text-felt-cream/50 mb-3 w-fit">
-                    {t.championships.name}
-                    {t.stage_label ? ` — ${t.stage_label}` : ""}
-                  </div>
-                )}
-                <div className="mt-auto flex items-center gap-2">
-                  <button
-                    onClick={() => onOpen(t.id)}
-                    className="text-sm px-3 py-1.5 rounded-md font-display text-felt-cream/70 border border-felt-cream/10 hover:text-felt-cream"
-                  >
-                    Ouvrir
-                  </button>
-                  {t.registration_open && (
-                    <button
-                      disabled={busyId === t.id}
-                      onClick={() => handleToggleRegister(t)}
-                      className={`text-sm px-3 py-1.5 rounded-md font-display ${
-                        already
-                          ? "bg-felt-bg text-felt-cream/50 border border-felt-cream/10"
-                          : "bg-felt-gold text-felt-bg"
-                      }`}
-                    >
-                      {already ? "Désinscription" : "S'inscrire"}
-                    </button>
-                  )}
-                  {manage && (
-                    <button
-                      onClick={() => handleDelete(t)}
-                      className="ml-auto text-xs text-felt-alert/60 hover:text-felt-alert"
-                    >
-                      🗑
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+                t={t}
+                badge={statusBadge(t)}
+                count={counts[t.id] || 0}
+                already={myRegs.has(t.id)}
+                manage={manage}
+                busy={busyId === t.id}
+                menuOpen={openMenuId === t.id}
+                onOpen={() => onOpen(t.id)}
+                onToggleRegister={() => handleToggleRegister(t)}
+                onToggleMenu={() => setOpenMenuId(openMenuId === t.id ? null : t.id)}
+                onDelete={() => handleDelete(t)}
+              />
+            ))}
+          </div>
         </div>
-        );
-      })()}
+      )}
+
+      <div className="text-xs font-display uppercase tracking-widest text-felt-cream/40 mb-3">
+        Tous les tournois
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3 mb-6">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="🔍 Rechercher des tournois…"
+          className="flex-1 min-w-[200px] bg-felt-panel border border-felt-cream/10 rounded-lg px-4 py-2.5 text-white placeholder:text-felt-cream/40"
+        />
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="bg-felt-panel border border-felt-cream/10 rounded-lg px-3 py-2.5 text-sm text-white"
+        >
+          <option value="upcoming">À venir</option>
+          <option value="active">En cours</option>
+          <option value="all">Tous</option>
+        </select>
+        <select
+          value={sortOrder}
+          onChange={(e) => setSortOrder(e.target.value)}
+          className="bg-felt-panel border border-felt-cream/10 rounded-lg px-3 py-2.5 text-sm text-white"
+        >
+          <option value="date_asc">Date ↑</option>
+          <option value="date_desc">Date ↓</option>
+          <option value="name">Nom A-Z</option>
+        </select>
+        <div className="flex items-center gap-1 bg-felt-panel border border-felt-cream/10 rounded-lg p-1">
+          <button
+            onClick={() => setView("grid")}
+            title="Vue grille"
+            className={`w-8 h-8 rounded flex items-center justify-center ${view === "grid" ? "bg-felt-gold text-felt-bg" : "text-felt-cream/50 hover:text-white"}`}
+          >
+            ▦
+          </button>
+          <button
+            onClick={() => setView("list")}
+            title="Vue liste"
+            className={`w-8 h-8 rounded flex items-center justify-center ${view === "list" ? "bg-felt-gold text-felt-bg" : "text-felt-cream/50 hover:text-white"}`}
+          >
+            ☰
+          </button>
+        </div>
+      </div>
+
+      {listed.length === 0 ? (
+        <div className="text-felt-cream/50 text-sm">Aucun tournoi ne correspond.</div>
+      ) : view === "grid" ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {listed.map((t) => (
+            <TournamentCard
+              key={t.id}
+              t={t}
+              badge={statusBadge(t)}
+              count={counts[t.id] || 0}
+              already={myRegs.has(t.id)}
+              manage={manage}
+              busy={busyId === t.id}
+              menuOpen={openMenuId === t.id}
+              onOpen={() => onOpen(t.id)}
+              onToggleRegister={() => handleToggleRegister(t)}
+              onToggleMenu={() => setOpenMenuId(openMenuId === t.id ? null : t.id)}
+              onDelete={() => handleDelete(t)}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {listed.map((t) => (
+            <TournamentRow
+              key={t.id}
+              t={t}
+              badge={statusBadge(t)}
+              count={counts[t.id] || 0}
+              already={myRegs.has(t.id)}
+              manage={manage}
+              busy={busyId === t.id}
+              menuOpen={openMenuId === t.id}
+              onOpen={() => onOpen(t.id)}
+              onToggleRegister={() => handleToggleRegister(t)}
+              onToggleMenu={() => setOpenMenuId(openMenuId === t.id ? null : t.id)}
+              onDelete={() => handleDelete(t)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TournamentCard({ t, badge, count, already, manage, busy, menuOpen, onOpen, onToggleRegister, onToggleMenu, onDelete }) {
+  return (
+    <div className="relative bg-felt-panel border border-felt-cream/10 rounded-xl p-4 flex flex-col hover:border-felt-cream/20 transition-colors">
+      <div className="flex items-start justify-between gap-2 mb-1">
+        <div className="font-display text-base text-white">{t.name}</div>
+      </div>
+      <div className="flex items-center gap-2 mb-3">
+        <div className="text-xs text-felt-cream/40">
+          {t.scheduled_at
+            ? new Date(t.scheduled_at).toLocaleString("fr-FR")
+            : new Date(t.created_at).toLocaleDateString("fr-FR")}
+        </div>
+        <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full ${badge.cls}`}>
+          {badge.dot && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
+          {badge.label}
+        </span>
+      </div>
+      <div className="flex items-center gap-1.5 text-sm text-felt-cream/70 mb-3">
+        <span>👥</span>
+        <span>{count}</span>
+      </div>
+      {t.championships?.name && (
+        <div className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded bg-felt-gold/10 text-felt-gold mb-3 w-fit">
+          📊 {t.championships.name}
+          {t.stage_label ? ` — ${t.stage_label}` : ""}
+        </div>
+      )}
+      <div className="mt-auto flex items-center gap-2 pt-1">
+        <button
+          onClick={onOpen}
+          className="text-sm px-3 py-1.5 rounded-lg font-display text-felt-cream/80 border border-felt-cream/15 hover:text-white hover:border-felt-cream/30"
+        >
+          Ouvrir
+        </button>
+        {t.registration_open && (
+          <button
+            disabled={busy}
+            onClick={onToggleRegister}
+            className={`text-sm px-3 py-1.5 rounded-lg font-display ${
+              already
+                ? "bg-felt-bg text-felt-cream/60 border border-felt-cream/15"
+                : "bg-felt-gold text-felt-bg hover:bg-felt-gold/90"
+            }`}
+          >
+            {already ? "Désinscription" : "S'inscrire"}
+          </button>
+        )}
+        {manage && (
+          <div className="relative ml-auto">
+            <button onClick={onToggleMenu} className="text-felt-cream/40 hover:text-white px-1 text-lg leading-none">
+              ⋮
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 bottom-8 z-20 bg-felt-bg border border-felt-gold/40 rounded-md shadow-lg py-1 w-36 text-sm">
+                <button onClick={onDelete} className="w-full text-left px-3 py-2 text-felt-alert hover:bg-felt-panel">
+                  🗑 Supprimer
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TournamentRow({ t, badge, count, already, manage, busy, menuOpen, onOpen, onToggleRegister, onToggleMenu, onDelete }) {
+  return (
+    <div className="relative flex flex-wrap items-center gap-4 bg-felt-panel border border-felt-cream/10 rounded-lg px-4 py-3 hover:border-felt-cream/20 transition-colors">
+      <div className="min-w-0 flex-1">
+        <div className="font-display text-white truncate">{t.name}</div>
+        <div className="text-xs text-felt-cream/40">
+          {t.scheduled_at ? new Date(t.scheduled_at).toLocaleString("fr-FR") : new Date(t.created_at).toLocaleDateString("fr-FR")}
+        </div>
+      </div>
+      <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full shrink-0 ${badge.cls}`}>
+        {badge.dot && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
+        {badge.label}
+      </span>
+      <div className="flex items-center gap-1.5 text-sm text-felt-cream/70 shrink-0">
+        <span>👥</span>
+        <span>{count}</span>
+      </div>
+      {t.championships?.name && (
+        <div className="hidden sm:inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded bg-felt-gold/10 text-felt-gold shrink-0">
+          📊 {t.championships.name}
+        </div>
+      )}
+      <div className="flex items-center gap-2 shrink-0">
+        <button onClick={onOpen} className="text-sm px-3 py-1.5 rounded-lg font-display text-felt-cream/80 border border-felt-cream/15 hover:text-white hover:border-felt-cream/30">
+          Ouvrir
+        </button>
+        {t.registration_open && (
+          <button
+            disabled={busy}
+            onClick={onToggleRegister}
+            className={`text-sm px-3 py-1.5 rounded-lg font-display ${
+              already ? "bg-felt-bg text-felt-cream/60 border border-felt-cream/15" : "bg-felt-gold text-felt-bg hover:bg-felt-gold/90"
+            }`}
+          >
+            {already ? "Désinscription" : "S'inscrire"}
+          </button>
+        )}
+        {manage && (
+          <div className="relative">
+            <button onClick={onToggleMenu} className="text-felt-cream/40 hover:text-white px-1 text-lg leading-none">
+              ⋮
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 top-8 z-20 bg-felt-bg border border-felt-gold/40 rounded-md shadow-lg py-1 w-36 text-sm">
+                <button onClick={onDelete} className="w-full text-left px-3 py-2 text-felt-alert hover:bg-felt-panel">
+                  🗑 Supprimer
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -124,7 +124,7 @@ export default function Sidebar({ tab, setTab }) {
             className={`w-full flex items-center gap-3 px-5 py-2.5 text-sm font-body text-left ${
               tab === item.key
                 ? "bg-felt-gold/10 text-felt-gold border-r-2 border-felt-gold"
-                : "text-felt-cream/60 hover:text-felt-cream hover:bg-black/20"
+                : "text-white/90 hover:text-white hover:bg-black/20"
             }`}
           >
             <span className="text-base">{item.icon}</span>
@@ -146,7 +146,7 @@ export default function Sidebar({ tab, setTab }) {
           </div>
         )}
         <div className="min-w-0">
-          <div className="font-display text-base text-felt-cream tracking-wide truncate">19PokerClub</div>
+          <div className="font-display text-base text-white tracking-wide truncate">19PokerClub</div>
           {clubCode && <div className="text-[11px] text-felt-cream/40">ID · {clubCode}</div>}
         </div>
       </div>
@@ -168,30 +168,36 @@ export default function Sidebar({ tab, setTab }) {
 
   function ProfileFooter({ onNavigate }) {
     return (
-      <>
+      <div className="shrink-0 border-t border-felt-gold/10">
+        <div className="flex items-center gap-3 px-5 py-3">
+          {account.avatar_data ? (
+            <img src={account.avatar_data} alt="" className="w-10 h-10 rounded-full object-cover shrink-0" />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-black/30 flex items-center justify-center text-felt-cream/50 font-display text-sm shrink-0">
+              {account.pseudo?.[0]?.toUpperCase()}
+            </div>
+          )}
+          <div className="min-w-0">
+            <div className="text-sm text-white font-medium truncate">{account.pseudo}</div>
+            <div className="text-xs text-felt-cream/40 truncate">{ROLE_LABELS[account.role]}</div>
+          </div>
+        </div>
         <button
           onClick={() => {
             setShowProfile(true);
             onNavigate?.();
           }}
-          className="flex items-center gap-3 px-5 py-3 border-t border-felt-gold/10 hover:bg-black/20 text-left"
+          className="w-full flex items-center gap-2 px-5 py-2 text-sm text-white/90 hover:text-white hover:bg-black/20 text-left"
         >
-          {account.avatar_data ? (
-            <img src={account.avatar_data} alt="" className="w-9 h-9 rounded-full object-cover" />
-          ) : (
-            <div className="w-9 h-9 rounded-full bg-black/30 flex items-center justify-center text-felt-cream/50 font-display text-sm">
-              {account.pseudo?.[0]?.toUpperCase()}
-            </div>
-          )}
-          <div className="min-w-0">
-            <div className="text-sm text-felt-cream truncate">{account.pseudo}</div>
-            <div className="text-xs text-felt-cream/40 truncate">{ROLE_LABELS[account.role]}</div>
-          </div>
+          👤 Profil
         </button>
-        <button onClick={logout} className="px-5 py-2 text-xs text-felt-cream/40 hover:text-felt-cream text-left">
-          ↪ Déconnexion
+        <button
+          onClick={logout}
+          className="w-full flex items-center gap-2 px-5 py-2 pb-3 text-sm text-white/70 hover:text-white hover:bg-black/20 text-left"
+        >
+          🚪 Déconnexion
         </button>
-      </>
+      </div>
     );
   }
 
