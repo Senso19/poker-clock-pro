@@ -342,17 +342,43 @@ export default function Sidebar({ tab, setTab }) {
   }
 
   function ClubHeader() {
+    const [showHeaderStyle, setShowHeaderStyle] = useState(false);
+    const hcfg = sidebarCfg.header || {};
+    const py = hcfg.py || 16;
+    const logoSize = hcfg.logoSize || 36;
+    const titleSize = hcfg.titleSize || 16;
+
+    function updateHeader(patch) {
+      persistSidebarConfig({ ...sidebarCfg, header: { ...hcfg, ...patch } });
+    }
+
     return (
-      <div className="flex items-center gap-3 px-5 py-4 border-b border-felt-gold/10">
+      <div
+        style={{ paddingTop: py, paddingBottom: py }}
+        className="relative flex items-center gap-3 px-5 border-b border-felt-gold/10"
+      >
         {logoData ? (
-          <img src={logoData} alt="" className="w-9 h-9 rounded-full object-cover shrink-0" />
+          <img
+            src={logoData}
+            alt=""
+            style={{ width: logoSize, height: logoSize }}
+            className="rounded-full object-cover shrink-0"
+          />
         ) : (
-          <div className="w-9 h-9 rounded-full bg-felt-gold/15 border border-felt-gold/40 flex items-center justify-center text-felt-gold text-lg shrink-0">
+          <div
+            style={{ width: logoSize, height: logoSize }}
+            className="rounded-full bg-felt-gold/15 border border-felt-gold/40 flex items-center justify-center text-felt-gold shrink-0"
+          >
             ♠
           </div>
         )}
         <div className="min-w-0 flex-1">
-          <div className="font-display text-base text-white tracking-wide truncate">19PokerClub</div>
+          <div
+            style={{ fontSize: titleSize }}
+            className="font-display text-white tracking-wide truncate"
+          >
+            19PokerClub
+          </div>
           {clubCode && <div className="text-[11px] text-felt-cream/40">ID · {clubCode}</div>}
         </div>
         {manage && (
@@ -368,6 +394,64 @@ export default function Sidebar({ tab, setTab }) {
               </span>
             )}
           </button>
+        )}
+        {isEditMode && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowHeaderStyle((v) => !v);
+            }}
+            title="Personnaliser le bandeau du club"
+            className="w-7 h-7 rounded-md bg-felt-gold text-felt-bg flex items-center justify-center text-xs shadow shrink-0"
+          >
+            🎨
+          </button>
+        )}
+        {showHeaderStyle && (
+          <div
+            onPointerDown={(e) => e.stopPropagation()}
+            className="absolute top-full right-3 mt-1 z-30 bg-felt-bg border border-felt-gold/40 rounded-md p-3 w-56 text-xs text-felt-cream shadow-lg"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-display">Bandeau du club</span>
+              <button onClick={() => setShowHeaderStyle(false)} className="text-felt-cream/40 hover:text-felt-cream">
+                ✕
+              </button>
+            </div>
+            <label className="flex items-center justify-between mb-2">
+              Hauteur (marge, px)
+              <input
+                type="number"
+                value={py}
+                onChange={(e) => updateHeader({ py: Number(e.target.value) || 0 })}
+                className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream"
+              />
+            </label>
+            <label className="flex items-center justify-between mb-2">
+              Taille du logo (px)
+              <input
+                type="number"
+                value={logoSize}
+                onChange={(e) => updateHeader({ logoSize: Number(e.target.value) || 20 })}
+                className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream"
+              />
+            </label>
+            <label className="flex items-center justify-between mb-2">
+              Taille du texte (px)
+              <input
+                type="number"
+                value={titleSize}
+                onChange={(e) => updateHeader({ titleSize: Number(e.target.value) || 10 })}
+                className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream"
+              />
+            </label>
+            <button
+              onClick={() => updateHeader({ py: null, logoSize: null, titleSize: null })}
+              className="w-full text-center text-felt-cream/40 hover:text-felt-cream mt-1 py-1"
+            >
+              Réinitialiser
+            </button>
+          </div>
         )}
       </div>
     );
