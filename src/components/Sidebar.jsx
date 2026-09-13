@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAccount } from "../context/AccountContext.jsx";
 import { useTheme } from "../context/ThemeContext.jsx";
 import { canManageTournaments, ROLE_LABELS, fetchClubSettings } from "../lib/auth.js";
@@ -15,12 +15,17 @@ const NAV = [
 ];
 
 const COLLAPSE_KEY = "pcp_sidebar_collapsed";
+const WIDTH_KEY = "pcp_sidebar_width";
+const MIN_WIDTH = 180;
+const MAX_WIDTH = 420;
+const DEFAULT_WIDTH = 240;
 
 /**
  * Sidebar — navigation latérale façon BlindValet : bandeau club (logo/nom +
  * code du club) en haut, navigation, chat du club intégré (messages +
  * envoi), puis carte profil + déconnexion en bas. Teintée avec la couleur
- * de fond choisie dans Paramètres du club, repliable vers la droite.
+ * de fond choisie dans Paramètres du club, repliable vers la droite et
+ * redimensionnable en glissant la barre de séparation.
  *
  * Sur mobile (< sm), remplacée par une barre supérieure fixe (☰ + logo) et
  * un tiroir latéral en superposition — l'affichage desktop (>= sm) reste
@@ -39,6 +44,15 @@ export default function Sidebar({ tab, setTab }) {
       return false;
     }
   });
+  const [width, setWidth] = useState(() => {
+    try {
+      const v = Number(localStorage.getItem(WIDTH_KEY));
+      return v >= MIN_WIDTH && v <= MAX_WIDTH ? v : DEFAULT_WIDTH;
+    } catch {
+      return DEFAULT_WIDTH;
+    }
+  });
+  const resizeDrag = useRef(null);
 
   useEffect(() => {
     fetchClubSettings()
@@ -53,6 +67,43 @@ export default function Sidebar({ tab, setTab }) {
       /* ignore */
     }
   }, [collapsed]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(WIDTH_KEY, String(width));
+    } catch {
+      /* ignore */
+    }
+  }, [width]);
+
+  // La barre de séparation sert à la fois de bouton (clic = replier/déplier)
+  // et de poignée de redimensionnement (glisser = agrandir/rapetisser).
+  function handleBarPointerDown(e) {
+    resizeDrag.current = { startX: e.clientX, startWidth: collapsed ? MIN_WIDTH : width, moved: false };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+  function handleBarPointerMove(e) {
+    const d = resizeDrag.current;
+    if (!d) return;
+    const dx = e.clientX - d.startX;
+    if (Math.abs(dx) > 4) d.moved = true;
+    if (!d.moved) return;
+    const next = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, d.startWidth + dx));
+    if (collapsed) setCollapsed(false);
+    setWidth(next);
+  }
+  function handleBarPointerUp(e) {
+    const d = resizeDrag.current;
+    resizeDrag.current = null;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+    if (d && !d.moved) {
+      setCollapsed((c) => !c);
+    }
+  }
 
   const bg = theme.background;
   const sidebarColor = bg?.type === "color" ? bg.value : "#1B2027";
@@ -198,10 +249,10 @@ export default function Sidebar({ tab, setTab }) {
       {/* Barre latérale desktop (>= sm), comportement inchangé */}
       <div className="hidden sm:flex h-full shrink-0">
         <div
-          style={{ width: collapsed ? 0 : 240, backgroundColor: sidebarColor, transition: "width 300ms ease" }}
+          style={{ width: collapsed ? 0 : width, backgroundColor: sidebarColor, transition: resizeDrag.current ? "none" : "width 200ms ease" }}
           className="h-full overflow-hidden flex flex-col"
         >
-          <div style={{ width: 240 }} className="h-full flex flex-col">
+          <div style={{ width }} className="h-full flex flex-col">
             <ClubHeader />
             <NavList onNavigate={(key) => setTab(key)} />
             <ChatSection />
@@ -209,13 +260,18 @@ export default function Sidebar({ tab, setTab }) {
           </div>
         </div>
 
-        <button
-          onClick={() => setCollapsed((c) => !c)}
-          title={collapsed ? "Déployer le menu" : "Réduire le menu"}
-          className="h-full w-3 shrink-0 bg-felt-gold/20 hover:bg-felt-gold/40 flex items-center justify-center text-felt-cream/60 hover:text-felt-cream"
+        <div
+          onPointerDown={handleBarPointerDown}
+          onPointerMove={handleBarPointerMove}
+          onPointerUp={handleBarPointerUp}
+          role="button"
+          tabIndex={0}
+          title={collapsed ? "Déployer le menu (glisser pour redimensionner)" : "Réduire le menu (glisser pour redimensionner)"}
+          style={{ touchAction: "none" }}
+          className="h-full w-3 shrink-0 bg-felt-gold/20 hover:bg-felt-gold/40 flex items-center justify-center text-felt-cream/60 hover:text-felt-cream cursor-col-resize select-none"
         >
-          <span className="text-[10px]">{collapsed ? "›" : "‹"}</span>
-        </button>
+          <span className="text-[10px] pointer-events-none">{collapsed ? "›" : "‹"}</span>
+        </div>
       </div>
 
       {showProfile && <ProfileModal onClose={() => setShowProfile(false)} />}
