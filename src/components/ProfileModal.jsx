@@ -2,6 +2,9 @@ import { useState } from "react";
 import { useAccount } from "../context/AccountContext.jsx";
 import { updateOwnProfile } from "../lib/auth.js";
 import AvatarCropper from "./AvatarCropper.jsx";
+import InstallAppPrompt from "./InstallAppPrompt.jsx";
+import { useIsMobile } from "../lib/useIsMobile.js";
+import { isStandalone } from "../lib/installPrompt.js";
 
 /**
  * ProfileModal — édition du profil (pseudo, nom, prénom, email, avatar).
@@ -18,6 +21,8 @@ export default function ProfileModal({ onClose }) {
   const [croppingFile, setCroppingFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [showInstall, setShowInstall] = useState(false);
+  const isMobile = useIsMobile();
 
   function handleAvatarChange(e) {
     const file = e.target.files?.[0];
@@ -92,6 +97,15 @@ export default function ProfileModal({ onClose }) {
           <Field label="Email" value={email} onChange={setEmail} placeholder="optionnel" />
         </div>
 
+        {isMobile && !isStandalone() && (
+          <button
+            onClick={() => setShowInstall(true)}
+            className="w-full mt-4 px-3 py-2 text-sm bg-felt-bg border border-felt-gold/30 rounded-md text-felt-gold hover:bg-felt-gold/10"
+          >
+            📲 Installer l'application sur l'écran d'accueil
+          </button>
+        )}
+
         {error && <div className="text-felt-alert text-sm mt-3">{error}</div>}
 
         <div className="flex gap-2 mt-5">
@@ -118,6 +132,8 @@ export default function ProfileModal({ onClose }) {
           onCancel={() => setCroppingFile(null)}
         />
       )}
+
+      {showInstall && <InstallAppPrompt onClose={() => setShowInstall(false)} />}
     </div>
   );
 }
