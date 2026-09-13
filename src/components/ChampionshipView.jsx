@@ -218,42 +218,56 @@ function ActiveChampionshipCard({ s, selected, onClick }) {
   return (
     <button
       onClick={onClick}
-      className={`text-left rounded-lg p-2.5 border transition-colors ${
+      className={`text-left rounded-xl p-4 border transition-colors ${
         selected ? "bg-felt-gold/10 border-felt-gold" : "bg-felt-panel border-felt-cream/10 hover:border-felt-cream/30"
       }`}
     >
       <div
         style={{ fontSize: "var(--pcp-card-text-size, inherit)", color: "var(--pcp-card-text-color, white)" }}
-        className="font-display text-sm mb-1.5 truncate"
+        className="font-display text-lg mb-2 truncate"
       >
         {s.championship.name}
       </div>
-      <div className="flex items-center gap-1.5 mb-2">
-        <span className="text-[10px] px-1.5 py-0.5 rounded bg-felt-bg text-felt-cream/50">{s.playerCount} joueurs</span>
-        <span className="text-[10px] px-1.5 py-0.5 rounded bg-felt-bg text-felt-cream/50">{s.stageCount} tournois</span>
+      <div className="flex items-center gap-2 mb-4">
+        <span className="text-xs px-2.5 py-1 rounded bg-felt-bg text-felt-cream/50">{s.playerCount} joueurs</span>
+        <span className="text-xs px-2.5 py-1 rounded bg-felt-bg text-felt-cream/50">{s.stageCount} tournois</span>
       </div>
       {s.leader ? (
-        <div className="flex items-center gap-2 bg-felt-bg rounded-md px-2 py-1.5 mb-2">
-          <MiniAvatar name={s.leader.name} size={28} />
+        <div className="flex items-center gap-3 bg-felt-bg rounded-lg px-3 py-3 mb-4">
+          <MiniAvatar name={s.leader.name} size={40} />
           <div className="min-w-0 flex-1">
             <div className="text-[10px] text-felt-cream/40 uppercase tracking-wide">Joueur en tête</div>
-            <div className="text-xs text-white truncate">{s.leader.name}</div>
+            <div className="text-base text-felt-gold font-medium truncate">{s.leader.name}</div>
           </div>
-          <div className="text-felt-gold font-display text-sm">{s.leader.totalPoints}</div>
+          <div className="text-felt-gold font-display text-2xl shrink-0">{s.leader.totalPoints}</div>
         </div>
       ) : (
-        <div className="text-xs text-felt-cream/40 mb-2">Aucun résultat pour l'instant.</div>
+        <div className="text-sm text-felt-cream/40 mb-4">Aucun résultat pour l'instant.</div>
       )}
-      <div className="grid grid-cols-2 gap-2 text-[10px]">
+      <div className="grid grid-cols-2 gap-3 text-xs">
         <div>
           <div className="text-felt-cream/30 uppercase tracking-wide mb-0.5">Précédent</div>
-          <div className="text-felt-cream/60 truncate">
-            {s.previousStage ? s.previousStage.stage_label || s.previousStage.name : "—"}
-          </div>
+          {s.previousStage ? (
+            <>
+              <div className="text-felt-gold truncate">{s.previousStage.stage_label || s.previousStage.name}</div>
+              <div className="text-felt-cream/30 text-[10px]">
+                {formatShortDate(s.previousStage.scheduled_at || s.previousStage.created_at)}
+              </div>
+            </>
+          ) : (
+            <div className="text-felt-cream/40">—</div>
+          )}
         </div>
         <div>
           <div className="text-felt-cream/30 uppercase tracking-wide mb-0.5">À venir</div>
-          <div className="text-felt-cream/60 truncate">{s.nextStage ? s.nextStage.stage_label || s.nextStage.name : "—"}</div>
+          {s.nextStage ? (
+            <>
+              <div className="text-felt-gold truncate">{s.nextStage.stage_label || s.nextStage.name}</div>
+              <div className="text-felt-cream/30 text-[10px]">{formatShortDate(s.nextStage.scheduled_at)}</div>
+            </>
+          ) : (
+            <div className="text-felt-cream/40">—</div>
+          )}
         </div>
       </div>
     </button>
@@ -264,37 +278,40 @@ function FinishedChampionshipCard({ s, selected, onClick }) {
   return (
     <button
       onClick={onClick}
-      className={`text-left rounded-lg p-2.5 border transition-colors ${
+      className={`text-left rounded-xl p-4 border transition-colors ${
         selected ? "bg-felt-gold/10 border-felt-gold" : "bg-felt-panel border-felt-cream/10 hover:border-felt-cream/30"
       }`}
     >
       <div
         style={{ fontSize: "var(--pcp-card-text-size, inherit)", color: "var(--pcp-card-text-color, white)" }}
-        className="font-display text-sm mb-1.5 truncate"
+        className="font-display text-lg mb-2 truncate"
       >
         {s.championship.name}
       </div>
-      <div className="flex items-center gap-1.5 mb-2">
-        <span className="text-[10px] px-1.5 py-0.5 rounded bg-felt-bg text-felt-cream/50">{s.playerCount} joueurs</span>
-        <span className="text-[10px] px-1.5 py-0.5 rounded bg-felt-bg text-felt-cream/50">{s.stageCount} tournois</span>
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-xs px-2.5 py-1 rounded bg-felt-bg text-felt-cream/50">{s.playerCount} joueurs</span>
+        <span className="text-xs px-2.5 py-1 rounded bg-felt-bg text-felt-cream/50">{s.stageCount} tournois</span>
       </div>
-      <div className="space-y-1 mb-2">
-        {s.top3.length === 0 && <div className="text-xs text-felt-cream/40">Aucun résultat.</div>}
+      <div className="space-y-2 mb-3">
+        {s.top3.length === 0 && <div className="text-sm text-felt-cream/40">Aucun résultat.</div>}
         {s.top3.map((p, i) => (
-          <div key={p.playerId} className="flex items-center gap-1.5">
-            <span className="w-4 text-center text-xs text-felt-cream/40">{i === 0 ? "🏆" : i + 1}</span>
-            <MiniAvatar name={p.name} size={24} />
+          <div key={p.playerId} className="flex items-center gap-2">
+            <span className="w-5 text-center text-sm text-felt-cream/40 shrink-0">{i === 0 ? "🏆" : i + 1}</span>
+            <MiniAvatar name={p.name} size={32} />
             <div className="min-w-0 flex-1">
-              <div className="text-xs text-white truncate">{p.name}</div>
+              <div className="text-white truncate">{p.name}</div>
               {i === 0 && <div className="text-[10px] text-felt-gold uppercase tracking-wide">Champion</div>}
             </div>
-            <div className="text-felt-gold text-xs font-display">{p.totalPoints}</div>
+            <div className="text-felt-gold font-display shrink-0">{p.totalPoints}</div>
           </div>
         ))}
       </div>
       {s.dateRange && (
-        <div className="text-[10px] text-felt-cream/40">
-          {formatShortDate(s.dateRange.start)} – {formatShortDate(s.dateRange.end)}
+        <div>
+          <div className="text-[10px] text-felt-cream/30 uppercase tracking-wide mb-0.5">Dates</div>
+          <div className="text-[11px] text-felt-cream/40">
+            {formatShortDate(s.dateRange.start)} – {formatShortDate(s.dateRange.end)}
+          </div>
         </div>
       )}
     </button>
