@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchStructureTemplates, deleteStructureTemplate, saveLevels, saveStructureConfig } from "../lib/levels.js";
-import { fetchClockTemplates, deleteClockTemplate, applyClockTemplateAsActive } from "../lib/clockTemplates.js";
+import { fetchClockTemplates, deleteClockTemplate, applyClockTemplateToTournament } from "../lib/clockTemplates.js";
 import { fetchAllTournaments } from "../lib/tournaments.js";
 import StructureEditor from "./StructureEditor.jsx";
 import ClockTemplateEditor from "./ClockTemplateEditor.jsx";
@@ -20,6 +20,7 @@ export default function StructureTemplatesManager() {
   const [applyingId, setApplyingId] = useState(null);
   const [appliedAt, setAppliedAt] = useState(null);
   const [applyingStructTemplate, setApplyingStructTemplate] = useState(null);
+  const [applyingClockTemplate, setApplyingClockTemplate] = useState(null);
   const [tournaments, setTournaments] = useState([]);
 
   useEffect(() => {
@@ -84,15 +85,26 @@ export default function StructureTemplatesManager() {
   }
 
   async function handleApplyClock(template) {
-    setApplyingId(template.id);
+    setApplyingClockTemplate(template);
+    try {
+      setTournaments(await fetchAllTournaments());
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function applyClockTemplateToSelectedTournament(tournamentId) {
+    if (!applyingClockTemplate) return;
+    setApplyingId(applyingClockTemplate.id);
     setError(null);
     try {
-      await applyClockTemplateAsActive(template.layout);
-      setAppliedAt(template.id);
+      await applyClockTemplateToTournament(tournamentId, applyingClockTemplate.layout);
+      setAppliedAt(applyingClockTemplate.id);
       setTimeout(() => setAppliedAt(null), 2000);
     } catch (e) {
       setError(e.message);
     }
+    setApplyingClockTemplate(null);
     setApplyingId(null);
   }
 
@@ -275,6 +287,35 @@ export default function StructureTemplatesManager() {
             )}
             <button
               onClick={() => setApplyingStructTemplate(null)}
+              className="w-full px-4 py-2 text-felt-cream/60 hover:text-felt-cream"
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
+
+      {applyingClockTemplate && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-felt-panel border border-felt-cream/10 rounded-lg w-full max-w-sm p-6 font-body text-felt-cream">
+            <div className="font-display text-lg mb-4">Appliquer « {applyingClockTemplate.name} » à…</div>
+            {tournaments.length === 0 ? (
+              <div className="text-sm text-felt-cream/50 mb-4">Aucun tournoi créé pour le moment.</div>
+            ) : (
+              <div className="space-y-2 max-h-72 overflow-y-auto mb-4">
+                {tournaments.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => applyClockTemplateToSelectedTournament(t.id)}
+                    className="w-full text-left px-3 py-2 bg-felt-bg border border-felt-cream/10 rounded-md text-sm text-felt-cream hover:border-felt-gold/40"
+                  >
+                    {t.name}
+                  </button>
+                ))}
+              </div>
+            )}
+            <button
+              onClick={() => setApplyingClockTemplate(null)}
               className="w-full px-4 py-2 text-felt-cream/60 hover:text-felt-cream"
             >
               Annuler

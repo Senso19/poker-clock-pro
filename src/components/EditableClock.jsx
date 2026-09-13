@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../lib/supabase.js";
 import { useTheme } from "../context/ThemeContext.jsx";
 import { fetchCurrentTournament } from "../lib/tournaments.js";
 import { saveClockState } from "../lib/clockState.js";
+import { fetchClubSettings, setLiveAnnouncement } from "../lib/auth.js";
 
 /**
  * EditableClock — tableau de bord de tournoi façon BlindValet. Panneaux en %
@@ -35,12 +36,20 @@ const DEFAULT_PANELS = {
     x: 78, y: 38, w: 20, h: 34, removed: false,
     style: { ...BASE_STYLE, fontSize: 13, font: "body", intervalSeconds: 8, included: { structure: true, eliminated: true, headsup: true, ranking: true, winner: true } },
   },
+  sponsors: {
+    x: 2, y: 74, w: 46, h: 24, removed: true,
+    style: { ...BASE_STYLE, fontSize: 14, intervalSeconds: 6, sponsorImages: [] },
+  },
+  announcements: {
+    x: 50, y: 74, w: 48, h: 24, removed: true,
+    style: { ...BASE_STYLE, fontSize: 18, font: "body", align: "center" },
+  },
 };
 
 const PANEL_LABELS = {
   timer: "Horloge", controls: "Contrôles", blinds: "Blinds", players: "Joueurs", next: "Prochaine blind",
   ranking: "Classement", structure: "Structure des blinds", eliminated: "Élimination",
-  headsup: "Heads Up", carousel: "Carrousel",
+  headsup: "Heads Up", carousel: "Carrousel", sponsors: "Sponsors", announcements: "Annonces",
 };
 
 const FONT_FAMILY = { display: "'Oswald', sans-serif", body: "'Inter', sans-serif", mono: "monospace" };
@@ -51,6 +60,46 @@ const CAROUSEL_LABELS = { structure: "Structure des blinds", eliminated: "Élimi
 
 function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
+}
+
+const SNAP_THRESHOLD = 1.5;
+
+// Accroche une valeur sur la cible la plus proche (bord d'un autre panneau
+// ou bord du canevas 0/50/100) si elle est à moins de SNAP_THRESHOLD %.
+function snapValue(val, targets) {
+  let best = val;
+  let bestDiff = SNAP_THRESHOLD;
+  for (const t of targets) {
+    const diff = Math.abs(val - t);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = t;
+    }
+  }
+  return best;
+}
+
+// Accroche un segment [pos, pos+size] : essaie d'abord le bord de départ,
+// puis le bord de fin (le premier qui matche l'emporte).
+function snapSegment(pos, size, targets) {
+  const snappedStart = snapValue(pos, targets);
+  if (snappedStart !== pos) return snappedStart;
+  const snappedEnd = snapValue(pos + size, targets);
+  if (snappedEnd !== pos + size) return snappedEnd - size;
+  return pos;
+}
+
+// Calcule les bords (x et y) de tous les panneaux visibles, pour que le
+// glisser-déposer et le redimensionnement puissent s'aimanter dessus.
+function computeSnapTargets(panels) {
+  const xs = [0, 50, 100];
+  const ys = [0, 50, 100];
+  Object.values(panels).forEach((p) => {
+    if (p.removed) return;
+    xs.push(p.x, p.x + p.w);
+    ys.push(p.y, p.y + p.h);
+  });
+  return { xs, ys };
 }
 
 function mergeLayout(saved) {
@@ -125,9 +174,15 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
 
   const [registrations, setRegistrations] = useState([]);
   const [eliminations, setEliminations] = useState([]);
+  const [sponsorIdx, setSponsorIdx] = useState(0);
+  const [announcement, setAnnouncement] = useState("");
+  const tournamentLayoutAppliedRef = useRef(false);
 
   useEffect(() => {
     if (templateMode) return;
+    // Une fois qu'on gère la disposition propre à un tournoi, on ne doit
+    // plus la faire écraser par la disposition par défaut du club.
+    if (tournamentLayoutAppliedRef.current) return;
     const m = mergeLayout(theme.layout);
     setPanels(m.panels);
     setImages(m.images);
@@ -193,6 +248,34 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
     return () => clearInterval(t);
   }, [panels.carousel?.style?.intervalSeconds]);
 
+  useEffect(() => {
+    const secs = panels.sponsors?.style?.intervalSeconds || 6;
+    const t = setInterval(() => setSponsorIdx((i) => i + 1), secs * 1000);
+    return () => clearInterval(t);
+  }, [panels.sponsors?.style?.intervalSeconds]);
+
+  useEffect(() => {
+    function loadAnnouncement() {
+      fetchClubSettings()
+        .then((s) => setAnnouncement(s?.live_announcement || ""))
+        .catch(() => {});
+    }
+    loadAnnouncement();
+    const t = setInterval(loadAnnouncement, 5000);
+    return () => clearInterval(t);
+  }, []);
+
+  async function handleEditAnnouncement() {
+    const next = prompt("Message à afficher sur le panneau Annonces :", announcement);
+    if (next === null) return;
+    setAnnouncement(next);
+    try {
+      await setLiveAnnouncement(next);
+    } catch {
+      // silencieux
+    }
+  }
+
   async function fetchRegsAndElims(tId) {
     const { data: regs } = await supabase
       .from("registrations")
@@ -212,6 +295,14 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
     const t = await fetchCurrentTournament();
     if (!t) return;
     setTournamentId(t.id);
+    // Dès qu'on connaît le tournoi, on gère sa propre disposition d'horloge
+    // (plus jamais celle par défaut du club, sauf s'il n'en a pas encore).
+    tournamentLayoutAppliedRef.current = true;
+    if (t.clock_layout) {
+      const m = mergeLayout(t.clock_layout);
+      setPanels(m.panels);
+      setImages(m.images);
+    }
     await fetchRegsAndElims(t.id);
 
     if (t.clock_seconds_left != null) {
@@ -324,6 +415,13 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
     setPanels(nextPanels);
     setImages(nextImages);
     if (templateMode) return;
+    if (!effectiveDesignOnly && tournamentId) {
+      // Disposition propre à CE tournoi (n'affecte pas les autres tournois
+      // ni la disposition par défaut du club).
+      const layout = { ...nextPanels, images: nextImages };
+      const { error } = await supabase.from("tournaments").update({ clock_layout: layout }).eq("id", tournamentId);
+      if (!error) return;
+    }
     const nextTheme = { ...theme, layout: { ...nextPanels, images: nextImages } };
     setTheme(nextTheme);
     const { data: existing } = await supabase.from("club_settings").select("id").limit(1).maybeSingle();
@@ -439,6 +537,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   const frontImages = images.filter((im) => im.layer === "front");
   const removedTypes = Object.keys(panels).filter((k) => panels[k].removed);
   const panelBorderColor = theme.panelBorderColor;
+  const snapTargets = useMemo(() => computeSnapTargets(panels), [panels]);
 
   const carouselTypes = ["structure", "eliminated", "headsup", "ranking", "winner"].filter(
     (t) => panels.carousel.style.included?.[t]
@@ -541,7 +640,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
       ))}
 
       {!panels.timer.removed && (
-        <Panel id="timer" layout={panels.timer} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Horloge" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor}>
+        <Panel id="timer" layout={panels.timer} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Horloge" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
           <div className="flex items-center justify-between text-felt-cream/50 mb-2 px-1" style={{ fontSize: `${panels.timer.style.indicatorFontSize || 11}px` }}>
             <span>⏱ {formatTime(elapsedSeconds)}</span>
             <span>☕ {hasUpcomingBreak ? formatTime(breakInSeconds) : "--:--"}</span>
@@ -568,7 +667,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
       )}
 
       {!panels.controls.removed && (
-        <Panel id="controls" layout={panels.controls} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Contrôles" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} showButtonOptions borderColor={panelBorderColor}>
+        <Panel id="controls" layout={panels.controls} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Contrôles" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} showButtonOptions borderColor={panelBorderColor} snapTargets={snapTargets}>
           {panels.controls.style.showTitle && (
             <div className="text-felt-cream/30 uppercase tracking-wide mb-1" style={titleStyle(panels.controls.style)}>
               {panels.controls.style.customTitle || "Contrôles"}
@@ -588,7 +687,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
       )}
 
       {!panels.blinds.removed && (
-        <Panel id="blinds" layout={panels.blinds} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Blinds" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor}>
+        <Panel id="blinds" layout={panels.blinds} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Blinds" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
           {panels.blinds.style.showTitle && <div className="text-felt-cream/30 uppercase tracking-wide mb-1" style={titleStyle(panels.blinds.style)}>{panels.blinds.style.customTitle || "Blinds"}</div>}
           {currentLevel && !currentLevel.isBreak ? (
             <div className="flex flex-col items-center">
@@ -604,7 +703,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
       )}
 
       {!panels.players.removed && (
-        <Panel id="players" layout={panels.players} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Joueurs" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor}>
+        <Panel id="players" layout={panels.players} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Joueurs" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
           {panels.players.style.showTitle && <div className="text-felt-cream/30 uppercase tracking-wide mb-1" style={titleStyle(panels.players.style)}>{panels.players.style.customTitle || "Joueurs"}</div>}
           <div style={textStyle(panels.players.style)}>
             {stillIn.length}/{registrations.length}
@@ -617,7 +716,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
       )}
 
       {!panels.next.removed && (
-        <Panel id="next" layout={panels.next} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Prochaine blind" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor}>
+        <Panel id="next" layout={panels.next} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Prochaine blind" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
           {panels.next.style.showTitle && <div className="text-felt-cream/30 uppercase tracking-wide mb-1" style={titleStyle(panels.next.style)}>{panels.next.style.customTitle || "Prochaine blind"}</div>}
           {nextLevel ? (
             <div style={textStyle(panels.next.style)}>
@@ -630,35 +729,35 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
       )}
 
       {!panels.ranking.removed && (
-        <Panel id="ranking" layout={panels.ranking} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Classement" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor}>
+        <Panel id="ranking" layout={panels.ranking} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Classement" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
           {panels.ranking.style.showTitle && <div className="text-felt-cream/30 uppercase tracking-wide mb-2" style={titleStyle(panels.ranking.style)}>{panels.ranking.style.customTitle || "Classement"}</div>}
           <RankingContent style={panels.ranking.style} eliminations={eliminations} textStyle={textStyle} />
         </Panel>
       )}
 
       {!panels.structure.removed && (
-        <Panel id="structure" layout={panels.structure} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Structure des blinds" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor}>
+        <Panel id="structure" layout={panels.structure} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Structure des blinds" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
           {panels.structure.style.showTitle && <div className="text-felt-cream/30 uppercase tracking-wide mb-2" style={titleStyle(panels.structure.style)}>{panels.structure.style.customTitle || "Structure des blinds"}</div>}
           <StructureContent style={panels.structure.style} levels={levels} levelIndex={levelIndex} />
         </Panel>
       )}
 
       {!panels.eliminated.removed && (
-        <Panel id="eliminated" layout={panels.eliminated} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Élimination" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor}>
+        <Panel id="eliminated" layout={panels.eliminated} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Élimination" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
           {panels.eliminated.style.showTitle && <div className="text-felt-cream/30 uppercase tracking-wide mb-2 text-center" style={titleStyle(panels.eliminated.style)}>{panels.eliminated.style.customTitle || "Élimination"}</div>}
           <EliminatedContent style={panels.eliminated.style} lastElimination={lastElimination} total={registrations.length} textStyle={textStyle} />
         </Panel>
       )}
 
       {!panels.headsup.removed && (
-        <Panel id="headsup" layout={panels.headsup} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Heads Up" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor}>
+        <Panel id="headsup" layout={panels.headsup} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Heads Up" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
           {panels.headsup.style.showTitle && <div className="text-felt-cream/30 uppercase tracking-wide mb-2 text-center" style={titleStyle(panels.headsup.style)}>{panels.headsup.style.customTitle || "Heads Up"}</div>}
           <HeadsupContent style={panels.headsup.style} stillIn={stillIn} textStyle={textStyle} />
         </Panel>
       )}
 
       {!panels.carousel.removed && (
-        <Panel id="carousel" layout={panels.carousel} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Carrousel" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} showCarouselOptions onToggleCarouselIncluded={toggleCarouselIncluded} borderColor={panelBorderColor}>
+        <Panel id="carousel" layout={panels.carousel} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Carrousel" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} showCarouselOptions onToggleCarouselIncluded={toggleCarouselIncluded} borderColor={panelBorderColor} snapTargets={snapTargets}>
           {panels.carousel.style.showTitle && (
             <div className="text-felt-cream/30 uppercase tracking-wide mb-2 text-center" style={titleStyle(panels.carousel.style)}>
               {panels.carousel.style.customTitle || (currentCarouselType ? CAROUSEL_LABELS[currentCarouselType] : "Carrousel")}
@@ -672,6 +771,33 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
             {currentCarouselType === "winner" && <WinnerContent style={panels.carousel.style} winner={winner} textStyle={textStyle} />}
             {!currentCarouselType && <div className="text-felt-cream/40 text-sm text-center">Rien à afficher pour l'instant</div>}
           </div>
+        </Panel>
+      )}
+
+      {!panels.sponsors.removed && (
+        <Panel id="sponsors" layout={panels.sponsors} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Sponsors" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} showSponsorOptions borderColor={panelBorderColor} snapTargets={snapTargets}>
+          {panels.sponsors.style.showTitle && (
+            <div className="text-felt-cream/30 uppercase tracking-wide mb-2 text-center" style={titleStyle(panels.sponsors.style)}>
+              {panels.sponsors.style.customTitle || "Sponsors"}
+            </div>
+          )}
+          <SponsorsContent style={panels.sponsors.style} sponsorIdx={sponsorIdx} />
+        </Panel>
+      )}
+
+      {!panels.announcements.removed && (
+        <Panel id="announcements" layout={panels.announcements} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Annonces" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
+          {panels.announcements.style.showTitle && (
+            <div className="text-felt-cream/30 uppercase tracking-wide mb-2 text-center flex items-center justify-center gap-2" style={titleStyle(panels.announcements.style)}>
+              {panels.announcements.style.customTitle || "Annonces"}
+              {canEdit && !editing && (
+                <button onClick={handleEditAnnouncement} className="text-felt-gold/70 hover:text-felt-gold" title="Modifier l'annonce">
+                  ✎
+                </button>
+              )}
+            </div>
+          )}
+          <AnnouncementsContent style={panels.announcements.style} announcement={announcement} textStyle={textStyle} />
         </Panel>
       )}
 
@@ -746,6 +872,34 @@ function WinnerContent({ style, winner, textStyle }) {
   );
 }
 
+function SponsorsContent({ style, sponsorIdx }) {
+  const images = style.sponsorImages || [];
+  if (images.length === 0) {
+    return (
+      <div className="text-felt-cream/30 text-sm text-center h-full flex items-center justify-center">
+        Ajoute des logos sponsors via l'icône 🎨 en mode édition.
+      </div>
+    );
+  }
+  const current = images[sponsorIdx % images.length];
+  return (
+    <div key={sponsorIdx % images.length} className="w-full h-full flex items-center justify-center" style={{ animation: "pcp-fade 400ms ease" }}>
+      <img src={current} alt="" className="max-w-full max-h-full object-contain" />
+    </div>
+  );
+}
+
+function AnnouncementsContent({ style, announcement, textStyle }) {
+  if (!announcement?.trim()) {
+    return <div className="text-felt-cream/30 text-sm text-center">Aucune annonce pour le moment.</div>;
+  }
+  return (
+    <div className="w-full h-full flex items-center justify-center text-center break-words" style={textStyle(style)}>
+      {announcement}
+    </div>
+  );
+}
+
 function StructureContent({ style, levels, levelIndex }) {
   const visible = levels.slice(levelIndex, levelIndex + 5);
   return (
@@ -770,9 +924,10 @@ function StructureContent({ style, levels, levelIndex }) {
   );
 }
 
-function useDragResize(id, layout, editing, containerRef, onMove, onCommit, onResize, extraSkip) {
+function useDragResize(id, layout, editing, containerRef, onMove, onCommit, onResize, extraSkip, snapTargets) {
   const dragState = useRef(null);
   const resizeState = useRef(null);
+  const snap = snapTargets || { xs: [], ys: [] };
 
   function handlePointerDown(e) {
     if (!editing) return;
@@ -788,7 +943,11 @@ function useDragResize(id, layout, editing, containerRef, onMove, onCommit, onRe
     const d = dragState.current;
     const dxPct = ((e.clientX - d.startX) / d.rectW) * 100;
     const dyPct = ((e.clientY - d.startY) / d.rectH) * 100;
-    onMove(id, clamp(d.origX + dxPct, -20, 100), clamp(d.origY + dyPct, -20, 100));
+    let x = clamp(d.origX + dxPct, -20, 100);
+    let y = clamp(d.origY + dyPct, -20, 100);
+    x = snapSegment(x, layout.w, snap.xs);
+    y = snapSegment(y, layout.h, snap.ys);
+    onMove(id, x, y);
   }
   function handlePointerUp(e) {
     if (!dragState.current) return;
@@ -807,32 +966,38 @@ function useDragResize(id, layout, editing, containerRef, onMove, onCommit, onRe
     resizeState.current = { startX: e.clientX, startY: e.clientY, origW: layout.w, origH: layout.h, rectW: rect.width, rectH: rect.height };
     e.currentTarget.setPointerCapture(e.pointerId);
   }
-  function handleResizePointerMove(e) {
-    if (!resizeState.current) return;
+  function computeCornerResize(e) {
     const d = resizeState.current;
     const dwPct = ((e.clientX - d.startX) / d.rectW) * 100;
     const dhPct = ((e.clientY - d.startY) / d.rectH) * 100;
-    onResize(id, clamp(d.origW + dwPct, 8, 100), clamp(d.origH + dhPct, 6, 100), true);
+    let w = clamp(d.origW + dwPct, 8, 100);
+    let h = clamp(d.origH + dhPct, 6, 100);
+    const snappedRight = snapValue(layout.x + w, snap.xs);
+    if (snappedRight !== layout.x + w) w = snappedRight - layout.x;
+    const snappedBottom = snapValue(layout.y + h, snap.ys);
+    if (snappedBottom !== layout.y + h) h = snappedBottom - layout.y;
+    return { w, h };
+  }
+  function handleResizePointerMove(e) {
+    if (!resizeState.current) return;
+    const { w, h } = computeCornerResize(e);
+    onResize(id, w, h, true);
   }
   function handleResizePointerUp(e) {
     if (!resizeState.current) return;
-    const d = resizeState.current;
-    const dwPct = ((e.clientX - d.startX) / d.rectW) * 100;
-    const dhPct = ((e.clientY - d.startY) / d.rectH) * 100;
-    const finalW = clamp(d.origW + dwPct, 8, 100);
-    const finalH = clamp(d.origH + dhPct, 6, 100);
+    const { w, h } = computeCornerResize(e);
     resizeState.current = null;
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch {
       /* ignore */
     }
-    onResize(id, finalW, finalH, false);
+    onResize(id, w, h, false);
   }
 
   // Redimensionnement depuis un bord précis (n/s/e/w) : ajuste x/y en plus
   // de w/h selon le bord tiré, pour un contrôle plus fin qu'avec le seul
-  // coin bas-droit.
+  // coin bas-droit. S'aimante lui aussi sur les bords des autres panneaux.
   const edgeState = useRef(null);
   function makeEdgeHandlers(edge, onEdgeResize) {
     function down(e) {
@@ -856,17 +1021,31 @@ function useDragResize(id, layout, editing, containerRef, onMove, onCommit, onRe
       const dxPct = ((e.clientX - d.startX) / d.rectW) * 100;
       const dyPct = ((e.clientY - d.startY) / d.rectH) * 100;
       let { origX: x, origY: y, origW: w, origH: h } = d;
-      if (edge === "e") w = clamp(w + dxPct, 8, 100);
+      if (edge === "e") {
+        w = clamp(w + dxPct, 8, 100);
+        const snapped = snapValue(x + w, snap.xs);
+        if (snapped !== x + w) w = snapped - x;
+      }
       if (edge === "w") {
         const newW = clamp(w - dxPct, 8, 100);
-        x = x + (w - newW);
-        w = newW;
+        let newX = x + (w - newW);
+        const snapped = snapValue(newX, snap.xs);
+        if (snapped !== newX) newX = snapped;
+        w = x + w - newX;
+        x = newX;
       }
-      if (edge === "s") h = clamp(h + dyPct, 6, 100);
+      if (edge === "s") {
+        h = clamp(h + dyPct, 6, 100);
+        const snapped = snapValue(y + h, snap.ys);
+        if (snapped !== y + h) h = snapped - y;
+      }
       if (edge === "n") {
         const newH = clamp(h - dyPct, 6, 100);
-        y = y + (h - newH);
-        h = newH;
+        let newY = y + (h - newH);
+        const snapped = snapValue(newY, snap.ys);
+        if (snapped !== newY) newY = snapped;
+        h = y + h - newY;
+        y = newY;
       }
       return { x, y, w, h };
     }
@@ -899,9 +1078,9 @@ function useDragResize(id, layout, editing, containerRef, onMove, onCommit, onRe
   };
 }
 
-function Panel({ id, layout, editing, containerRef, onMove, onCommit, onResize, onEdgeResize, onRemovePanel, defaultTitle, children, stylingId, setStylingId, onStyleChange, showButtonOptions, showCarouselOptions, onToggleCarouselIncluded, borderColor }) {
+function Panel({ id, layout, editing, containerRef, onMove, onCommit, onResize, onEdgeResize, onRemovePanel, defaultTitle, children, stylingId, setStylingId, onStyleChange, showButtonOptions, showCarouselOptions, onToggleCarouselIncluded, showSponsorOptions, borderColor, snapTargets }) {
   const isStyling = stylingId === id;
-  const h = useDragResize(id, layout, editing, containerRef, onMove, onCommit, onResize);
+  const h = useDragResize(id, layout, editing, containerRef, onMove, onCommit, onResize, undefined, snapTargets);
   const noDefaultBg = layout.style.transparent || layout.style.bgColor;
   const bgStyle = layout.style.transparent ? { backgroundColor: "transparent" } : layout.style.bgColor ? { backgroundColor: layout.style.bgColor } : {};
   const borderStyle = !editing && borderColor ? { borderColor } : {};
@@ -983,6 +1162,7 @@ function Panel({ id, layout, editing, containerRef, onMove, onCommit, onResize, 
           showButtonOptions={showButtonOptions}
           showCarouselOptions={showCarouselOptions}
           onToggleCarouselIncluded={onToggleCarouselIncluded}
+          showSponsorOptions={showSponsorOptions}
           onChange={(patch) => onStyleChange(id, patch)}
           onClose={() => setStylingId(null)}
         />
@@ -1052,7 +1232,7 @@ function ImagePanel({ img, editing, containerRef, zIndex, onMove, onCommit, onRe
   );
 }
 
-function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOptions, onToggleCarouselIncluded, onChange, onClose }) {
+function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOptions, onToggleCarouselIncluded, showSponsorOptions, onChange, onClose }) {
   return (
     <div
       data-style-popover="1"
@@ -1182,6 +1362,57 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
               <input type="checkbox" checked={style.included?.[key] !== false} onChange={() => onToggleCarouselIncluded(key)} />
             </label>
           ))}
+        </>
+      )}
+      {showSponsorOptions && (
+        <>
+          <div className="border-t border-felt-cream/10 my-2 pt-2 text-felt-cream/50">Logos sponsors</div>
+          <label className="flex items-center justify-between mb-2">
+            Intervalle (s)
+            <input type="number" value={style.intervalSeconds || 6} onChange={(e) => onChange({ intervalSeconds: Number(e.target.value) || 4 })} className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-1 py-0.5 text-felt-cream" />
+          </label>
+          <label className="block mb-2 cursor-pointer text-felt-gold hover:text-felt-gold/80">
+            + Ajouter des logos
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                const files = Array.from(e.target.files || []);
+                if (files.length === 0) return;
+                Promise.all(
+                  files.map(
+                    (file) =>
+                      new Promise((resolve) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result);
+                        reader.readAsDataURL(file);
+                      })
+                  )
+                ).then((dataUrls) => {
+                  onChange({ sponsorImages: [...(style.sponsorImages || []), ...dataUrls] });
+                });
+                e.target.value = "";
+              }}
+            />
+          </label>
+          {(style.sponsorImages || []).length > 0 && (
+            <div className="space-y-1 max-h-40 overflow-y-auto">
+              {(style.sponsorImages || []).map((img, i) => (
+                <div key={i} className="flex items-center gap-2 bg-felt-panel rounded px-2 py-1">
+                  <img src={img} alt="" className="w-8 h-8 object-contain" />
+                  <span className="flex-1 text-felt-cream/50 truncate">Logo {i + 1}</span>
+                  <button
+                    onClick={() => onChange({ sponsorImages: (style.sponsorImages || []).filter((_, idx) => idx !== i) })}
+                    className="text-felt-alert/60 hover:text-felt-alert"
+                  >
+                    🗑
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </>
       )}
     </div>

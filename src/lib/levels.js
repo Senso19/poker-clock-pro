@@ -117,21 +117,22 @@ export async function saveStructureConfig(tournamentId, config) {
 }
 
 const CHIP_LADDER = [
-  25, 50, 75, 100, 150, 200, 250, 300, 400, 500, 600, 800, 1000, 1200, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000,
-  10000, 12000, 15000, 16000, 20000, 25000, 30000, 40000, 50000, 60000, 80000, 100000,
+  25, 50, 75, 100, 125, 150, 175, 200, 250, 300, 350, 400, 500, 600, 700, 800, 1000, 1200, 1500, 1800, 2000, 2500,
+  3000, 4000, 5000, 6000, 8000, 10000, 12000, 15000, 20000, 25000, 30000, 40000, 50000, 60000, 80000, 100000, 125000,
+  150000, 200000, 250000, 300000, 400000, 500000,
 ];
 
-function nearestLadderValue(val) {
-  let best = CHIP_LADDER[0];
+function nearestLadderIndex(val) {
+  let bestIdx = 0;
   let bestDiff = Infinity;
-  for (const v of CHIP_LADDER) {
-    const diff = Math.abs(v - val);
+  for (let i = 0; i < CHIP_LADDER.length; i++) {
+    const diff = Math.abs(CHIP_LADDER[i] - val);
     if (diff < bestDiff) {
       bestDiff = diff;
-      best = v;
+      bestIdx = i;
     }
   }
-  return best;
+  return bestIdx;
 }
 
 const AUTO_FIELD_KEYS = [
@@ -209,6 +210,10 @@ export function recomputeAutoFields(config) {
 
 // Génère une structure de blinds complète à partir de la config (utilise
 // les valeurs effectives des champs, qu'ils soient auto ou manuels).
+// Avance sur l'échelle de jetons par INDEX (jamais par valeur arrondie) afin
+// que chaque niveau soit strictement supérieur au précédent — deux niveaux
+// consécutifs ne peuvent donc jamais se retrouver identiques, même quand la
+// progression géométrique brute retombe sur le même palier arrondi.
 export function generateBlindLevels(config) {
   const startingSmallBlind = Number(config.fields?.startingSmallBlind?.value) || 25;
   const minutesPerLevel = Number(config.fields?.minutesPerLevel?.value) || 20;
@@ -217,13 +222,22 @@ export function generateBlindLevels(config) {
   const anteType = config.anteType || "bb";
 
   const numberOfLevels = Math.max(6, Math.round((durationHours * 60) / (minutesPerLevel || 20)));
-  const growth = Math.pow(50, 1 / Math.max(1, numberOfLevels - 1));
+  const startIdx = nearestLadderIndex(startingSmallBlind);
+  // Vise une multiplication d'environ x120 sur toute la structure (repère
+  // usuel pour une structure de tournoi), sans jamais dépasser l'échelle.
+  const spanTarget = Math.round(numberOfLevels * 1.8);
+  const endIdx = Math.min(CHIP_LADDER.length - 1, startIdx + Math.max(spanTarget, numberOfLevels));
 
   const levels = [];
+  let idx = startIdx;
   for (let i = 0; i < numberOfLevels; i++) {
-    const targetSb = startingSmallBlind * Math.pow(growth, i);
-    let sb = nearestLadderValue(targetSb);
-    if (i > 0 && sb < levels[i - 1].smallBlind) sb = levels[i - 1].smallBlind;
+    const frac = numberOfLevels > 1 ? i / (numberOfLevels - 1) : 0;
+    let targetIdx = Math.round(startIdx + frac * (endIdx - startIdx));
+    if (i > 0 && targetIdx <= idx) targetIdx = idx + 1;
+    targetIdx = Math.min(targetIdx, CHIP_LADDER.length - 1);
+    idx = targetIdx;
+
+    const sb = CHIP_LADDER[idx];
     const bb = sb * 2;
     let ante = 0;
     if (antesEnabled && i > 0) {

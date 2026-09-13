@@ -44,3 +44,11 @@ export async function applyClockTemplateAsActive(layout) {
     : await supabase.from("club_settings").insert(payload);
   if (error) throw error;
 }
+
+// Applique un modèle d'horloge à UN tournoi précis (tournaments.clock_layout),
+// sans toucher à la disposition par défaut du club. C'est la disposition
+// que EditableClock utilise en priorité pour ce tournoi.
+export async function applyClockTemplateToTournament(tournamentId, layout) {
+  const { error } = await supabase.from("tournaments").update({ clock_layout: layout }).eq("id", tournamentId);
+  if (error) throw error;
+}

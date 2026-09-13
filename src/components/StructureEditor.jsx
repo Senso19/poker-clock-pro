@@ -232,7 +232,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
           {/* Colonne gauche — Paramètres */}
-          <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-5 space-y-3">
+          <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-6 space-y-4">
             <DriverField label="Joueurs Anticipés">
               <input
                 type="number"
@@ -293,7 +293,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
               />
             </DriverField>
 
-            <div className="border-t border-felt-cream/10 my-2" />
+            <div className="border-t border-felt-cream/10 my-1" />
 
             <AutoField label="Petite blind initiale" fieldKey="startingSmallBlind" config={config} setFieldMode={setFieldMode} setFieldValue={setFieldValue} />
             <AutoField label="Tapis de départ" fieldKey="startingStack" config={config} setFieldMode={setFieldMode} setFieldValue={setFieldValue} />
@@ -307,8 +307,8 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
           </div>
 
           {/* Colonne droite — Structure */}
-          <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-5">
-            <div className="flex flex-wrap items-center justify-end gap-2 mb-3">
+          <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-6">
+            <div className="flex flex-wrap items-center justify-end gap-2 mb-5">
               <button onClick={addBreak} className="text-xs px-3 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display">
                 Ajouter pause
               </button>
@@ -353,15 +353,15 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm border-separate" style={{ borderSpacing: "0 4px" }}>
                 <thead>
-                  <tr className="text-xs uppercase tracking-wide text-felt-cream/40 border-b border-felt-cream/10">
-                    <th className="text-left py-2 pr-2 w-8">#</th>
-                    <th className="text-left py-2 pr-2">Temps</th>
-                    <th className="text-right py-2 pr-2">SB</th>
-                    <th className="text-right py-2 pr-2">BB</th>
-                    <th className="text-right py-2 pr-2">Ante BB</th>
-                    <th className="w-20"></th>
+                  <tr className="text-xs uppercase tracking-wide text-felt-cream/40">
+                    <th className="text-left py-2 pl-3 pr-2 w-10">#</th>
+                    <th className="text-left py-2 pr-3">Temps</th>
+                    <th className="text-right py-2 pr-3">SB</th>
+                    <th className="text-right py-2 pr-3">BB</th>
+                    <th className="text-right py-2 pr-3">Ante BB</th>
+                    <th className="w-24"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -372,22 +372,22 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                     const m = rowStart % 60;
                     const elapsed = `${h}:${String(m).padStart(2, "0")}`;
                     return (
-                      <tr key={i} className="border-b border-felt-cream/5">
-                        <td className="py-1.5 pr-2 text-felt-gold/70">{i + 1}</td>
+                      <tr key={i} className={level.isBreak ? "bg-felt-bg/40" : "bg-felt-bg/70"}>
+                        <td className="py-2.5 pl-3 pr-2 text-felt-gold/70 rounded-l-md">{i + 1}</td>
                         {level.isBreak ? (
                           <>
-                            <td className="py-1.5 pr-2">
+                            <td className="py-2.5 pr-3">
                               <div className="flex items-center gap-1.5">
                                 <input
                                   type="number"
                                   value={level.durationMinutes}
                                   onChange={(e) => updateLevel(i, "durationMinutes", e.target.value)}
-                                  className="w-14 bg-felt-bg border border-felt-cream/10 rounded px-1.5 py-1 text-xs text-felt-cream"
+                                  className="w-14 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-xs text-felt-cream"
                                 />
                                 <span className="text-felt-cream/30 text-xs">({elapsed})</span>
                               </div>
                             </td>
-                            <td colSpan={3} className="py-1.5 pr-2">
+                            <td colSpan={3} className="py-2.5 pr-3">
                               <input
                                 value={level.breakLabel || ""}
                                 onChange={(e) => updateLevel(i, "breakLabel", e.target.value)}
@@ -398,18 +398,18 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                           </>
                         ) : (
                           <>
-                            <td className="py-1.5 pr-2">
+                            <td className="py-2.5 pr-3">
                               <div className="flex items-center gap-1.5">
                                 <input
                                   type="number"
                                   value={level.durationMinutes}
                                   onChange={(e) => updateLevel(i, "durationMinutes", e.target.value)}
-                                  className="w-14 bg-felt-bg border border-felt-cream/10 rounded px-1.5 py-1 text-xs text-felt-cream"
+                                  className="w-14 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-xs text-felt-cream"
                                 />
                                 <span className="text-felt-cream/30 text-xs">({elapsed})</span>
                               </div>
                             </td>
-                            <td className="py-1.5 pr-2 text-right">
+                            <td className="py-2.5 pr-3 text-right">
                               <input
                                 type="number"
                                 value={level.smallBlind}
@@ -417,25 +417,25 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                                 className="w-20 bg-felt-bg border border-felt-cream/10 rounded px-1.5 py-1 text-xs text-felt-cream text-right"
                               />
                             </td>
-                            <td className="py-1.5 pr-2 text-right">
+                            <td className="py-2.5 pr-3 text-right">
                               <input
                                 type="number"
                                 value={level.bigBlind}
                                 onChange={(e) => updateLevel(i, "bigBlind", e.target.value)}
-                                className="w-20 bg-felt-bg border border-felt-cream/10 rounded px-1.5 py-1 text-xs text-felt-cream text-right"
+                                className="w-20 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-xs text-felt-cream text-right"
                               />
                             </td>
-                            <td className="py-1.5 pr-2 text-right">
+                            <td className="py-2.5 pr-3 text-right">
                               <input
                                 type="number"
                                 value={level.ante}
                                 onChange={(e) => updateLevel(i, "ante", e.target.value)}
-                                className="w-20 bg-felt-bg border border-felt-cream/10 rounded px-1.5 py-1 text-xs text-felt-cream text-right"
+                                className="w-20 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-xs text-felt-cream text-right"
                               />
                             </td>
                           </>
                         )}
-                        <td className="py-1.5 pl-2">
+                        <td className="py-2.5 pl-2 pr-3 rounded-r-md">
                           <div className="flex gap-1 justify-end">
                             <IconButton onClick={() => moveLevel(i, -1)}>▲</IconButton>
                             <IconButton onClick={() => moveLevel(i, 1)}>▼</IconButton>

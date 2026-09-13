@@ -154,6 +154,21 @@ export async function setChatSettings(maxLength, cooldownSeconds) {
   if (error) throw error;
 }
 
+// Message live diffusé sur le panneau "Annonces" de l'horloge (texte libre,
+// modifiable par l'admin/TD/floor depuis le panneau lui-même).
+export async function setLiveAnnouncement(text) {
+  const { data: existing } = await supabase.from("club_settings").select("id").limit(1).maybeSingle();
+  const payload = {
+    club_name: "19PokerClub",
+    live_announcement: text || null,
+    live_announcement_updated_at: new Date().toISOString(),
+  };
+  const { error } = existing
+    ? await supabase.from("club_settings").update(payload).eq("id", existing.id)
+    : await supabase.from("club_settings").insert(payload);
+  if (error) throw error;
+}
+
 export async function updateOwnProfile(id, { pseudo, firstName, lastName, email, avatarData }) {
   const payload = {
     pseudo,

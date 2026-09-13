@@ -5,7 +5,7 @@ import { useAccount } from "../context/AccountContext.jsx";
 import { canManageTournaments } from "../lib/auth.js";
 import { fetchChampionships } from "../lib/points.js";
 import { fetchStructureTemplates, saveLevels, saveStructureConfig } from "../lib/levels.js";
-import { fetchClockTemplates, applyClockTemplateAsActive } from "../lib/clockTemplates.js";
+import { fetchClockTemplates, applyClockTemplateToTournament } from "../lib/clockTemplates.js";
 
 const MAX_PER_TABLE = 9;
 
@@ -151,7 +151,7 @@ export default function TournamentsGrid({ onOpen }) {
       }
       const clockTemplate = clockTemplates.find((t) => t.id === form.clockTemplateId);
       if (clockTemplate) {
-        await applyClockTemplateAsActive(clockTemplate.layout);
+        await applyClockTemplateToTournament(created.id, clockTemplate.layout);
       }
 
       setShowCreateForm(false);
