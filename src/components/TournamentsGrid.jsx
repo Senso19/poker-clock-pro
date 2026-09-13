@@ -358,44 +358,42 @@ function TournamentCard({ t, badge, count, already, manage, busy, menuOpen, onOp
   return (
     <div
       onClick={onOpen}
-      className="relative bg-felt-panel border border-felt-cream/10 rounded-lg p-2.5 flex flex-col hover:border-felt-cream/20 transition-colors cursor-pointer"
+      className="relative bg-felt-panel border border-felt-cream/10 rounded-xl p-4 flex flex-col hover:border-felt-cream/20 transition-colors cursor-pointer"
     >
-      <div className="flex items-start justify-between gap-2 mb-1">
-        <div
-          style={{ fontSize: "var(--pcp-card-text-size, inherit)", color: "var(--pcp-card-text-color, white)" }}
-          className="font-display text-sm leading-tight truncate"
-        >
-          {t.name}
-        </div>
+      <div
+        style={{ fontSize: "var(--pcp-card-text-size, inherit)", color: "var(--pcp-card-text-color, white)" }}
+        className="font-display text-base leading-tight mb-1 truncate"
+      >
+        {t.name}
       </div>
-      <div className="flex items-center gap-1.5 mb-2">
-        <div className="text-[11px] text-felt-cream/40 truncate">
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="text-xs text-felt-cream/40 truncate">
           {t.scheduled_at
             ? new Date(t.scheduled_at).toLocaleString("fr-FR")
             : new Date(t.created_at).toLocaleDateString("fr-FR")}
         </div>
-        <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full shrink-0 ${badge.cls}`}>
+        <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full shrink-0 ${badge.cls}`}>
           {badge.dot && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
           {badge.label}
         </span>
       </div>
       <div
         style={{ fontSize: "var(--pcp-card-text-size, inherit)", color: "var(--pcp-card-text-color, white)" }}
-        className="flex items-center gap-1 text-sm font-display mb-2"
+        className="flex items-center justify-center gap-2 text-xl font-display py-3 mb-3"
       >
-        <span className="text-xs">👥</span>
+        <span className="text-base opacity-70">👥</span>
         <span>{count}</span>
       </div>
       {t.championships?.name && (
-        <div className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-felt-gold/10 text-felt-gold mb-2 w-fit max-w-full truncate">
+        <div className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border border-felt-gold/40 text-felt-gold mb-3 w-fit max-w-full truncate">
           📊 {t.championships.name}
           {t.stage_label ? ` — ${t.stage_label}` : ""}
         </div>
       )}
-      <div className="mt-auto flex items-center gap-1.5 pt-1">
+      <div className="mt-auto flex items-center gap-2 pt-1">
         <button
           onClick={onOpen}
-          className="text-xs px-2.5 py-1 rounded-md font-display text-felt-cream/80 border border-felt-cream/15 hover:text-white hover:border-felt-cream/30"
+          className="text-sm px-4 py-2 rounded-full font-display text-felt-cream/80 border border-felt-cream/20 hover:text-white hover:border-felt-cream/40"
         >
           Ouvrir
         </button>
@@ -406,9 +404,9 @@ function TournamentCard({ t, badge, count, already, manage, busy, menuOpen, onOp
               e.stopPropagation();
               onToggleRegister();
             }}
-            className={`text-xs px-2.5 py-1 rounded-md font-display ${
+            className={`text-sm px-4 py-2 rounded-full font-display ${
               already
-                ? "bg-felt-bg text-felt-cream/60 border border-felt-cream/15"
+                ? "bg-felt-bg text-white border border-felt-cream/30"
                 : "bg-felt-gold text-felt-bg hover:bg-felt-gold/90"
             }`}
           >
