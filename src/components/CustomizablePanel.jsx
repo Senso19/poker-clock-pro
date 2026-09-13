@@ -89,6 +89,7 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
         "--pcp-card-text-size": style.cardTextSize ? `${style.cardTextSize}px` : undefined,
         "--pcp-card-text-color": style.cardTextColor || undefined,
         gridTemplateColumns: style.cardWidth ? `repeat(auto-fill, minmax(${style.cardWidth}px, 1fr))` : undefined,
+        gridAutoRows: style.cardHeight ? `${style.cardHeight}px` : undefined,
       }}
       className={`relative ${dragOver ? "ring-2 ring-felt-gold" : ""} ${className || ""}`}
     >
@@ -193,6 +194,16 @@ function PanelStyleEditor({ style, onChange, onClose }) {
         />
       </label>
       <label className="flex items-center justify-between mb-2">
+        Hauteur d'une carte (px)
+        <input
+          type="number"
+          value={style.cardHeight || ""}
+          placeholder="auto"
+          onChange={(e) => onChange({ cardHeight: Number(e.target.value) || null })}
+          className="w-20 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
+        />
+      </label>
+      <label className="flex items-center justify-between mb-2">
         Taille du texte (px)
         <input
           type="number"
@@ -220,6 +231,7 @@ function PanelStyleEditor({ style, onChange, onClose }) {
             cellBgColor: null,
             cellTextColor: null,
             cardWidth: null,
+            cardHeight: null,
             cardTextSize: null,
             cardTextColor: null,
             order: null,
