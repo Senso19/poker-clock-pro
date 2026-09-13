@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase.js";
 import { fetchAllTournaments, deleteTournament } from "../lib/tournaments.js";
 import { useAccount } from "../context/AccountContext.jsx";
-import { canManageTournaments } from "../lib/auth.js";
+import { canManageTournaments, canParticipate } from "../lib/auth.js";
 import { fetchChampionships } from "../lib/points.js";
 import { fetchStructureTemplates, saveLevels, saveStructureConfig } from "../lib/levels.js";
 import { fetchClockTemplates, applyClockTemplateToTournament } from "../lib/clockTemplates.js";
@@ -75,6 +75,10 @@ export default function TournamentsGrid({ onOpen }) {
   }
 
   async function handleToggleRegister(t) {
+    if (!myRegs.has(t.id) && !canParticipate(account)) {
+      setError("Votre compte doit d'abord être validé par un administrateur avant de pouvoir vous inscrire à un tournoi.");
+      return;
+    }
     setBusyId(t.id);
     setError(null);
     try {

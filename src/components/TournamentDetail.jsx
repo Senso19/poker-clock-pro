@@ -3,7 +3,7 @@ import { supabase } from "../lib/supabase.js";
 import { importPlayersFromFile, exportResultsToExcel } from "./SheetsSync.jsx";
 import { computeTournamentPoints, fetchChampionships } from "../lib/points.js";
 import { selectTournament } from "../lib/tournaments.js";
-import { fetchAllAccounts, assignTableCaptain, fetchTableCaptainAssignments } from "../lib/auth.js";
+import { fetchAllAccounts, assignTableCaptain, fetchTableCaptainAssignments, canParticipate } from "../lib/auth.js";
 import TicketPrint from "./TicketPrint.jsx";
 import SeatPickerModal from "./SeatPickerModal.jsx";
 import RegisterPlayerModal from "./RegisterPlayerModal.jsx";
@@ -787,7 +787,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
       {showRegister && (
         <RegisterPlayerModal
           registeredCount={registrations.length}
-          members={captainAccounts}
+          members={captainAccounts.filter(canParticipate)}
           registeredMemberIds={new Set(registrations.filter((r) => r.account_id).map((r) => r.account_id))}
           onRegisterExisting={async (a) => {
             await handleRegisterExisting(a);

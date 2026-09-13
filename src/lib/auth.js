@@ -55,7 +55,10 @@ export async function signup({ firstName, lastName, pseudo, email, password, ava
       password,
       avatar_data: avatarData || null,
       role: isFirstAccount ? "admin" : "player",
-      validated: true,
+      // Le tout premier compte (admin fondateur) est validé d'office ; tous
+      // les suivants attendent la validation d'un admin/TD avant de pouvoir
+      // s'inscrire à un tournoi (voir canParticipate).
+      validated: isFirstAccount,
     })
     .select()
     .single();
@@ -89,6 +92,34 @@ export async function fetchAllAccounts() {
   return data || [];
 }
 
+// Comptes en attente de validation (nouvelles inscriptions) : un admin/TD
+// doit les valider avant que le joueur puisse s'inscrire à un tournoi.
+export async function fetchPendingAccounts() {
+  const { data, error } = await supabase
+    .from("accounts")
+    .select("*")
+    .eq("validated", false)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function approveAccount(id) {
+  const { error } = await supabase.from("accounts").update({ validated: true }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function rejectAccount(id) {
+  const { error } = await supabase.from("accounts").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// Un compte peut se connecter et consulter l'app dès sa création, mais ne
+// peut s'inscrire à un tournoi (lui-même ou via un TD) qu'une fois validé.
+export function canParticipate(account) {
+  return account?.validated !== false;
+}
+
 export async function updateAccountRole(id, role) {
   const { error } = await supabase.from("accounts").update({ role }).eq("id", id);
   if (error) throw error;
@@ -97,6 +128,30 @@ export async function updateAccountRole(id, role) {
 export async function deleteAccount(id) {
   const { error } = await supabase.from("accounts").delete().eq("id", id);
   if (error) throw error;
+}
+
+// Création d'un compte directement par l'admin (depuis "Gérer les
+// membres") : validé d'office, contrairement à une inscription publique.
+export async function adminCreateAccount({ pseudo, firstName, lastName, email, password, role, avatarData }) {
+  const { data, error } = await supabase
+    .from("accounts")
+    .insert({
+      pseudo,
+      first_name: firstName,
+      last_name: lastName,
+      email: email || null,
+      password,
+      role: role || "player",
+      avatar_data: avatarData || null,
+      validated: true,
+    })
+    .select()
+    .single();
+  if (error) {
+    if (error.message?.includes("duplicate")) throw new Error("Ce pseudo est déjà pris.");
+    throw error;
+  }
+  return data;
 }
 
 export async function assignTableCaptain(tournamentId, tableNumber, accountId) {
@@ -229,4 +284,51 @@ export function canControlClock(role) {
 
 export function canEliminateAnyone(role) {
   return role === "admin" || role === "tournament_director" || role === "floor";
+}
+
+// Fusionne un compte "doublon" (mergeId) dans le compte à conserver
+// (keepId) : toutes ses inscriptions, ses messages de chat et son rôle de
+// chef de table sont réattribués au compte conservé (y compris son
+// historique de points en championnat, puisqu'il repose sur le player_id
+// des inscriptions). Le compte doublon est ensuite supprimé. Utile quand un
+// joueur a perdu ses identifiants et recréé un compte.
+export async function mergeAccounts(keepId, mergeId) {
+  if (keepId === mergeId) throw new Error("Impossible de fusionner un compte avec lui-même.");
+
+  const { data: keepAccount, error: keepErr } = await supabase.from("accounts").select("*").eq("id", keepId).single();
+  if (keepErr) throw keepErr;
+  const { data: mergeAccount, error: mergeErr } = await supabase.from("accounts").select("*").eq("id", mergeId).single();
+  if (mergeErr) throw mergeErr;
+
+  let { data: keepPlayer } = await supabase
+    .from("players")
+    .select("id")
+    .ilike("full_name", keepAccount.pseudo)
+    .maybeSingle();
+  if (!keepPlayer) {
+    const { data: created, error: createErr } = await supabase
+      .from("players")
+      .insert({ full_name: keepAccount.pseudo, email: keepAccount.email })
+      .select()
+      .single();
+    if (createErr) throw createErr;
+    keepPlayer = created;
+  }
+
+  const { error: regErr } = await supabase
+    .from("registrations")
+    .update({ account_id: keepId, player_id: keepPlayer.id })
+    .eq("account_id", mergeId);
+  if (regErr) throw regErr;
+
+  const { data: oldPlayer } = await supabase.from("players").select("id").ilike("full_name", mergeAccount.pseudo).maybeSingle();
+  if (oldPlayer && oldPlayer.id !== keepPlayer.id) {
+    await supabase.from("registrations").update({ player_id: keepPlayer.id }).eq("player_id", oldPlayer.id);
+  }
+
+  await supabase.from("chat_messages").update({ account_id: keepId }).eq("account_id", mergeId);
+  await supabase.from("table_captain_assignments").update({ account_id: keepId }).eq("account_id", mergeId);
+
+  const { error: delErr } = await supabase.from("accounts").delete().eq("id", mergeId);
+  if (delErr) throw delErr;
 }

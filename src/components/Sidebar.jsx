@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronUp, ChevronDown, Minus, User, LogOut } from "lucide-react";
+import { ChevronUp, ChevronDown, Minus, User, LogOut, Bell } from "lucide-react";
 import { supabase } from "../lib/supabase.js";
 import { useAccount } from "../context/AccountContext.jsx";
 import { useTheme } from "../context/ThemeContext.jsx";
 import { useEditMode } from "../context/EditModeContext.jsx";
-import { canManageTournaments, canManageAccounts, ROLE_LABELS, fetchClubSettings } from "../lib/auth.js";
+import { canManageTournaments, canManageAccounts, ROLE_LABELS, fetchClubSettings, fetchPendingAccounts } from "../lib/auth.js";
 import ProfileModal from "./ProfileModal.jsx";
 import ContactAdminModal from "./ContactAdminModal.jsx";
+import PendingAccountsModal from "./PendingAccountsModal.jsx";
 import ChatPanel from "./ChatPanel.jsx";
 
 const COLLAPSE_KEY = "pcp_sidebar_collapsed";
@@ -45,6 +46,8 @@ export default function Sidebar({ tab, setTab }) {
   const isStaffOnly = account.role === "floor" || account.role === "table_captain";
   const [showProfile, setShowProfile] = useState(false);
   const [showContact, setShowContact] = useState(false);
+  const [showPending, setShowPending] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
   const [clubCode, setClubCode] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(() => {
@@ -69,6 +72,21 @@ export default function Sidebar({ tab, setTab }) {
       .then((s) => setClubCode(s?.registration_code || ""))
       .catch(() => {});
   }, []);
+
+  function refreshPendingCount() {
+    if (!manage) return;
+    fetchPendingAccounts()
+      .then((list) => setPendingCount(list.length))
+      .catch(() => {});
+  }
+
+  useEffect(() => {
+    if (!manage) return;
+    refreshPendingCount();
+    const t = setInterval(refreshPendingCount, 20000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [manage]);
 
   useEffect(() => {
     try {
@@ -124,7 +142,7 @@ export default function Sidebar({ tab, setTab }) {
 
   // --- Mode personnalisation de la barre latérale ------------------------
   const sidebarCfg = theme.sidebarConfig || {};
-  const order = [...(sidebarCfg.order || DEFAULT_ORDER).filter((k) => ITEM_DEFS[k])];
+  const order = [...(sidebarCfg.order || DEFAULT_ORDER).filter((k) => ITEM_DEFS[k] || k.startsWith("space-"))];
   DEFAULT_ORDER.forEach((k) => {
     if (!order.includes(k)) order.push(k);
   });
@@ -333,10 +351,24 @@ export default function Sidebar({ tab, setTab }) {
             ♠
           </div>
         )}
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="font-display text-base text-white tracking-wide truncate">19PokerClub</div>
           {clubCode && <div className="text-[11px] text-felt-cream/40">ID · {clubCode}</div>}
         </div>
+        {manage && (
+          <button
+            onClick={() => setShowPending(true)}
+            title="Inscriptions en attente"
+            className="relative text-felt-cream/60 hover:text-white shrink-0"
+          >
+            <Bell size={18} />
+            {pendingCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 bg-felt-alert text-white text-[10px] leading-none rounded-full w-4 h-4 flex items-center justify-center">
+                {pendingCount > 9 ? "9+" : pendingCount}
+              </span>
+            )}
+          </button>
+        )}
       </div>
     );
   }
@@ -451,6 +483,9 @@ export default function Sidebar({ tab, setTab }) {
 
       {showProfile && <ProfileModal onClose={() => setShowProfile(false)} />}
       {showContact && <ContactAdminModal onClose={() => setShowContact(false)} />}
+      {showPending && (
+        <PendingAccountsModal onClose={() => setShowPending(false)} onChanged={refreshPendingCount} />
+      )}
     </>
   );
 }
