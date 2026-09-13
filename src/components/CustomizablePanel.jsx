@@ -78,6 +78,8 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
       onDrop={handleDrop}
       style={{
         flex: flexBasis,
+        width: style.width || undefined,
+        maxWidth: style.width || undefined,
         order,
         minWidth: 0,
         backgroundColor: style.bgColor || theme.panelBgColor || undefined,

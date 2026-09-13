@@ -11,6 +11,7 @@ import {
   ROLE_LABELS,
 } from "../lib/auth.js";
 import AvatarCropper from "./AvatarCropper.jsx";
+import CustomizablePanel from "./CustomizablePanel.jsx";
 
 /**
  * AccountsAdmin — gestion des membres façon BlindValet : recherche, tri,
@@ -141,9 +142,13 @@ export default function AccountsAdmin() {
 
       {error && <div className="text-felt-alert text-sm mb-3">{error}</div>}
 
-      <div className="divide-y divide-felt-cream/5 border-t border-felt-cream/5">
+      <CustomizablePanel panelKey="members-list" defaultWidth="1 1 100%" className="divide-y divide-felt-cream/5 border-t border-felt-cream/5">
         {filtered.map((a) => (
-          <div key={a.id} className="flex items-center gap-4 py-3">
+          <div
+            key={a.id}
+            style={{ backgroundColor: "var(--pcp-cell-bg)", color: "var(--pcp-cell-text)" }}
+            className="flex items-center gap-4 py-3"
+          >
             {a.avatar_data ? (
               <img src={a.avatar_data} alt="" className="w-11 h-11 rounded-full object-cover shrink-0" />
             ) : (
@@ -184,7 +189,7 @@ export default function AccountsAdmin() {
           </div>
         ))}
         {filtered.length === 0 && <div className="text-sm text-felt-cream/50 py-6">Aucun membre ne correspond.</div>}
-      </div>
+      </CustomizablePanel>
 
       {editingAccount && (
         <EditAccountModal

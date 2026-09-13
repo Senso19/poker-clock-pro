@@ -10,6 +10,7 @@ import {
 import { useAccount } from "../context/AccountContext.jsx";
 import { canManageTournaments } from "../lib/auth.js";
 import ChampionshipDetailPage from "./ChampionshipDetailPage.jsx";
+import CustomizablePanel from "./CustomizablePanel.jsx";
 
 const VARIABLES = [
   ["p", "nombre de joueurs"],
@@ -173,7 +174,11 @@ export default function ChampionshipView() {
       {active.length > 0 && (
         <div className="mb-8">
           <div className="text-xs font-display uppercase tracking-widest text-felt-cream/40 mb-3">Actif</div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          <CustomizablePanel
+            panelKey="championships-active"
+            defaultWidth="1 1 100%"
+            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3"
+          >
             {active.map((s) => (
               <ActiveChampionshipCard
                 key={s.championship.id}
@@ -182,14 +187,18 @@ export default function ChampionshipView() {
                 onClick={() => toggleSelect(s.championship.id)}
               />
             ))}
-          </div>
+          </CustomizablePanel>
         </div>
       )}
 
       {finished.length > 0 && (
         <div className="mb-8">
           <div className="text-xs font-display uppercase tracking-widest text-felt-cream/40 mb-3">Terminé</div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          <CustomizablePanel
+            panelKey="championships-finished"
+            defaultWidth="1 1 100%"
+            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3"
+          >
             {finished.map((s) => (
               <FinishedChampionshipCard
                 key={s.championship.id}
@@ -198,7 +207,7 @@ export default function ChampionshipView() {
                 onClick={() => toggleSelect(s.championship.id)}
               />
             ))}
-          </div>
+          </CustomizablePanel>
         </div>
       )}
     </div>

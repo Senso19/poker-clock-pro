@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase.js";
 import { fetchCurrentTournament } from "../lib/tournaments.js";
 import { fetchMyTables } from "../lib/auth.js";
 import { useAccount } from "../context/AccountContext.jsx";
+import CustomizablePanel from "./CustomizablePanel.jsx";
 
 /**
  * EliminationView — vue restreinte pour Floor (toutes les tables) et Chef de
@@ -84,10 +85,13 @@ export default function EliminationView() {
           : "Floor — toutes les tables"}
       </div>
 
-      <div className="space-y-2">
+      <CustomizablePanel panelKey="elimination-list" defaultWidth="1 1 100%" className="space-y-2">
         {visible.map((reg) => (
           <div key={reg.id}>
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md px-4 py-2 border border-felt-cream/10 bg-felt-panel">
+            <div
+              style={{ backgroundColor: "var(--pcp-cell-bg, #1B2027)", color: "var(--pcp-cell-text)" }}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-md px-4 py-2 border border-felt-cream/10"
+            >
               <div>
                 <span className="font-medium">{reg.players?.full_name}</span>
                 <span className="text-felt-cream/40 text-sm ml-2">
@@ -113,7 +117,7 @@ export default function EliminationView() {
         {visible.length === 0 && (
           <div className="text-felt-cream/50 text-sm">Aucun joueur à afficher.</div>
         )}
-      </div>
+      </CustomizablePanel>
     </div>
   );
 }

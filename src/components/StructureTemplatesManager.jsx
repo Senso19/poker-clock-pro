@@ -4,6 +4,7 @@ import { fetchClockTemplates, deleteClockTemplate, applyClockTemplateToTournamen
 import { fetchAllTournaments } from "../lib/tournaments.js";
 import StructureEditor from "./StructureEditor.jsx";
 import ClockTemplateEditor from "./ClockTemplateEditor.jsx";
+import CustomizablePanel from "./CustomizablePanel.jsx";
 
 /**
  * StructureTemplatesManager — "Gérer les modèles" : point unique de
@@ -184,7 +185,11 @@ export default function StructureTemplatesManager() {
       {structTemplates.length === 0 ? (
         <div className="text-felt-cream/50 text-sm mb-8">Aucun modèle de structure enregistré pour le moment.</div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+        <CustomizablePanel
+          panelKey="structure-templates-grid"
+          defaultWidth="1 1 100%"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8"
+        >
           {structTemplates.map((t) => (
             <div key={t.id} className="bg-felt-panel border border-felt-cream/10 rounded-lg p-4">
               <div className="flex items-start justify-between mb-3">
@@ -218,7 +223,7 @@ export default function StructureTemplatesManager() {
               </div>
             </div>
           ))}
-        </div>
+        </CustomizablePanel>
       )}
 
       <div className="flex items-baseline justify-between mb-3">
@@ -234,7 +239,11 @@ export default function StructureTemplatesManager() {
       {clockTemplates.length === 0 ? (
         <div className="text-felt-cream/50 text-sm">Aucun modèle d'horloge enregistré pour le moment.</div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <CustomizablePanel
+          panelKey="clock-templates-grid"
+          defaultWidth="1 1 100%"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+        >
           {clockTemplates.map((t) => (
             <div key={t.id} className="bg-felt-panel border border-felt-cream/10 rounded-lg p-4">
               <div className="flex items-start justify-between mb-3">
@@ -263,7 +272,7 @@ export default function StructureTemplatesManager() {
               </div>
             </div>
           ))}
-        </div>
+        </CustomizablePanel>
       )}
 
       {applyingStructTemplate && (

@@ -7,6 +7,7 @@ import { fetchChampionships } from "../lib/points.js";
 import { fetchStructureTemplates, saveLevels, saveStructureConfig } from "../lib/levels.js";
 import { fetchClockTemplates, applyClockTemplateToTournament } from "../lib/clockTemplates.js";
 import { logEvent } from "../lib/events.js";
+import CustomizablePanel from "./CustomizablePanel.jsx";
 
 const MAX_PER_TABLE = 9;
 
@@ -232,7 +233,11 @@ export default function TournamentsGrid({ onOpen }) {
           <div className="text-xs font-display uppercase tracking-widest text-felt-cream/40 mb-3">
             Actifs aujourd'hui
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+          <CustomizablePanel
+            panelKey="tournaments-active"
+            defaultWidth="1 1 100%"
+            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3"
+          >
             {activeToday.map((t) => (
               <TournamentCard
                 key={t.id}
@@ -249,7 +254,7 @@ export default function TournamentsGrid({ onOpen }) {
                 onDelete={() => handleDelete(t)}
               />
             ))}
-          </div>
+          </CustomizablePanel>
         </div>
       )}
 
@@ -303,7 +308,11 @@ export default function TournamentsGrid({ onOpen }) {
       {listed.length === 0 ? (
         <div className="text-felt-cream/50 text-sm">Aucun tournoi ne correspond.</div>
       ) : view === "grid" ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+        <CustomizablePanel
+          panelKey="tournaments-list-grid"
+          defaultWidth="1 1 100%"
+          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3"
+        >
           {listed.map((t) => (
             <TournamentCard
               key={t.id}
@@ -320,9 +329,9 @@ export default function TournamentsGrid({ onOpen }) {
               onDelete={() => handleDelete(t)}
             />
           ))}
-        </div>
+        </CustomizablePanel>
       ) : (
-        <div className="space-y-2">
+        <CustomizablePanel panelKey="tournaments-list-rows" defaultWidth="1 1 100%" className="space-y-2">
           {listed.map((t) => (
             <TournamentRow
               key={t.id}
@@ -339,7 +348,7 @@ export default function TournamentsGrid({ onOpen }) {
               onDelete={() => handleDelete(t)}
             />
           ))}
-        </div>
+        </CustomizablePanel>
       )}
     </div>
   );
