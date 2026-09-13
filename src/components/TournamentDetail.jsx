@@ -414,7 +414,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
 
   return (
     <div className="h-full overflow-y-auto font-body text-felt-cream">
-      <div className="max-w-6xl mx-auto p-4 sm:p-6">
+      <div className="max-w-[92rem] mx-auto p-4 sm:p-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
         {/* Colonne gauche : paramètres du tournoi */}
         <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-7" style={panelStyle}>
@@ -537,7 +537,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
 
           {error && <div className="text-felt-alert text-sm mb-3">Erreur : {error}</div>}
 
-          <div className="grid grid-cols-[40px_1fr_80px_28px] sm:grid-cols-[56px_1fr_100px_36px] gap-3 px-3 pb-3 mb-2 border-b border-felt-cream/10 text-xs uppercase tracking-wide text-felt-cream/40">
+          <div className="grid grid-cols-[48px_1fr_90px_32px] sm:grid-cols-[72px_1fr_140px_44px] gap-3 px-4 pb-4 mb-3 border-b border-felt-cream/10 text-sm uppercase tracking-wide text-felt-cream/50">
             <div>Place</div>
             <div>Nom ({registrations.length})</div>
             <div>Tapis</div>
@@ -553,24 +553,24 @@ export default function TournamentDetail({ tournamentId, onBack }) {
             return (
               <div key={reg.id} className="relative">
                 <div
-                  className={`grid grid-cols-[40px_1fr_80px_28px] sm:grid-cols-[56px_1fr_100px_36px] gap-3 items-center px-3 py-4 mb-2 rounded-md bg-felt-bg/50 ${
+                  className={`grid grid-cols-[48px_1fr_90px_32px] sm:grid-cols-[72px_1fr_140px_44px] gap-3 items-center px-4 py-5 mb-2.5 rounded-md bg-felt-bg/50 ${
                     isOut ? "opacity-40" : ""
                   }`}
                 >
-                  <div className="text-felt-gold font-display">{showTable ? reg.table_number : ""}</div>
-                  <div className="flex items-center gap-2 min-w-0">
+                  <div className="text-felt-gold font-display text-lg">{showTable ? reg.table_number : ""}</div>
+                  <div className="flex items-center gap-3 min-w-0">
                     {reg.accounts?.avatar_data ? (
-                      <img src={reg.accounts.avatar_data} alt="" className="w-9 h-9 rounded-full object-cover shrink-0" />
+                      <img src={reg.accounts.avatar_data} alt="" className="w-12 h-12 rounded-full object-cover shrink-0" />
                     ) : (
-                      <div className="w-9 h-9 rounded-full bg-felt-bg flex items-center justify-center text-felt-cream/40 font-display text-sm shrink-0">
+                      <div className="w-12 h-12 rounded-full bg-felt-bg flex items-center justify-center text-felt-cream/40 font-display text-base shrink-0">
                         {reg.players?.full_name?.[0]?.toUpperCase()}
                       </div>
                     )}
                     <div className="min-w-0">
-                      <div className={`font-medium truncate ${isOut ? "text-felt-cream/40" : "text-felt-gold"}`}>
+                      <div className={`font-medium text-lg truncate ${isOut ? "text-felt-cream/40" : "text-felt-gold"}`}>
                         {reg.players?.full_name}
                       </div>
-                      <div className="text-[11px] text-felt-cream/30 truncate">
+                      <div className="text-sm text-felt-cream/40 truncate">
                         Siège {reg.seat_number}
                         {reg.rebuys > 0 && ` · ${reg.rebuys} rebuy(s)`}
                         {reg.addons > 0 && ` · ${reg.addons} addon(s)`}
@@ -587,17 +587,17 @@ export default function TournamentDetail({ tournamentId, onBack }) {
                         onChange={(e) => setStackDraft(e.target.value)}
                         onBlur={() => commitStack(reg)}
                         onKeyDown={(e) => e.key === "Enter" && commitStack(reg)}
-                        className="w-20 bg-felt-bg border border-felt-gold/40 rounded px-2 py-1 text-sm text-felt-cream"
+                        className="w-24 bg-felt-bg border border-felt-gold/40 rounded px-2 py-1.5 text-base text-felt-cream"
                       />
                     ) : (
-                      <button onClick={() => startEditStack(reg)} className="text-felt-cream underline decoration-felt-cream/30 text-sm">
+                      <button onClick={() => startEditStack(reg)} className="text-felt-cream underline decoration-felt-cream/30 text-base">
                         {(reg.stack ?? 0).toLocaleString()}
                       </button>
                     )}
                   </div>
                   <button
                     onClick={() => setOpenMenuId(openMenuId === reg.id ? null : reg.id)}
-                    className="text-felt-cream/50 hover:text-felt-cream text-lg leading-none"
+                    className="text-felt-cream/50 hover:text-felt-cream text-xl leading-none"
                   >
                     ⋮
                   </button>
@@ -740,14 +740,14 @@ function SettingField({ label, value, onChange }) {
   useEffect(() => setLocal(value ?? 0), [value]);
   return (
     <div>
-      <label className="block text-xs text-felt-cream/50 mb-1">{label}</label>
+      <label className="block text-base text-felt-cream/70 mb-1.5">{label}</label>
       <input
         type="number"
         value={local}
         onChange={(e) => setLocal(e.target.value)}
         onBlur={() => onChange(local)}
         onKeyDown={(e) => e.key === "Enter" && e.target.blur()}
-        className="w-full bg-felt-panel border border-felt-cream/10 rounded-md px-3 py-2 text-sm text-felt-cream"
+        className="w-full bg-felt-panel border border-felt-cream/10 rounded-md px-4 py-2.5 text-base text-felt-cream"
       />
     </div>
   );

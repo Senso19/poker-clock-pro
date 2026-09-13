@@ -204,7 +204,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
 
   return (
     <div className="p-4 sm:p-6 font-body text-felt-cream h-full overflow-y-auto">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-[92rem] mx-auto">
         <div className="flex flex-wrap items-baseline justify-between gap-3 mb-5">
           {mode === "template" ? (
             <input
@@ -241,7 +241,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                 type="number"
                 value={config.expectedPlayers}
                 onChange={(e) => updateDriver({ expectedPlayers: Number(e.target.value) || 0 })}
-                className="flex-1 bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-1.5 text-sm text-felt-cream"
+                className="flex-1 bg-felt-bg border border-felt-cream/10 rounded-md px-4 py-2.5 text-base text-felt-cream"
               />
             </DriverField>
             <DriverField label="Durée prévue(h)">
@@ -249,14 +249,14 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                 type="number"
                 value={config.durationHours}
                 onChange={(e) => updateDriver({ durationHours: Number(e.target.value) || 0 })}
-                className="flex-1 bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-1.5 text-sm text-felt-cream"
+                className="flex-1 bg-felt-bg border border-felt-cream/10 rounded-md px-4 py-2.5 text-base text-felt-cream"
               />
             </DriverField>
             <DriverField label="Type de tournoi">
               <select
                 value={config.tournamentType}
                 onChange={(e) => updateDriver({ tournamentType: e.target.value })}
-                className="flex-1 bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-1.5 text-sm text-felt-cream"
+                className="flex-1 bg-felt-bg border border-felt-cream/10 rounded-md px-4 py-2.5 text-base text-felt-cream"
               >
                 <option value="freezeout">Freezeout</option>
                 <option value="rebuy">Rebuy + Addon</option>
@@ -274,7 +274,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                 <select
                   value={config.anteType}
                   onChange={(e) => updateDriver({ anteType: e.target.value })}
-                  className="flex-1 bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-1.5 text-sm text-felt-cream"
+                  className="flex-1 bg-felt-bg border border-felt-cream/10 rounded-md px-4 py-2.5 text-base text-felt-cream"
                 >
                   <option value="bb">Ante de la grosse blind</option>
                   <option value="sb">Ante de la petite blind</option>
@@ -356,15 +356,15 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-sm border-separate" style={{ borderSpacing: "0 4px" }}>
+              <table className="w-full text-base border-separate" style={{ borderSpacing: "0 6px" }}>
                 <thead>
                   <tr className="text-xs uppercase tracking-wide text-felt-cream/40">
-                    <th className="text-left py-2 pl-3 pr-2 w-10">#</th>
-                    <th className="text-left py-2 pr-3">Temps</th>
-                    <th className="text-right py-2 pr-3">SB</th>
-                    <th className="text-right py-2 pr-3">BB</th>
-                    <th className="text-right py-2 pr-3">Ante BB</th>
-                    <th className="w-24"></th>
+                    <th className="text-left py-3 pl-4 pr-2 w-12 text-sm">#</th>
+                    <th className="text-left py-3 pr-3 text-sm">Temps</th>
+                    <th className="text-right py-3 pr-3 text-sm">SB</th>
+                    <th className="text-right py-3 pr-3 text-sm">BB</th>
+                    <th className="text-right py-3 pr-3 text-sm">Ante BB</th>
+                    <th className="w-28"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -376,70 +376,70 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                     const elapsed = `${h}:${String(m).padStart(2, "0")}`;
                     return (
                       <tr key={i} className={level.isBreak ? "bg-felt-bg/40" : "bg-felt-bg/70"}>
-                        <td className="py-2.5 pl-3 pr-2 text-felt-gold/70 rounded-l-md">{i + 1}</td>
+                        <td className="py-4 pl-4 pr-2 text-felt-gold/70 rounded-l-md text-lg font-display">{i + 1}</td>
                         {level.isBreak ? (
                           <>
-                            <td className="py-2.5 pr-3">
-                              <div className="flex items-center gap-1.5">
+                            <td className="py-4 pr-3">
+                              <div className="flex items-center gap-2">
                                 <input
                                   type="number"
                                   value={level.durationMinutes}
                                   onChange={(e) => updateLevel(i, "durationMinutes", e.target.value)}
-                                  className="w-14 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-xs text-felt-cream"
+                                  className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-2 py-1.5 text-sm text-felt-cream"
                                 />
-                                <span className="text-felt-cream/30 text-xs">({elapsed})</span>
+                                <span className="text-felt-cream/30 text-sm">({elapsed})</span>
                               </div>
                             </td>
-                            <td colSpan={3} className="py-2.5 pr-3">
+                            <td colSpan={3} className="py-4 pr-3">
                               <input
                                 value={level.breakLabel || ""}
                                 onChange={(e) => updateLevel(i, "breakLabel", e.target.value)}
                                 placeholder="Libellé de la pause"
-                                className="w-full bg-felt-bg border border-felt-cream/10 rounded px-2 py-1 text-xs text-felt-cream"
+                                className="w-full bg-felt-bg border border-felt-cream/10 rounded px-3 py-1.5 text-sm text-felt-cream"
                               />
                             </td>
                           </>
                         ) : (
                           <>
-                            <td className="py-2.5 pr-3">
-                              <div className="flex items-center gap-1.5">
+                            <td className="py-4 pr-3">
+                              <div className="flex items-center gap-2">
                                 <input
                                   type="number"
                                   value={level.durationMinutes}
                                   onChange={(e) => updateLevel(i, "durationMinutes", e.target.value)}
-                                  className="w-14 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-xs text-felt-cream"
+                                  className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-2 py-1.5 text-sm text-felt-cream"
                                 />
-                                <span className="text-felt-cream/30 text-xs">({elapsed})</span>
+                                <span className="text-felt-cream/30 text-sm">({elapsed})</span>
                               </div>
                             </td>
-                            <td className="py-2.5 pr-3 text-right">
+                            <td className="py-4 pr-3 text-right">
                               <input
                                 type="number"
                                 value={level.smallBlind}
                                 onChange={(e) => updateLevel(i, "smallBlind", e.target.value)}
-                                className="w-20 bg-felt-bg border border-felt-cream/10 rounded px-1.5 py-1 text-xs text-felt-cream text-right"
+                                className="w-24 bg-felt-bg border border-felt-cream/10 rounded px-2 py-1.5 text-sm text-felt-cream text-right font-medium"
                               />
                             </td>
-                            <td className="py-2.5 pr-3 text-right">
+                            <td className="py-4 pr-3 text-right">
                               <input
                                 type="number"
                                 value={level.bigBlind}
                                 onChange={(e) => updateLevel(i, "bigBlind", e.target.value)}
-                                className="w-20 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-xs text-felt-cream text-right"
+                                className="w-24 bg-felt-panel border border-felt-cream/10 rounded px-2 py-1.5 text-sm text-felt-cream text-right font-medium"
                               />
                             </td>
-                            <td className="py-2.5 pr-3 text-right">
+                            <td className="py-4 pr-3 text-right">
                               <input
                                 type="number"
                                 value={level.ante}
                                 onChange={(e) => updateLevel(i, "ante", e.target.value)}
-                                className="w-20 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-xs text-felt-cream text-right"
+                                className="w-24 bg-felt-panel border border-felt-cream/10 rounded px-2 py-1.5 text-sm text-felt-cream text-right"
                               />
                             </td>
                           </>
                         )}
-                        <td className="py-2.5 pl-2 pr-3 rounded-r-md">
-                          <div className="flex gap-1 justify-end">
+                        <td className="py-4 pl-2 pr-4 rounded-r-md">
+                          <div className="flex gap-1.5 justify-end">
                             <IconButton onClick={() => moveLevel(i, -1)}>▲</IconButton>
                             <IconButton onClick={() => moveLevel(i, 1)}>▼</IconButton>
                             <IconButton alert onClick={() => removeLevel(i)}>✕</IconButton>
@@ -467,8 +467,8 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
 
 function DriverField({ label, children }) {
   return (
-    <div className="flex items-center gap-2">
-      <label className="w-48 shrink-0 text-sm text-felt-cream/60">{label}</label>
+    <div className="flex items-center gap-3">
+      <label className="w-56 shrink-0 text-base text-felt-cream/70">{label}</label>
       {children}
     </div>
   );
@@ -478,19 +478,19 @@ function AutoField({ label, fieldKey, config, setFieldMode, setFieldValue }) {
   const field = config.fields[fieldKey] || { mode: "auto", value: 0 };
   const isAuto = field.mode !== "manual";
   return (
-    <div className="flex items-center gap-2">
-      <label className="w-48 shrink-0 text-sm text-felt-cream/60">{label}</label>
+    <div className="flex items-center gap-3">
+      <label className="w-56 shrink-0 text-base text-felt-cream/70">{label}</label>
       <input
         type="number"
         value={field.value}
         disabled={isAuto}
         onChange={(e) => setFieldValue(fieldKey, Number(e.target.value) || 0)}
-        className="flex-1 bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-1.5 text-sm text-felt-cream disabled:opacity-60"
+        className="flex-1 bg-felt-bg border border-felt-cream/10 rounded-md px-4 py-2.5 text-base text-felt-cream disabled:opacity-60"
       />
       <button
         onClick={() => setFieldMode(fieldKey, "auto")}
         title="Calculer automatiquement"
-        className={`w-7 h-7 shrink-0 rounded flex items-center justify-center text-xs ${
+        className={`w-9 h-9 shrink-0 rounded flex items-center justify-center text-sm ${
           isAuto ? "bg-felt-gold text-felt-bg" : "bg-felt-bg text-felt-cream/40 hover:text-felt-cream border border-felt-cream/10"
         }`}
       >
@@ -499,7 +499,7 @@ function AutoField({ label, fieldKey, config, setFieldMode, setFieldValue }) {
       <button
         onClick={() => setFieldMode(fieldKey, "manual")}
         title="Saisie manuelle"
-        className={`w-7 h-7 shrink-0 rounded flex items-center justify-center text-xs ${
+        className={`w-9 h-9 shrink-0 rounded flex items-center justify-center text-sm ${
           !isAuto ? "bg-felt-gold text-felt-bg" : "bg-felt-bg text-felt-cream/40 hover:text-felt-cream border border-felt-cream/10"
         }`}
       >
@@ -513,7 +513,7 @@ function IconButton({ children, onClick, alert }) {
   return (
     <button
       onClick={onClick}
-      className={`w-6 h-6 rounded text-[10px] flex items-center justify-center ${
+      className={`w-8 h-8 rounded text-sm flex items-center justify-center ${
         alert
           ? "bg-felt-alert/20 text-felt-alert hover:bg-felt-alert/40"
           : "bg-felt-bg text-felt-cream/60 hover:text-felt-cream border border-felt-cream/10"

@@ -1081,7 +1081,11 @@ function Panel({ id, layout, editing, containerRef, onMove, onCommit, onResize, 
   const h = useDragResize(id, layout, editing, containerRef, onMove, onCommit, onResize, undefined, snapTargets);
   const noDefaultBg = layout.style.transparent || layout.style.bgColor;
   const bgStyle = layout.style.transparent ? { backgroundColor: "transparent" } : layout.style.bgColor ? { backgroundColor: layout.style.bgColor } : {};
-  const borderStyle = !editing && borderColor ? { borderColor } : {};
+  // Bordure : un panneau peut redéfinir la sienne (couleur propre ou "sans
+  // bordure") ; sinon il suit le réglage global de Paramètres du club.
+  const hasOverride = layout.style.borderOverride !== undefined && layout.style.borderOverride !== null;
+  const effectiveBorder = hasOverride ? layout.style.borderOverride : borderColor;
+  const borderStyle = !editing && effectiveBorder ? { borderColor: effectiveBorder } : {};
 
   return (
     <div
@@ -1089,7 +1093,7 @@ function Panel({ id, layout, editing, containerRef, onMove, onCommit, onResize, 
       onPointerMove={h.handlePointerMove}
       onPointerUp={h.handlePointerUp}
       style={{ position: "absolute", left: `${layout.x}%`, top: `${layout.y}%`, width: `${layout.w}%`, height: `${layout.h}%`, zIndex: 10, touchAction: "none", ...bgStyle, ...borderStyle }}
-      className={`rounded-md border p-3 ${!noDefaultBg ? "bg-felt-panel/95" : ""} ${editing ? "border-felt-gold cursor-move select-none" : (borderColor ? "" : "border-felt-cream/10")}`}
+      className={`rounded-md border p-3 ${!noDefaultBg ? "bg-felt-panel/95" : ""} ${editing ? "border-felt-gold cursor-move select-none" : (effectiveBorder ? "" : "border-felt-cream/10")}`}
     >
       {editing && (
         <div className="absolute top-1 right-1 flex gap-1 z-10">
@@ -1310,6 +1314,34 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
           Réinitialiser la couleur de fond
         </button>
       )}
+
+      <div className="border-t border-felt-cream/10 my-2 pt-2 text-felt-cream/50">Bordure de ce panneau</div>
+      <select
+        value={style.borderOverride == null ? "inherit" : style.borderOverride === "transparent" ? "none" : "custom"}
+        onChange={(e) => {
+          const v = e.target.value;
+          if (v === "inherit") onChange({ borderOverride: null });
+          else if (v === "none") onChange({ borderOverride: "transparent" });
+          else onChange({ borderOverride: style.borderOverride && style.borderOverride !== "transparent" ? style.borderOverride : "#3A3F47" });
+        }}
+        className="w-full mb-2 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream"
+      >
+        <option value="inherit">Réglage global (Paramètres du club)</option>
+        <option value="none">Sans bordure</option>
+        <option value="custom">Couleur personnalisée</option>
+      </select>
+      {style.borderOverride && style.borderOverride !== "transparent" && (
+        <label className="flex items-center justify-between mb-2">
+          Couleur
+          <input
+            type="color"
+            value={style.borderOverride}
+            onChange={(e) => onChange({ borderOverride: e.target.value })}
+            className="w-8 h-6 bg-transparent cursor-pointer"
+          />
+        </label>
+      )}
+
       {showButtonOptions && (
         <>
           <div className="border-t border-felt-cream/10 my-2 pt-2 text-felt-cream/50">Indicateurs (⏱/☕)</div>
