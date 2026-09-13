@@ -222,7 +222,12 @@ function ActiveChampionshipCard({ s, selected, onClick }) {
         selected ? "bg-felt-gold/10 border-felt-gold" : "bg-felt-panel border-felt-cream/10 hover:border-felt-cream/30"
       }`}
     >
-      <div className="font-display text-sm text-white mb-1.5 truncate">{s.championship.name}</div>
+      <div
+        style={{ fontSize: "var(--pcp-card-text-size, inherit)", color: "var(--pcp-card-text-color, white)" }}
+        className="font-display text-sm mb-1.5 truncate"
+      >
+        {s.championship.name}
+      </div>
       <div className="flex items-center gap-1.5 mb-2">
         <span className="text-[10px] px-1.5 py-0.5 rounded bg-felt-bg text-felt-cream/50">{s.playerCount} joueurs</span>
         <span className="text-[10px] px-1.5 py-0.5 rounded bg-felt-bg text-felt-cream/50">{s.stageCount} tournois</span>
@@ -263,7 +268,12 @@ function FinishedChampionshipCard({ s, selected, onClick }) {
         selected ? "bg-felt-gold/10 border-felt-gold" : "bg-felt-panel border-felt-cream/10 hover:border-felt-cream/30"
       }`}
     >
-      <div className="font-display text-sm text-white mb-1.5 truncate">{s.championship.name}</div>
+      <div
+        style={{ fontSize: "var(--pcp-card-text-size, inherit)", color: "var(--pcp-card-text-color, white)" }}
+        className="font-display text-sm mb-1.5 truncate"
+      >
+        {s.championship.name}
+      </div>
       <div className="flex items-center gap-1.5 mb-2">
         <span className="text-[10px] px-1.5 py-0.5 rounded bg-felt-bg text-felt-cream/50">{s.playerCount} joueurs</span>
         <span className="text-[10px] px-1.5 py-0.5 rounded bg-felt-bg text-felt-cream/50">{s.stageCount} tournois</span>

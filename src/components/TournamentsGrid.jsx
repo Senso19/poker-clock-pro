@@ -361,7 +361,12 @@ function TournamentCard({ t, badge, count, already, manage, busy, menuOpen, onOp
       className="relative bg-felt-panel border border-felt-cream/10 rounded-lg p-2.5 flex flex-col hover:border-felt-cream/20 transition-colors cursor-pointer"
     >
       <div className="flex items-start justify-between gap-2 mb-1">
-        <div className="font-display text-sm text-white leading-tight truncate">{t.name}</div>
+        <div
+          style={{ fontSize: "var(--pcp-card-text-size, inherit)", color: "var(--pcp-card-text-color, white)" }}
+          className="font-display text-sm leading-tight truncate"
+        >
+          {t.name}
+        </div>
       </div>
       <div className="flex items-center gap-1.5 mb-2">
         <div className="text-[11px] text-felt-cream/40 truncate">
@@ -374,7 +379,10 @@ function TournamentCard({ t, badge, count, already, manage, busy, menuOpen, onOp
           {badge.label}
         </span>
       </div>
-      <div className="flex items-center gap-1 text-sm font-display text-white mb-2">
+      <div
+        style={{ fontSize: "var(--pcp-card-text-size, inherit)", color: "var(--pcp-card-text-color, white)" }}
+        className="flex items-center gap-1 text-sm font-display mb-2"
+      >
         <span className="text-xs">👥</span>
         <span>{count}</span>
       </div>

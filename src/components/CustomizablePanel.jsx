@@ -86,6 +86,9 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
         color: style.textColor || undefined,
         "--pcp-cell-bg": style.cellBgColor || undefined,
         "--pcp-cell-text": style.cellTextColor || undefined,
+        "--pcp-card-text-size": style.cardTextSize ? `${style.cardTextSize}px` : undefined,
+        "--pcp-card-text-color": style.cardTextColor || undefined,
+        gridTemplateColumns: style.cardWidth ? `repeat(auto-fill, minmax(${style.cardWidth}px, 1fr))` : undefined,
       }}
       className={`relative ${dragOver ? "ring-2 ring-felt-gold" : ""} ${className || ""}`}
     >
@@ -176,8 +179,52 @@ function PanelStyleEditor({ style, onChange, onClose }) {
           className="w-8 h-6 bg-transparent cursor-pointer"
         />
       </label>
+      <div className="border-t border-felt-cream/10 my-2 pt-2 text-felt-cream/50">
+        Cartes individuelles (grilles uniquement)
+      </div>
+      <label className="flex items-center justify-between mb-2">
+        Largeur d'une carte (px)
+        <input
+          type="number"
+          value={style.cardWidth || ""}
+          placeholder="auto"
+          onChange={(e) => onChange({ cardWidth: Number(e.target.value) || null })}
+          className="w-20 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
+        />
+      </label>
+      <label className="flex items-center justify-between mb-2">
+        Taille du texte (px)
+        <input
+          type="number"
+          value={style.cardTextSize || ""}
+          placeholder="auto"
+          onChange={(e) => onChange({ cardTextSize: Number(e.target.value) || null })}
+          className="w-20 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
+        />
+      </label>
+      <label className="flex items-center justify-between mb-2">
+        Couleur du texte des cartes
+        <input
+          type="color"
+          value={style.cardTextColor || "#EDEAE3"}
+          onChange={(e) => onChange({ cardTextColor: e.target.value })}
+          className="w-8 h-6 bg-transparent cursor-pointer"
+        />
+      </label>
       <button
-        onClick={() => onChange({ width: null, bgColor: null, textColor: null, cellBgColor: null, cellTextColor: null, order: null })}
+        onClick={() =>
+          onChange({
+            width: null,
+            bgColor: null,
+            textColor: null,
+            cellBgColor: null,
+            cellTextColor: null,
+            cardWidth: null,
+            cardTextSize: null,
+            cardTextColor: null,
+            order: null,
+          })
+        }
         className="w-full text-center text-felt-cream/40 hover:text-felt-cream mt-1 py-1"
       >
         Réinitialiser ce tableau
