@@ -123,18 +123,22 @@ export async function fetchChampionshipStandings(championshipId) {
 
   const standings = new Map();
 
-  for (const stage of stages) {
-    const { data: registrations } = await supabase
-      .from("registrations")
-      .select("*, players(id, full_name)")
-      .eq("tournament_id", stage.id);
-    const { data: eliminations } = await supabase
-      .from("eliminations")
-      .select("*")
-      .eq("tournament_id", stage.id)
-      .eq("undone", false);
+  // Une requête par étape en parallèle (plutôt qu'en séquence) : avec des
+  // dizaines d'étapes dans un même championnat, l'ancienne boucle
+  // séquentielle devenait sensiblement plus lente à mesure que l'historique
+  // du club grandissait.
+  const stageData = await Promise.all(
+    stages.map(async (stage) => {
+      const [{ data: registrations }, { data: eliminations }] = await Promise.all([
+        supabase.from("registrations").select("*, players(id, full_name)").eq("tournament_id", stage.id),
+        supabase.from("eliminations").select("*").eq("tournament_id", stage.id).eq("undone", false),
+      ]);
+      return { stage, registrations: registrations || [], eliminations: eliminations || [] };
+    })
+  );
 
-    if (!registrations || registrations.length === 0) continue;
+  for (const { stage, registrations, eliminations } of stageData) {
+    if (registrations.length === 0) continue;
 
     const eliminatedIds = new Set(eliminations.map((e) => e.registration_id));
     const stillIn = registrations.filter((r) => !eliminatedIds.has(r.id));

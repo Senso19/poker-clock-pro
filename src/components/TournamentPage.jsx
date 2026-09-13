@@ -4,7 +4,9 @@ import { selectTournament } from "../lib/tournaments.js";
 import { fetchLevels, defaultStructure } from "../lib/levels.js";
 import { useAccount } from "../context/AccountContext.jsx";
 import { canManageTournaments, canControlClock } from "../lib/auth.js";
+import { useIsMobile } from "../lib/useIsMobile.js";
 import EditableClock from "./EditableClock.jsx";
+import MobileClockView from "./MobileClockView.jsx";
 import StructureEditor from "./StructureEditor.jsx";
 import TournamentDetail from "./TournamentDetail.jsx";
 import TournamentPublicView from "./TournamentPublicView.jsx";
@@ -26,6 +28,7 @@ const TABS = [
  */
 export default function TournamentPage({ tournamentId, onBack }) {
   const { account } = useAccount();
+  const isMobile = useIsMobile();
   const manage = canManageTournaments(account.role);
   const clockControl = canControlClock(account.role);
 
@@ -121,7 +124,7 @@ export default function TournamentPage({ tournamentId, onBack }) {
 
       <div className="flex-1 min-h-0 overflow-hidden relative">
         <div className={tab === "clock" ? "absolute inset-0" : "absolute inset-0 hidden"}>
-          <EditableClock levels={levels} canEdit={manage && clockControl} />
+          {isMobile ? <MobileClockView levels={levels} /> : <EditableClock levels={levels} canEdit={manage && clockControl} />}
         </div>
         {tab === "structure" &&
           (manage ? (
