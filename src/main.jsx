@@ -4,6 +4,7 @@ import App from "./App.jsx";
 import AuthScreen from "./components/AuthScreen.jsx";
 import { ThemeProvider } from "./context/ThemeContext.jsx";
 import { AccountProvider, useAccount } from "./context/AccountContext.jsx";
+import "./lib/installPrompt.js";
 import "./index.css";
 
 function Root() {
@@ -29,3 +30,11 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     </AccountProvider>
   </React.StrictMode>
 );
+
+// Service worker minimal, requis par Chrome/Android pour proposer
+// l'installation de l'app sur l'écran d'accueil.
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  });
+}

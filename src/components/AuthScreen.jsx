@@ -120,6 +120,11 @@ function SignupForm({ onSuccess }) {
         avatarData,
         code,
       });
+      try {
+        sessionStorage.setItem("pcp_just_signed_up", "1");
+      } catch {
+        /* ignore */
+      }
       onSuccess();
     } catch (e) {
       setError(e.message);

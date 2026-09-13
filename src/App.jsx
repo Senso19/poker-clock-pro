@@ -1,9 +1,12 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import Sidebar from "./components/Sidebar.jsx";
 import TournamentsGrid from "./components/TournamentsGrid.jsx";
+import InstallAppPrompt from "./components/InstallAppPrompt.jsx";
 import { useTheme } from "./context/ThemeContext.jsx";
 import { useAccount } from "./context/AccountContext.jsx";
 import { canManageTournaments, canManageAccounts } from "./lib/auth.js";
+import { useIsMobile } from "./lib/useIsMobile.js";
+import { isStandalone } from "./lib/installPrompt.js";
 
 // Chargés à la demande (import() dynamique) : ces écrans embarquent des
 // composants lourds (horloge éditable, structure des blinds, xlsx...) qui
@@ -36,6 +39,26 @@ export default function App() {
   const [tab, setTab] = useState(isStaffOnly ? "eliminate" : "tournaments");
   const [openTournamentId, setOpenTournamentId] = useState(null);
   const { theme } = useTheme();
+  const isMobile = useIsMobile();
+  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+
+  useEffect(() => {
+    let justSignedUp = false;
+    try {
+      justSignedUp = sessionStorage.getItem("pcp_just_signed_up") === "1";
+    } catch {
+      /* ignore */
+    }
+    if (justSignedUp && isMobile && !isStandalone()) {
+      setShowInstallPrompt(true);
+    }
+    try {
+      sessionStorage.removeItem("pcp_just_signed_up");
+    } catch {
+      /* ignore */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function goToTab(key) {
     setTab(key);
@@ -65,6 +88,7 @@ export default function App() {
           {tab === "settings" && manage && <LayoutSettings />}
         </Suspense>
       </div>
+      {showInstallPrompt && <InstallAppPrompt onClose={() => setShowInstallPrompt(false)} />}
     </div>
   );
 }
