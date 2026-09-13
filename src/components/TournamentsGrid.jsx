@@ -228,7 +228,7 @@ export default function TournamentsGrid({ onOpen }) {
           <div className="text-xs font-display uppercase tracking-widest text-felt-cream/40 mb-3">
             Actifs aujourd'hui
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {activeToday.map((t) => (
               <TournamentCard
                 key={t.id}
@@ -299,7 +299,7 @@ export default function TournamentsGrid({ onOpen }) {
       {listed.length === 0 ? (
         <div className="text-felt-cream/50 text-sm">Aucun tournoi ne correspond.</div>
       ) : view === "grid" ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
           {listed.map((t) => (
             <TournamentCard
               key={t.id}
@@ -343,7 +343,7 @@ export default function TournamentsGrid({ onOpen }) {
 
 function TournamentCard({ t, badge, count, already, manage, busy, menuOpen, onOpen, onToggleRegister, onToggleMenu, onDelete }) {
   return (
-    <div className="relative bg-felt-panel border border-felt-cream/10 rounded-xl p-4 flex flex-col hover:border-felt-cream/20 transition-colors">
+    <div className="relative bg-felt-panel border border-felt-cream/10 rounded-xl p-3 flex flex-col hover:border-felt-cream/20 transition-colors">
       <div className="flex items-start justify-between gap-2 mb-1">
         <div className="font-display text-base text-white">{t.name}</div>
       </div>

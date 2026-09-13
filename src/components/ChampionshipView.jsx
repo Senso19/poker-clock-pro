@@ -161,7 +161,7 @@ export default function ChampionshipView() {
       {active.length > 0 && (
         <div className="mb-8">
           <div className="text-xs font-display uppercase tracking-widest text-felt-cream/40 mb-3">Actif</div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {active.map((s) => (
               <ActiveChampionshipCard
                 key={s.championship.id}
@@ -177,7 +177,7 @@ export default function ChampionshipView() {
       {finished.length > 0 && (
         <div className="mb-8">
           <div className="text-xs font-display uppercase tracking-widest text-felt-cream/40 mb-3">Terminé</div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {finished.map((s) => (
               <FinishedChampionshipCard
                 key={s.championship.id}
@@ -236,7 +236,7 @@ function ActiveChampionshipCard({ s, selected, onClick }) {
   return (
     <button
       onClick={onClick}
-      className={`text-left rounded-xl p-4 border transition-colors ${
+      className={`text-left rounded-xl p-3 border transition-colors ${
         selected ? "bg-felt-gold/10 border-felt-gold" : "bg-felt-panel border-felt-cream/10 hover:border-felt-cream/30"
       }`}
     >
@@ -277,7 +277,7 @@ function FinishedChampionshipCard({ s, selected, onClick }) {
   return (
     <button
       onClick={onClick}
-      className={`text-left rounded-xl p-4 border transition-colors ${
+      className={`text-left rounded-xl p-3 border transition-colors ${
         selected ? "bg-felt-gold/10 border-felt-gold" : "bg-felt-panel border-felt-cream/10 hover:border-felt-cream/30"
       }`}
     >
