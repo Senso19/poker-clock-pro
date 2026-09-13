@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { signup, login } from "../lib/auth.js";
 import { useAccount } from "../context/AccountContext.jsx";
-import { compressImageFile } from "../lib/imageUtils.js";
+import AvatarCropper from "./AvatarCropper.jsx";
 
 /**
  * AuthScreen — connexion ou création de compte (avec code secret admin).
@@ -92,13 +92,15 @@ function SignupForm({ onSuccess }) {
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [avatarData, setAvatarData] = useState(null);
+  const [croppingFile, setCroppingFile] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
   function handleAvatarChange(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    compressImageFile(file, { maxSize: 320 }).then(setAvatarData);
+    setCroppingFile(file);
+    e.target.value = "";
   }
 
   async function handleSubmit() {
@@ -183,6 +185,16 @@ function SignupForm({ onSuccess }) {
       >
         {loading ? "Création…" : "Créer mon compte"}
       </button>
+      {croppingFile && (
+        <AvatarCropper
+          file={croppingFile}
+          onConfirm={(dataUrl) => {
+            setAvatarData(dataUrl);
+            setCroppingFile(null);
+          }}
+          onCancel={() => setCroppingFile(null)}
+        />
+      )}
     </div>
   );
 }

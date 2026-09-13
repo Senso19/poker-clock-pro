@@ -741,21 +741,21 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
       )}
 
       {!panels.eliminated.removed && (
-        <Panel id="eliminated" layout={panels.eliminated} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Élimination" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
+        <Panel id="eliminated" layout={panels.eliminated} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Élimination" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} showAvatarOptions borderColor={panelBorderColor} snapTargets={snapTargets}>
           {panels.eliminated.style.showTitle && <div className="text-felt-cream/30 uppercase tracking-wide mb-2 text-center" style={titleStyle(panels.eliminated.style)}>{panels.eliminated.style.customTitle || "Élimination"}</div>}
           <EliminatedContent style={panels.eliminated.style} lastElimination={lastElimination} total={registrations.length} textStyle={textStyle} />
         </Panel>
       )}
 
       {!panels.headsup.removed && (
-        <Panel id="headsup" layout={panels.headsup} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Heads Up" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
+        <Panel id="headsup" layout={panels.headsup} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Heads Up" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} showAvatarOptions borderColor={panelBorderColor} snapTargets={snapTargets}>
           {panels.headsup.style.showTitle && <div className="text-felt-cream/30 uppercase tracking-wide mb-2 text-center" style={titleStyle(panels.headsup.style)}>{panels.headsup.style.customTitle || "Heads Up"}</div>}
           <HeadsupContent style={panels.headsup.style} stillIn={stillIn} textStyle={textStyle} />
         </Panel>
       )}
 
       {!panels.carousel.removed && (
-        <Panel id="carousel" layout={panels.carousel} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Carrousel" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} showCarouselOptions onToggleCarouselIncluded={toggleCarouselIncluded} borderColor={panelBorderColor} snapTargets={snapTargets}>
+        <Panel id="carousel" layout={panels.carousel} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Carrousel" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} showCarouselOptions onToggleCarouselIncluded={toggleCarouselIncluded} showAvatarOptions borderColor={panelBorderColor} snapTargets={snapTargets}>
           {panels.carousel.style.showTitle && (
             <div className="text-felt-cream/30 uppercase tracking-wide mb-2 text-center" style={titleStyle(panels.carousel.style)}>
               {panels.carousel.style.customTitle || (currentCarouselType ? CAROUSEL_LABELS[currentCarouselType] : "Carrousel")}
@@ -823,7 +823,7 @@ function EliminatedContent({ style, lastElimination, total, textStyle }) {
   if (!lastElimination) return <div className="text-felt-cream/40 text-sm text-center">Aucune élimination</div>;
   return (
     <div className="flex flex-col items-center gap-1">
-      <Avatar data={lastElimination.registrations?.accounts?.avatar_data} name={lastElimination.registrations?.players?.full_name} size={88} />
+      <Avatar data={lastElimination.registrations?.accounts?.avatar_data} name={lastElimination.registrations?.players?.full_name} size={style.avatarSize || 88} />
       <div style={textStyle(style)}>{lastElimination.registrations?.players?.full_name}</div>
       <div className="text-felt-gold text-xs">{lastElimination.finish_position} / {total}</div>
     </div>
@@ -836,7 +836,7 @@ function HeadsupContent({ style, stillIn, textStyle }) {
     <div className="flex items-center justify-center gap-6">
       {stillIn.map((r) => (
         <div key={r.id} className="flex flex-col items-center gap-1">
-          <Avatar data={r.accounts?.avatar_data} name={r.players?.full_name} size={88} />
+          <Avatar data={r.accounts?.avatar_data} name={r.players?.full_name} size={style.avatarSize || 88} />
           <div style={textStyle(style)} className="text-center">{r.players?.full_name}</div>
         </div>
       ))}
@@ -863,7 +863,7 @@ function WinnerContent({ style, winner, textStyle }) {
   return (
     <div className="flex flex-col items-center gap-2">
       <div className="text-3xl">🏆</div>
-      <Avatar data={winner.accounts?.avatar_data} name={winner.players?.full_name} size={104} />
+      <Avatar data={winner.accounts?.avatar_data} name={winner.players?.full_name} size={style.avatarSize || 104} />
       <div style={textStyle(style)}>{winner.players?.full_name}</div>
       <div className="text-felt-gold text-xs">Vainqueur</div>
     </div>
@@ -1076,7 +1076,7 @@ function useDragResize(id, layout, editing, containerRef, onMove, onCommit, onRe
   };
 }
 
-function Panel({ id, layout, editing, containerRef, onMove, onCommit, onResize, onEdgeResize, onRemovePanel, defaultTitle, children, stylingId, setStylingId, onStyleChange, showButtonOptions, showCarouselOptions, onToggleCarouselIncluded, showSponsorOptions, borderColor, snapTargets }) {
+function Panel({ id, layout, editing, containerRef, onMove, onCommit, onResize, onEdgeResize, onRemovePanel, defaultTitle, children, stylingId, setStylingId, onStyleChange, showButtonOptions, showCarouselOptions, onToggleCarouselIncluded, showSponsorOptions, showAvatarOptions, borderColor, snapTargets }) {
   const isStyling = stylingId === id;
   const h = useDragResize(id, layout, editing, containerRef, onMove, onCommit, onResize, undefined, snapTargets);
   const noDefaultBg = layout.style.transparent || layout.style.bgColor;
@@ -1165,6 +1165,7 @@ function Panel({ id, layout, editing, containerRef, onMove, onCommit, onResize, 
           showCarouselOptions={showCarouselOptions}
           onToggleCarouselIncluded={onToggleCarouselIncluded}
           showSponsorOptions={showSponsorOptions}
+          showAvatarOptions={showAvatarOptions}
           onChange={(patch) => onStyleChange(id, patch)}
           onClose={() => setStylingId(null)}
         />
@@ -1234,7 +1235,7 @@ function ImagePanel({ img, editing, containerRef, zIndex, onMove, onCommit, onRe
   );
 }
 
-function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOptions, onToggleCarouselIncluded, showSponsorOptions, onChange, onClose }) {
+function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOptions, onToggleCarouselIncluded, showSponsorOptions, showAvatarOptions, onChange, onClose }) {
   return (
     <div
       data-style-popover="1"
@@ -1313,6 +1314,21 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
         <button onClick={() => onChange({ bgColor: null })} className="text-[11px] text-felt-cream/40 hover:text-felt-cream mb-2">
           Réinitialiser la couleur de fond
         </button>
+      )}
+
+      {showAvatarOptions && (
+        <>
+          <div className="border-t border-felt-cream/10 my-2 pt-2 text-felt-cream/50">Avatar</div>
+          <label className="flex items-center justify-between mb-2">
+            Taille (px)
+            <input
+              type="number"
+              value={style.avatarSize || 88}
+              onChange={(e) => onChange({ avatarSize: Number(e.target.value) || 40 })}
+              className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-1 py-0.5 text-felt-cream"
+            />
+          </label>
+        </>
       )}
 
       <div className="border-t border-felt-cream/10 my-2 pt-2 text-felt-cream/50">Bordure de ce panneau</div>

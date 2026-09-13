@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useAccount } from "../context/AccountContext.jsx";
 import { updateOwnProfile } from "../lib/auth.js";
-import { compressImageFile } from "../lib/imageUtils.js";
+import AvatarCropper from "./AvatarCropper.jsx";
 
 /**
  * ProfileModal — édition du profil (pseudo, nom, prénom, email, avatar).
@@ -15,13 +15,15 @@ export default function ProfileModal({ onClose }) {
   const [lastName, setLastName] = useState(account.last_name);
   const [email, setEmail] = useState(account.email || "");
   const [avatarData, setAvatarData] = useState(account.avatar_data);
+  const [croppingFile, setCroppingFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
   function handleAvatarChange(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    compressImageFile(file, { maxSize: 320 }).then(setAvatarData);
+    setCroppingFile(file);
+    e.target.value = "";
   }
 
   async function handleConfirm() {
@@ -105,6 +107,17 @@ export default function ProfileModal({ onClose }) {
           </button>
         </div>
       </div>
+
+      {croppingFile && (
+        <AvatarCropper
+          file={croppingFile}
+          onConfirm={(dataUrl) => {
+            setAvatarData(dataUrl);
+            setCroppingFile(null);
+          }}
+          onCancel={() => setCroppingFile(null)}
+        />
+      )}
     </div>
   );
 }

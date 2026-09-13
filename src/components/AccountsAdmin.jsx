@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchAllAccounts, updateAccountRole, deleteAccount, adminUpdateAccount, ROLE_LABELS } from "../lib/auth.js";
-import { compressImageFile } from "../lib/imageUtils.js";
+import AvatarCropper from "./AvatarCropper.jsx";
 
 /**
  * AccountsAdmin — gestion des comptes, attribution des rôles et édition
@@ -121,13 +121,15 @@ function EditAccountModal({ account, onClose, onSaved }) {
   const [email, setEmail] = useState(account.email || "");
   const [password, setPassword] = useState("");
   const [avatarData, setAvatarData] = useState(account.avatar_data || null);
+  const [croppingFile, setCroppingFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
-  async function handleAvatarChange(e) {
+  function handleAvatarChange(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setAvatarData(await compressImageFile(file, { maxSize: 320 }));
+    setCroppingFile(file);
+    e.target.value = "";
   }
 
   async function handleSave() {
@@ -208,6 +210,17 @@ function EditAccountModal({ account, onClose, onSaved }) {
           </button>
         </div>
       </div>
+
+      {croppingFile && (
+        <AvatarCropper
+          file={croppingFile}
+          onConfirm={(dataUrl) => {
+            setAvatarData(dataUrl);
+            setCroppingFile(null);
+          }}
+          onCancel={() => setCroppingFile(null)}
+        />
+      )}
     </div>
   );
 }
