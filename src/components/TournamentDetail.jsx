@@ -8,6 +8,7 @@ import { fetchAllAccounts, assignTableCaptain, fetchTableCaptainAssignments } fr
 import TicketPrint from "./TicketPrint.jsx";
 import SeatPickerModal from "./SeatPickerModal.jsx";
 import RegisterPlayerModal from "./RegisterPlayerModal.jsx";
+import TableSeatingModal from "./TableSeatingModal.jsx";
 import ActionJournalModal from "./ActionJournalModal.jsx";
 import { logEvent } from "../lib/events.js";
 
@@ -32,6 +33,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
 
   const [showRegister, setShowRegister] = useState(false);
   const [showJournal, setShowJournal] = useState(false);
+  const [showTableSeating, setShowTableSeating] = useState(false);
   const [importing, setImporting] = useState(false);
   const [ticket, setTicket] = useState(null);
   const [eliminatingReg, setEliminatingReg] = useState(null);
@@ -108,11 +110,24 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     await supabase.from("tournaments").update({ registration_open: open }).eq("id", tournamentId);
   }
 
-  function assignSeat(index) {
-    const perTable = tournament?.players_per_table || 9;
-    const table = Math.floor(index / perTable) + 1;
-    const seat = (index % perTable) + 1;
-    return { table, seat };
+  // Attribution du prochain siège vraiment libre : on vérifie les sièges
+  // déjà occupés (table+siège de chaque inscription) plutôt que de se fier
+  // à un simple compteur, qui pouvait retomber sur un siège déjà pris dès
+  // que des places avaient été déplacées manuellement, rééquilibrées, ou
+  // que le compteur se désynchronisait pendant un import en lot.
+  function computeOccupiedSeats(regs) {
+    return new Set(regs.map((r) => `${r.table_number}-${r.seat_number}`));
+  }
+  function nextFreeSeat(occupied, perTable) {
+    let table = 1;
+    while (table < 1000) {
+      for (let seat = 1; seat <= perTable; seat++) {
+        const key = `${table}-${seat}`;
+        if (!occupied.has(key)) return { table, seat, key };
+      }
+      table += 1;
+    }
+    return { table, seat: 1, key: `${table}-1` };
   }
 
   async function findOrCreatePlayer(name) {
@@ -128,9 +143,10 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     return created;
   }
 
-  async function registerOnePlayer(name, currentCount, accountId = null) {
+  async function registerOnePlayer(name, occupied, accountId = null) {
     const player = await findOrCreatePlayer(name);
-    const { table, seat } = assignSeat(currentCount);
+    const perTable = tournament?.players_per_table || 9;
+    const { table, seat, key } = nextFreeSeat(occupied, perTable);
     const { data: reg, error: regErr } = await supabase
       .from("registrations")
       .insert({
@@ -144,6 +160,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
       .select("*, players(id, full_name), accounts(avatar_data)")
       .single();
     if (regErr) throw regErr;
+    occupied.add(key);
     logEvent(tournamentId, "register", player.full_name, { registrationId: reg.id, playerId: player.id, accountId });
     return reg;
   }
@@ -152,7 +169,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   // tapé lors d'un tournoi précédent). On lie la registration à ce compte.
   async function handleRegisterExisting(account) {
     try {
-      const reg = await registerOnePlayer(account.pseudo, registrations.length, account.id);
+      const reg = await registerOnePlayer(account.pseudo, computeOccupiedSeats(registrations), account.id);
       await loadRegistrations();
       setTicket({ type: "buyin", reg });
     } catch (e) {
@@ -162,7 +179,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
 
   async function handleRegisterNew(name) {
     try {
-      const reg = await registerOnePlayer(name, registrations.length);
+      const reg = await registerOnePlayer(name, computeOccupiedSeats(registrations));
       await loadRegistrations();
       setTicket({ type: "buyin", reg });
     } catch (e) {
@@ -177,11 +194,10 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     setError(null);
     try {
       const players = await importPlayersFromFile(file);
-      let count = registrations.length;
+      const occupied = computeOccupiedSeats(registrations);
       for (const p of players) {
         if (!p.fullName?.trim()) continue;
-        await registerOnePlayer(p.fullName.trim(), count);
-        count += 1;
+        await registerOnePlayer(p.fullName.trim(), occupied);
       }
       await loadRegistrations();
     } catch (e) {
@@ -548,6 +564,12 @@ export default function TournamentDetail({ tournamentId, onBack }) {
               >
                 <span>↺</span> Annuler des actions
               </button>
+              <button
+                onClick={() => setShowTableSeating(true)}
+                className="text-sm text-felt-cream/60 hover:text-felt-cream flex items-center gap-1.5"
+              >
+                <span>🪑</span> Vue des tables
+              </button>
             </div>
           </div>
 
@@ -597,7 +619,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
                             Éliminé{eliminatorName ? ` par ${eliminatorName}` : ""}
                           </>
                         ) : (
-                          <>Siège {reg.seat_number}</>
+                          <>Table {reg.table_number} · Siège {reg.seat_number}</>
                         )}
                         {reg.rebuys > 0 && ` · ${reg.rebuys} rebuy(s)`}
                         {reg.addons > 0 && ` · ${reg.addons} addon(s)`}
@@ -744,6 +766,15 @@ export default function TournamentDetail({ tournamentId, onBack }) {
             loadRegistrations();
             loadEliminations();
           }}
+        />
+      )}
+
+      {showTableSeating && (
+        <TableSeatingModal
+          registrations={registrations}
+          eliminatedIds={eliminatedIds}
+          playersPerTable={tournament?.players_per_table}
+          onClose={() => setShowTableSeating(false)}
         />
       )}
 
