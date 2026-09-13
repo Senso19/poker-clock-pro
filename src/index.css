@@ -7,6 +7,16 @@ html, body, #root {
   margin: 0;
 }
 
+/* Masque les barres de défilement partout (le défilement reste
+   fonctionnel, seule la barre visuelle disparaît). */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+}
+
 /* Impression des tickets : masque tout sauf le ticket ciblé */
 @media print {
   body * {

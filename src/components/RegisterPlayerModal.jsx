@@ -21,8 +21,8 @@ function initials(name) {
  */
 export default function RegisterPlayerModal({
   registeredCount,
-  clubPlayers,
-  registeredPlayerIds,
+  members,
+  registeredMemberIds,
   onRegisterExisting,
   onRegisterNew,
   onClose,
@@ -34,15 +34,15 @@ export default function RegisterPlayerModal({
 
   const available = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return clubPlayers
-      .filter((p) => !registeredPlayerIds.has(p.id))
-      .filter((p) => !q || p.full_name.toLowerCase().includes(q))
-      .sort((a, b) => a.full_name.localeCompare(b.full_name));
-  }, [clubPlayers, registeredPlayerIds, search]);
+    return members
+      .filter((m) => !registeredMemberIds.has(m.id))
+      .filter((m) => !q || m.pseudo.toLowerCase().includes(q))
+      .sort((a, b) => a.pseudo.localeCompare(b.pseudo));
+  }, [members, registeredMemberIds, search]);
 
-  async function handlePick(player) {
+  async function handlePick(member) {
     setBusy(true);
-    await onRegisterExisting(player);
+    await onRegisterExisting(member);
     setBusy(false);
   }
 
@@ -97,22 +97,26 @@ export default function RegisterPlayerModal({
             <div className="flex-1 overflow-y-auto px-4 py-2">
               {available.length === 0 ? (
                 <div className="text-felt-cream/40 text-sm py-6 text-center">
-                  {search ? "Aucun joueur ne correspond." : "Tous les membres du club sont déjà inscrits."}
+                  {search ? "Aucun membre ne correspond." : "Tous les membres du club sont déjà inscrits."}
                 </div>
               ) : (
-                available.map((p) => (
-                  <div key={p.id} className="flex items-center gap-3 py-2.5 border-b border-felt-cream/5">
-                    <div
-                      className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-display text-felt-cream shrink-0"
-                      style={{ backgroundColor: avatarColor(p.full_name) }}
-                    >
-                      {initials(p.full_name)}
-                    </div>
-                    <div className="flex-1 min-w-0 truncate">{p.full_name}</div>
+                available.map((m) => (
+                  <div key={m.id} className="flex items-center gap-3 py-2.5 border-b border-felt-cream/5">
+                    {m.avatar_data ? (
+                      <img src={m.avatar_data} alt="" className="w-9 h-9 rounded-full object-cover shrink-0" />
+                    ) : (
+                      <div
+                        className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-display text-felt-cream shrink-0"
+                        style={{ backgroundColor: avatarColor(m.pseudo) }}
+                      >
+                        {initials(m.pseudo)}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0 truncate">{m.pseudo}</div>
                     <button
-                      onClick={() => handlePick(p)}
+                      onClick={() => handlePick(m)}
                       disabled={busy}
-                      title="Inscrire ce joueur"
+                      title="Inscrire ce membre"
                       className="w-8 h-8 rounded-md bg-felt-bg border border-felt-cream/10 flex items-center justify-center text-felt-cream/70 hover:text-felt-gold hover:border-felt-gold/40 disabled:opacity-40"
                     >
                       👤

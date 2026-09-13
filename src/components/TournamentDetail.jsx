@@ -125,7 +125,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     return created;
   }
 
-  async function registerOnePlayer(name, currentCount) {
+  async function registerOnePlayer(name, currentCount, accountId = null) {
     const player = await findOrCreatePlayer(name);
     const { table, seat } = assignSeat(currentCount);
     const { data: reg, error: regErr } = await supabase
@@ -133,20 +133,23 @@ export default function TournamentDetail({ tournamentId, onBack }) {
       .insert({
         tournament_id: tournamentId,
         player_id: player.id,
+        account_id: accountId,
         table_number: table,
         seat_number: seat,
         stack: tournament.starting_stack,
       })
-      .select("*, players(id, full_name)")
+      .select("*, players(id, full_name), accounts(avatar_data)")
       .single();
     if (regErr) throw regErr;
-    logEvent(tournamentId, "register", player.full_name, { registrationId: reg.id, playerId: player.id });
+    logEvent(tournamentId, "register", player.full_name, { registrationId: reg.id, playerId: player.id, accountId });
     return reg;
   }
 
-  async function handleRegisterExisting(player) {
+  // "Membre du club" = un vrai compte de l'app (pas n'importe quel nom déjà
+  // tapé lors d'un tournoi précédent). On lie la registration à ce compte.
+  async function handleRegisterExisting(account) {
     try {
-      const reg = await registerOnePlayer(player.full_name, registrations.length);
+      const reg = await registerOnePlayer(account.pseudo, registrations.length, account.id);
       await loadRegistrations();
       setTicket({ type: "buyin", reg });
     } catch (e) {
@@ -531,7 +534,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
 
           {error && <div className="text-felt-alert text-sm mb-3">Erreur : {error}</div>}
 
-          <div className="grid grid-cols-[40px_1fr_80px_28px] sm:grid-cols-[56px_1fr_100px_36px] gap-2 px-2 pb-2 border-b border-felt-cream/10 text-xs uppercase tracking-wide text-felt-cream/40">
+          <div className="grid grid-cols-[40px_1fr_80px_28px] sm:grid-cols-[56px_1fr_100px_36px] gap-3 px-3 pb-3 mb-1 border-b border-felt-cream/10 text-xs uppercase tracking-wide text-felt-cream/40">
             <div>Place</div>
             <div>Nom ({registrations.length})</div>
             <div>Tapis</div>
@@ -547,7 +550,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
             return (
               <div key={reg.id} className="relative">
                 <div
-                  className={`grid grid-cols-[40px_1fr_80px_28px] sm:grid-cols-[56px_1fr_100px_36px] gap-2 items-center px-2 py-3 border-b border-felt-cream/5 ${
+                  className={`grid grid-cols-[40px_1fr_80px_28px] sm:grid-cols-[56px_1fr_100px_36px] gap-3 items-center px-3 py-4 mb-1 rounded-md bg-felt-bg/50 ${
                     isOut ? "opacity-40" : ""
                   }`}
                 >
@@ -691,10 +694,10 @@ export default function TournamentDetail({ tournamentId, onBack }) {
       {showRegister && (
         <RegisterPlayerModal
           registeredCount={registrations.length}
-          clubPlayers={clubPlayers}
-          registeredPlayerIds={new Set(registrations.map((r) => r.player_id))}
-          onRegisterExisting={async (p) => {
-            await handleRegisterExisting(p);
+          members={captainAccounts}
+          registeredMemberIds={new Set(registrations.filter((r) => r.account_id).map((r) => r.account_id))}
+          onRegisterExisting={async (a) => {
+            await handleRegisterExisting(a);
           }}
           onRegisterNew={async (name) => {
             await handleRegisterNew(name);
