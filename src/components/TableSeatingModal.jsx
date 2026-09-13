@@ -1,10 +1,14 @@
+import { useState } from "react";
+
 /**
  * TableSeatingModal — vue d'ensemble en lecture seule de toutes les tables
  * et de leurs sièges, avec le joueur assis à chaque place (ou "Libre").
- * Permet de repérer d'un coup d'œil un éventuel doublon ou une table
- * déséquilibrée.
+ * Un siège n'est considéré en conflit que si PLUSIEURS joueurs ENCORE EN
+ * JEU s'y retrouvent en même temps — un éliminé affiché au même siège
+ * qu'un joueur actif n'est pas une anomalie (il a juste laissé sa place).
  */
-export default function TableSeatingModal({ registrations, eliminatedIds, playersPerTable, onClose }) {
+export default function TableSeatingModal({ registrations, eliminatedIds, playersPerTable, onRepair, onClose }) {
+  const [repairing, setRepairing] = useState(false);
   const perTable = playersPerTable || 9;
   const maxTable = Math.max(1, ...registrations.map((r) => r.table_number || 1));
   const tables = Array.from({ length: maxTable }, (_, i) => i + 1);
@@ -15,7 +19,15 @@ export default function TableSeatingModal({ registrations, eliminatedIds, player
     if (!bySeat[key]) bySeat[key] = [];
     bySeat[key].push(r);
   });
-  const duplicates = new Set(Object.keys(bySeat).filter((k) => bySeat[k].length > 1));
+  const duplicates = new Set(
+    Object.keys(bySeat).filter((k) => bySeat[k].filter((r) => !eliminatedIds.has(r.id)).length > 1)
+  );
+
+  async function handleRepair() {
+    setRepairing(true);
+    await onRepair();
+    setRepairing(false);
+  }
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
@@ -28,9 +40,18 @@ export default function TableSeatingModal({ registrations, eliminatedIds, player
         </div>
 
         {duplicates.size > 0 && (
-          <div className="text-felt-alert text-sm mb-4 bg-felt-alert/10 border border-felt-alert/30 rounded-md px-3 py-2">
-            ⚠ {duplicates.size} siège(s) occupé(s) par plusieurs joueurs à la fois (signalés en rouge ci-dessous) —
-            utilisez le menu ⋮ d'un des joueurs concernés pour le déplacer.
+          <div className="flex flex-wrap items-center justify-between gap-3 text-sm mb-4 bg-felt-alert/10 border border-felt-alert/30 rounded-md px-3 py-2.5">
+            <span className="text-felt-alert">
+              ⚠ {duplicates.size} siège(s) partagé(s) par plusieurs joueurs encore en jeu à la fois (signalés en
+              rouge).
+            </span>
+            <button
+              onClick={handleRepair}
+              disabled={repairing}
+              className="px-3 py-1.5 bg-felt-alert/80 text-felt-cream rounded-md font-display text-xs disabled:opacity-40 shrink-0"
+            >
+              {repairing ? "Réparation…" : "🔧 Réparer automatiquement"}
+            </button>
           </div>
         )}
 
@@ -44,7 +65,7 @@ export default function TableSeatingModal({ registrations, eliminatedIds, player
                   const occupants = bySeat[key] || [];
                   const isDuplicate = duplicates.has(key);
                   const active = occupants.filter((r) => !eliminatedIds.has(r.id));
-                  const isOut = occupants.length > 0 && active.length === 0;
+                  const isFullyOut = occupants.length > 0 && active.length === 0;
                   return (
                     <div
                       key={seat}
@@ -52,7 +73,7 @@ export default function TableSeatingModal({ registrations, eliminatedIds, player
                         isDuplicate
                           ? "bg-felt-alert/15 border-felt-alert/50"
                           : occupants.length > 0
-                          ? isOut
+                          ? isFullyOut
                             ? "bg-felt-bg border-felt-cream/10 text-felt-cream/30"
                             : "bg-felt-gold/10 border-felt-gold/30"
                           : "bg-felt-panel border-felt-cream/10 text-felt-cream/30"
@@ -63,7 +84,7 @@ export default function TableSeatingModal({ registrations, eliminatedIds, player
                         <div className="truncate">Libre</div>
                       ) : (
                         occupants.map((r) => (
-                          <div key={r.id} className={`truncate ${eliminatedIds.has(r.id) ? "line-through" : ""}`}>
+                          <div key={r.id} className={`truncate ${eliminatedIds.has(r.id) ? "line-through text-felt-cream/30" : ""}`}>
                             {r.players?.full_name}
                           </div>
                         ))

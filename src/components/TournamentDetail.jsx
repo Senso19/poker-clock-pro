@@ -111,12 +111,14 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   }
 
   // Attribution du prochain siège vraiment libre : on vérifie les sièges
-  // déjà occupés (table+siège de chaque inscription) plutôt que de se fier
-  // à un simple compteur, qui pouvait retomber sur un siège déjà pris dès
-  // que des places avaient été déplacées manuellement, rééquilibrées, ou
-  // que le compteur se désynchronisait pendant un import en lot.
+  // réellement occupés par des joueurs ENCORE EN JEU (les éliminés libèrent
+  // leur place) plutôt que de se fier à un simple compteur, qui pouvait
+  // retomber sur un siège déjà pris dès que des places avaient été
+  // déplacées manuellement, rééquilibrées, ou que le compteur se
+  // désynchronisait pendant un import en lot.
   function computeOccupiedSeats(regs) {
-    return new Set(regs.map((r) => `${r.table_number}-${r.seat_number}`));
+    const eliminatedNow = new Set(eliminations.map((e) => e.registration_id));
+    return new Set(regs.filter((r) => !eliminatedNow.has(r.id)).map((r) => `${r.table_number}-${r.seat_number}`));
   }
   function nextFreeSeat(occupied, perTable) {
     let table = 1;
@@ -128,6 +130,34 @@ export default function TournamentDetail({ tournamentId, onBack }) {
       table += 1;
     }
     return { table, seat: 1, key: `${table}-1` };
+  }
+
+  // Répare les sièges où plusieurs joueurs ENCORE EN JEU se retrouvent au
+  // même siège (données existantes d'avant ce correctif, ou déplacements
+  // manuels antérieurs) : garde le premier, déplace les autres vers le
+  // prochain siège libre.
+  async function repairDuplicateSeats() {
+    const eliminatedNow = new Set(eliminations.map((e) => e.registration_id));
+    const bySeat = {};
+    registrations.forEach((r) => {
+      if (eliminatedNow.has(r.id)) return;
+      const key = `${r.table_number}-${r.seat_number}`;
+      if (!bySeat[key]) bySeat[key] = [];
+      bySeat[key].push(r);
+    });
+    const occupied = computeOccupiedSeats(registrations);
+    const perTable = tournament?.players_per_table || 9;
+    const updates = [];
+    Object.values(bySeat).forEach((group) => {
+      for (let i = 1; i < group.length; i++) {
+        const { table, seat, key } = nextFreeSeat(occupied, perTable);
+        occupied.add(key);
+        updates.push(supabase.from("registrations").update({ table_number: table, seat_number: seat }).eq("id", group[i].id));
+      }
+    });
+    if (updates.length === 0) return;
+    await Promise.all(updates);
+    await loadRegistrations();
   }
 
   async function findOrCreatePlayer(name) {
@@ -774,6 +804,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
           registrations={registrations}
           eliminatedIds={eliminatedIds}
           playersPerTable={tournament?.players_per_table}
+          onRepair={repairDuplicateSeats}
           onClose={() => setShowTableSeating(false)}
         />
       )}
