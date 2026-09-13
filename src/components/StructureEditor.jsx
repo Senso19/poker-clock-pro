@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTheme } from "../context/ThemeContext.jsx";
 import CustomizablePanel from "./CustomizablePanel.jsx";
+import { useConfirm } from "../context/ConfirmContext.jsx";
 import {
   fetchActiveTournament,
   fetchLevels,
@@ -28,6 +29,7 @@ import {
  * tournoi actif. mode="template" : édite un modèle réutilisable directement.
  */
 export default function StructureEditor({ onSaved, mode = "tournament", template = null }) {
+  const confirmAction = useConfirm();
   const { theme } = useTheme();
   const [tournament, setTournament] = useState(null);
   const [levels, setLevels] = useState(mode === "template" ? template?.levels || [] : []);
@@ -180,7 +182,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
 
   async function handleDeleteTemplate(id, e) {
     e.stopPropagation();
-    if (!confirm("Supprimer ce modèle ?")) return;
+    if (!(await confirmAction("Supprimer ce modèle ?"))) return;
     try {
       await deleteStructureTemplate(id);
       setTemplates((prev) => prev.filter((t) => t.id !== id));

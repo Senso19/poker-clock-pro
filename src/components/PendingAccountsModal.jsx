@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchPendingAccounts, approveAccount, rejectAccount } from "../lib/auth.js";
+import { useConfirm } from "../context/ConfirmContext.jsx";
 
 /**
  * PendingAccountsModal — liste des nouvelles inscriptions en attente de
@@ -8,6 +9,7 @@ import { fetchPendingAccounts, approveAccount, rejectAccount } from "../lib/auth
  * connecter et consulter l'app mais pas s'inscrire à un tournoi.
  */
 export default function PendingAccountsModal({ onClose, onChanged }) {
+  const confirmAction = useConfirm();
   const [pending, setPending] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
@@ -41,7 +43,7 @@ export default function PendingAccountsModal({ onClose, onChanged }) {
   }
 
   async function handleReject(id, pseudo) {
-    if (!confirm(`Refuser et supprimer l'inscription de ${pseudo} ?`)) return;
+    if (!(await confirmAction(`Refuser et supprimer l'inscription de ${pseudo} ?`))) return;
     setBusyId(id);
     try {
       await rejectAccount(id);

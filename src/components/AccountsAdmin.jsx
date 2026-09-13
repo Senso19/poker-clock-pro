@@ -12,6 +12,7 @@ import {
 } from "../lib/auth.js";
 import AvatarCropper from "./AvatarCropper.jsx";
 import CustomizablePanel from "./CustomizablePanel.jsx";
+import { useConfirm } from "../context/ConfirmContext.jsx";
 
 /**
  * AccountsAdmin — gestion des membres façon BlindValet : recherche, tri,
@@ -19,6 +20,7 @@ import CustomizablePanel from "./CustomizablePanel.jsx";
  * modifier, fusionner avec un doublon, supprimer. Réservé à l'admin.
  */
 export default function AccountsAdmin() {
+  const confirmAction = useConfirm();
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -53,7 +55,7 @@ export default function AccountsAdmin() {
   }
 
   async function handleDelete(id, pseudo) {
-    if (!confirm(`Supprimer le compte de ${pseudo} ?`)) return;
+    if (!(await confirmAction(`Supprimer le compte de ${pseudo} ?`))) return;
     try {
       await deleteAccount(id);
       setAccounts((list) => list.filter((a) => a.id !== id));
@@ -230,6 +232,7 @@ export default function AccountsAdmin() {
 }
 
 function MergeAccountModal({ account, accounts, onClose, onMerged }) {
+  const confirmAction = useConfirm();
   const [targetId, setTargetId] = useState("");
   const [merging, setMerging] = useState(false);
   const [error, setError] = useState(null);
@@ -238,7 +241,11 @@ function MergeAccountModal({ account, accounts, onClose, onMerged }) {
   async function handleConfirm() {
     if (!targetId) return;
     const target = others.find((a) => a.id === targetId);
-    if (!confirm(`Fusionner "${target.pseudo}" dans "${account.pseudo}" ? Les inscriptions et points de "${target.pseudo}" seront transférés à "${account.pseudo}", puis "${target.pseudo}" sera supprimé. Cette action est irréversible.`))
+    if (
+      !(await confirmAction(
+        `Fusionner "${target.pseudo}" dans "${account.pseudo}" ? Les inscriptions et points de "${target.pseudo}" seront transférés à "${account.pseudo}", puis "${target.pseudo}" sera supprimé. Cette action est irréversible.`
+      ))
+    )
       return;
     setMerging(true);
     setError(null);

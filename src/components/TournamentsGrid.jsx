@@ -8,6 +8,7 @@ import { fetchStructureTemplates, saveLevels, saveStructureConfig } from "../lib
 import { fetchClockTemplates, applyClockTemplateToTournament } from "../lib/clockTemplates.js";
 import { logEvent } from "../lib/events.js";
 import CustomizablePanel from "./CustomizablePanel.jsx";
+import { useConfirm } from "../context/ConfirmContext.jsx";
 
 const MAX_PER_TABLE = 9;
 
@@ -19,6 +20,7 @@ const MAX_PER_TABLE = 9;
  * directement depuis la carte si les inscriptions sont ouvertes.
  */
 export default function TournamentsGrid({ onOpen }) {
+  const confirmAction = useConfirm();
   const { account } = useAccount();
   const manage = canManageTournaments(account.role);
   const [tournaments, setTournaments] = useState([]);
@@ -129,7 +131,7 @@ export default function TournamentsGrid({ onOpen }) {
 
   async function handleDelete(t) {
     setOpenMenuId(null);
-    if (!confirm(`Supprimer définitivement "${t.name}" et toutes ses données ?`)) return;
+    if (!(await confirmAction(`Supprimer définitivement "${t.name}" et toutes ses données ?`))) return;
     try {
       await deleteTournament(t.id);
       await load();

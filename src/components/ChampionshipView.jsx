@@ -11,6 +11,7 @@ import { useAccount } from "../context/AccountContext.jsx";
 import { canManageTournaments } from "../lib/auth.js";
 import ChampionshipDetailPage from "./ChampionshipDetailPage.jsx";
 import CustomizablePanel from "./CustomizablePanel.jsx";
+import { useConfirm } from "../context/ConfirmContext.jsx";
 
 const VARIABLES = [
   ["p", "nombre de joueurs"],
@@ -61,6 +62,7 @@ function formatShortDate(d) {
  * bandeaux "Actif"/"Terminé" avec joueur en tête ou podium, classement général.
  */
 export default function ChampionshipView() {
+  const confirmAction = useConfirm();
   const { account } = useAccount();
   const manage = canManageTournaments(account.role);
   const [summaries, setSummaries] = useState([]);
@@ -106,7 +108,7 @@ export default function ChampionshipView() {
   }
 
   async function handleDelete(id) {
-    if (!confirm("Supprimer ce championnat ? Les tournois qui y sont rattachés seront simplement détachés (pas supprimés).")) return;
+    if (!(await confirmAction("Supprimer ce championnat ? Les tournois qui y sont rattachés seront simplement détachés (pas supprimés)."))) return;
     try {
       await deleteChampionship(id);
       setSelectedId(null);

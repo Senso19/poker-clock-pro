@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase.js";
 import { fetchEvents, markEventUndone } from "../lib/events.js";
+import { useConfirm } from "../context/ConfirmContext.jsx";
 
 const TYPE_ICON = {
   register: "➕👤",
@@ -18,6 +19,7 @@ const UNDOABLE_TYPES = ["register", "elimination"];
  * individuellement (pas seulement la dernière).
  */
 export default function ActionJournalModal({ tournamentId, playersPerTable, onClose, onChanged }) {
+  const confirmAction = useConfirm();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [undoingId, setUndoingId] = useState(null);
@@ -88,7 +90,7 @@ export default function ActionJournalModal({ tournamentId, playersPerTable, onCl
   }
 
   async function handleUndo(ev) {
-    if (!confirm("Annuler cette action ?")) return;
+    if (!(await confirmAction("Annuler cette action ?"))) return;
     setUndoingId(ev.id);
     setError(null);
     try {

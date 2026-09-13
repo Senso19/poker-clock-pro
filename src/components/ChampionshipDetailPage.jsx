@@ -25,27 +25,38 @@ export default function ChampionshipDetailPage({ summary, manage, onBack, onDele
 
   return (
     <div className="h-full overflow-y-auto font-body text-white">
-      <div className="flex items-center gap-3 px-4 sm:px-6 py-5 border-b border-felt-cream/10">
+      <CustomizablePanel
+        panelKey="championship-detail-header"
+        defaultWidth="1 1 100%"
+        className="flex items-center gap-3 px-4 sm:px-6 py-5 border-b border-felt-cream/10"
+      >
         <button onClick={onBack} className="text-felt-cream/60 hover:text-white text-2xl leading-none">
           ←
         </button>
-        <div className="font-display text-2xl truncate flex-1">{championship.name}</div>
+        <div
+          style={{ fontSize: "var(--pcp-card-text-size, inherit)", color: "var(--pcp-card-text-color, white)" }}
+          className="font-display text-2xl truncate flex-1"
+        >
+          {championship.name}
+        </div>
         {manage && (
           <button onClick={onDelete} className="text-felt-alert/70 hover:text-felt-alert text-sm shrink-0">
             🗑 Supprimer
           </button>
         )}
-      </div>
+      </CustomizablePanel>
 
       <div className="p-4 sm:p-6 max-w-3xl mx-auto">
-        <div className="text-base text-felt-cream/60 mb-6">
-          {summary.stageCount} tournois · {summary.playerCount} joueurs ·{" "}
-          {championship.best_stages_count
-            ? `${championship.best_stages_count} meilleures étapes comptent`
-            : "toutes les étapes comptent"}
-        </div>
+        <CustomizablePanel panelKey="championship-detail-meta" defaultWidth="1 1 100%" className="mb-6">
+          <div className="text-base text-felt-cream/60 mb-6">
+            {summary.stageCount} tournois · {summary.playerCount} joueurs ·{" "}
+            {championship.best_stages_count
+              ? `${championship.best_stages_count} meilleures étapes comptent`
+              : "toutes les étapes comptent"}
+          </div>
 
-        <div className="font-display text-xl mb-4">Classement du championnat</div>
+          <div className="font-display text-xl">Classement du championnat</div>
+        </CustomizablePanel>
 
         {standings.length === 0 ? (
           <div className="text-base text-felt-cream/50">Aucune étape terminée pour l'instant.</div>

@@ -5,6 +5,7 @@ import AuthScreen from "./components/AuthScreen.jsx";
 import { ThemeProvider } from "./context/ThemeContext.jsx";
 import { AccountProvider, useAccount } from "./context/AccountContext.jsx";
 import { EditModeProvider } from "./context/EditModeContext.jsx";
+import { ConfirmProvider } from "./context/ConfirmContext.jsx";
 import "./lib/installPrompt.js";
 import "./index.css";
 
@@ -27,7 +28,9 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     <AccountProvider>
       <ThemeProvider>
         <EditModeProvider>
-          <Root />
+          <ConfirmProvider>
+            <Root />
+          </ConfirmProvider>
         </EditModeProvider>
       </ThemeProvider>
     </AccountProvider>

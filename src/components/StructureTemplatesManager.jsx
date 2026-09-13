@@ -5,6 +5,7 @@ import { fetchAllTournaments } from "../lib/tournaments.js";
 import StructureEditor from "./StructureEditor.jsx";
 import ClockTemplateEditor from "./ClockTemplateEditor.jsx";
 import CustomizablePanel from "./CustomizablePanel.jsx";
+import { useConfirm } from "../context/ConfirmContext.jsx";
 
 /**
  * StructureTemplatesManager — "Gérer les modèles" : point unique de
@@ -12,6 +13,7 @@ import CustomizablePanel from "./CustomizablePanel.jsx";
  * disposition d'horloge, sans avoir besoin d'un tournoi actif.
  */
 export default function StructureTemplatesManager() {
+  const confirmAction = useConfirm();
   const [structTemplates, setStructTemplates] = useState([]);
   const [clockTemplates, setClockTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -66,7 +68,7 @@ export default function StructureTemplatesManager() {
   }
 
   async function handleDeleteStruct(id) {
-    if (!confirm("Supprimer ce modèle de structure ?")) return;
+    if (!(await confirmAction("Supprimer ce modèle de structure ?"))) return;
     try {
       await deleteStructureTemplate(id);
       setStructTemplates((prev) => prev.filter((t) => t.id !== id));
@@ -76,7 +78,7 @@ export default function StructureTemplatesManager() {
   }
 
   async function handleDeleteClock(id) {
-    if (!confirm("Supprimer ce modèle d'horloge ?")) return;
+    if (!(await confirmAction("Supprimer ce modèle d'horloge ?"))) return;
     try {
       await deleteClockTemplate(id);
       setClockTemplates((prev) => prev.filter((t) => t.id !== id));
@@ -191,11 +193,18 @@ export default function StructureTemplatesManager() {
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8"
         >
           {structTemplates.map((t) => (
-            <div key={t.id} className="bg-felt-panel border border-felt-cream/10 rounded-lg p-4">
+            <div
+              key={t.id}
+              onClick={() => setEditingStruct(t)}
+              className="bg-felt-panel border border-felt-cream/10 rounded-lg p-4 cursor-pointer hover:border-felt-cream/20 transition-colors"
+            >
               <div className="flex items-start justify-between mb-3">
                 <div className="font-display text-base">{t.name}</div>
                 <button
-                  onClick={() => handleDeleteStruct(t.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteStruct(t.id);
+                  }}
                   className="text-xs text-felt-alert/60 hover:text-felt-alert"
                 >
                   🗑
@@ -208,13 +217,19 @@ export default function StructureTemplatesManager() {
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setEditingStruct(t)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditingStruct(t);
+                  }}
                   className="flex-1 px-3 py-1.5 text-sm bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/80 hover:text-felt-cream font-display"
                 >
                   Modifier
                 </button>
                 <button
-                  onClick={() => openApplyStructTemplate(t)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openApplyStructTemplate(t);
+                  }}
                   disabled={applyingId === t.id}
                   className="flex-1 px-3 py-1.5 text-sm bg-felt-bg border border-felt-gold/30 rounded-md text-felt-gold font-display disabled:opacity-40"
                 >
@@ -245,11 +260,18 @@ export default function StructureTemplatesManager() {
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
         >
           {clockTemplates.map((t) => (
-            <div key={t.id} className="bg-felt-panel border border-felt-cream/10 rounded-lg p-4">
+            <div
+              key={t.id}
+              onClick={() => setEditingClock(t)}
+              className="bg-felt-panel border border-felt-cream/10 rounded-lg p-4 cursor-pointer hover:border-felt-cream/20 transition-colors"
+            >
               <div className="flex items-start justify-between mb-3">
                 <div className="font-display text-base">{t.name}</div>
                 <button
-                  onClick={() => handleDeleteClock(t.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteClock(t.id);
+                  }}
                   className="text-xs text-felt-alert/60 hover:text-felt-alert"
                 >
                   🗑
@@ -257,13 +279,19 @@ export default function StructureTemplatesManager() {
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setEditingClock(t)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditingClock(t);
+                  }}
                   className="flex-1 px-3 py-1.5 text-sm bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/80 hover:text-felt-cream font-display"
                 >
                   Modifier
                 </button>
                 <button
-                  onClick={() => handleApplyClock(t)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleApplyClock(t);
+                  }}
                   disabled={applyingId === t.id}
                   className="flex-1 px-3 py-1.5 text-sm bg-felt-bg border border-felt-gold/30 rounded-md text-felt-gold font-display disabled:opacity-40"
                 >

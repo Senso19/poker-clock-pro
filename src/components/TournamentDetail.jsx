@@ -10,6 +10,7 @@ import RegisterPlayerModal from "./RegisterPlayerModal.jsx";
 import TableSeatingModal from "./TableSeatingModal.jsx";
 import ActionJournalModal from "./ActionJournalModal.jsx";
 import CustomizablePanel from "./CustomizablePanel.jsx";
+import { useConfirm } from "../context/ConfirmContext.jsx";
 import { logEvent } from "../lib/events.js";
 
 /**
@@ -21,6 +22,7 @@ import { logEvent } from "../lib/events.js";
  * éliminer, désinscrire).
  */
 export default function TournamentDetail({ tournamentId, onBack }) {
+  const confirmAction = useConfirm();
   const [tournament, setTournament] = useState(null);
   const [registrations, setRegistrations] = useState([]);
   const [eliminations, setEliminations] = useState([]);
@@ -287,7 +289,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
 
   async function unregisterPlayer(reg) {
     setOpenMenuId(null);
-    if (!confirm(`Désinscrire ${reg.players?.full_name} ?`)) return;
+    if (!(await confirmAction(`Désinscrire ${reg.players?.full_name} ?`))) return;
     try {
       await supabase.from("registrations").delete().eq("id", reg.id);
       await loadRegistrations();

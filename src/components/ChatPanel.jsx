@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAccount } from "../context/AccountContext.jsx";
 import { fetchMessages, sendMessage, deleteMessage } from "../lib/chat.js";
 import { fetchClubSettings } from "../lib/auth.js";
+import { useConfirm } from "../context/ConfirmContext.jsx";
 
 const DEFAULT_MAX_LENGTH = 200;
 
@@ -13,6 +14,7 @@ const DEFAULT_MAX_LENGTH = 200;
  * 🗑 au survol) ; les autres rôles ne le peuvent pas.
  */
 export default function ChatPanel() {
+  const confirmAction = useConfirm();
   const { account } = useAccount();
   const isAdmin = account.role === "admin";
   const [messages, setMessages] = useState([]);
@@ -81,7 +83,7 @@ export default function ChatPanel() {
   }
 
   async function handleDelete(id) {
-    if (!confirm("Supprimer ce message ?")) return;
+    if (!(await confirmAction("Supprimer ce message ?"))) return;
     setDeletingId(id);
     try {
       await deleteMessage(id);
