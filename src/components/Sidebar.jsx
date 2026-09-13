@@ -1,18 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useAccount } from "../context/AccountContext.jsx";
 import { useTheme } from "../context/ThemeContext.jsx";
-import { canManageTournaments, canManageAccounts, ROLE_LABELS, fetchClubSettings } from "../lib/auth.js";
+import { canManageTournaments, canManageAccounts, ROLE_LABELS, fetchClubSettings, fetchAllAccounts } from "../lib/auth.js";
 import ProfileModal from "./ProfileModal.jsx";
 import ChatPanel from "./ChatPanel.jsx";
-
-const NAV = [
-  { key: "tournaments", icon: "🏆", label: "Tournois", show: () => true },
-  { key: "eliminate", icon: "🎯", label: "Éliminer", show: (a) => a.role === "floor" || a.role === "table_captain" },
-  { key: "championship", icon: "📊", label: "Championnats", show: () => true },
-  { key: "templates", icon: "▦", label: "Gérer les modèles", show: (a) => canManageTournaments(a.role) },
-  { key: "accounts", icon: "👥", label: "Membres", show: (a) => canManageAccounts(a.role) },
-  { key: "settings", icon: "⚙️", label: "Paramètres du club", show: (a) => canManageTournaments(a.role) },
-];
 
 const COLLAPSE_KEY = "pcp_sidebar_collapsed";
 const WIDTH_KEY = "pcp_sidebar_width";
@@ -21,11 +12,14 @@ const MAX_WIDTH = 420;
 const DEFAULT_WIDTH = 240;
 
 /**
- * Sidebar — navigation latérale façon BlindValet : bandeau club (logo/nom +
- * code du club) en haut, navigation, chat du club intégré (messages +
- * envoi), puis carte profil + déconnexion en bas. Teintée avec la couleur
- * de fond choisie dans Paramètres du club, repliable vers la droite et
- * redimensionnable en glissant la barre de séparation.
+ * Sidebar — navigation latérale façon BlindValet : bandeau club en haut,
+ * navigation (Tournois/Championnats), séparateur, Gérer les modèles/Gérer
+ * les membres, séparateur, chat du club, contacter l'administrateur, puis
+ * tout en bas Paramètres du club, séparateur, et l'espace personnel
+ * (avatar centré, pseudo, Profil à gauche / Déconnexion à droite).
+ * Teintée avec la couleur de fond choisie dans Paramètres du club,
+ * repliable vers la droite et redimensionnable en glissant la barre de
+ * séparation.
  *
  * Sur mobile (< sm), remplacée par une barre supérieure fixe (☰ + logo) et
  * un tiroir latéral en superposition — l'affichage desktop (>= sm) reste
@@ -34,8 +28,12 @@ const DEFAULT_WIDTH = 240;
 export default function Sidebar({ tab, setTab }) {
   const { account, logout } = useAccount();
   const { theme } = useTheme();
+  const manage = canManageTournaments(account.role);
+  const manageAccounts = canManageAccounts(account.role);
+  const isStaffOnly = account.role === "floor" || account.role === "table_captain";
   const [showProfile, setShowProfile] = useState(false);
   const [clubCode, setClubCode] = useState("");
+  const [adminEmail, setAdminEmail] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(() => {
     try {
@@ -57,6 +55,12 @@ export default function Sidebar({ tab, setTab }) {
   useEffect(() => {
     fetchClubSettings()
       .then((s) => setClubCode(s?.registration_code || ""))
+      .catch(() => {});
+    fetchAllAccounts()
+      .then((accs) => {
+        const admin = accs.find((a) => a.role === "admin" && a.email);
+        setAdminEmail(admin?.email || null);
+      })
       .catch(() => {});
   }, []);
 
@@ -114,23 +118,66 @@ export default function Sidebar({ tab, setTab }) {
     setMobileOpen(false);
   }
 
+  function NavButton({ id, icon, label, onNavigate }) {
+    return (
+      <button
+        onClick={() => onNavigate(id)}
+        className={`w-full flex items-center gap-3 px-5 py-2.5 text-sm font-body text-left ${
+          tab === id
+            ? "bg-felt-gold/10 text-felt-gold border-r-2 border-felt-gold"
+            : "text-white/90 hover:text-white hover:bg-black/20"
+        }`}
+      >
+        <span className="text-base">{icon}</span>
+        {label}
+      </button>
+    );
+  }
+
+  function Divider() {
+    return <div className="border-t border-felt-gold/10 mx-5 my-3" />;
+  }
+
   function NavList({ onNavigate }) {
     return (
-      <nav className="flex-1 overflow-y-auto py-3">
-        {NAV.filter((item) => item.show(account)).map((item) => (
-          <button
-            key={item.key}
-            onClick={() => onNavigate(item.key)}
-            className={`w-full flex items-center gap-3 px-5 py-2.5 text-sm font-body text-left ${
-              tab === item.key
-                ? "bg-felt-gold/10 text-felt-gold border-r-2 border-felt-gold"
-                : "text-white/90 hover:text-white hover:bg-black/20"
-            }`}
+      <nav className="flex-1 overflow-y-auto py-3 flex flex-col min-h-0">
+        <NavButton id="tournaments" icon="🏆" label="Tournois" onNavigate={onNavigate} />
+        {isStaffOnly && <NavButton id="eliminate" icon="🎯" label="Éliminer" onNavigate={onNavigate} />}
+        <NavButton id="championship" icon="📊" label="Championnats" onNavigate={onNavigate} />
+
+        <Divider />
+
+        {manage && <NavButton id="templates" icon="▦" label="Gérer les modèles" onNavigate={onNavigate} />}
+        {manageAccounts && <NavButton id="accounts" icon="👥" label="Gérer les membres" onNavigate={onNavigate} />}
+
+        <Divider />
+
+        <div className="px-5 pt-1 pb-1 text-xs font-display text-felt-cream/50 uppercase tracking-wide">
+          💬 Chat du club
+        </div>
+        <div className="h-56 px-4 pb-2 shrink-0">
+          <ChatPanel />
+        </div>
+
+        {adminEmail ? (
+          <a
+            href={`mailto:${adminEmail}`}
+            className="w-full flex items-center gap-3 px-5 py-2.5 text-sm font-body text-left text-white/90 hover:text-white hover:bg-black/20"
           >
-            <span className="text-base">{item.icon}</span>
-            {item.label}
+            📩 Contacter l'administrateur
+          </a>
+        ) : (
+          <button
+            onClick={() => alert("Aucun email d'administrateur renseigné — utilisez le chat du club.")}
+            className="w-full flex items-center gap-3 px-5 py-2.5 text-sm font-body text-left text-white/90 hover:text-white hover:bg-black/20"
+          >
+            📩 Contacter l'administrateur
           </button>
-        ))}
+        )}
+
+        <div className="flex-1 min-h-4" />
+
+        {manage && <NavButton id="settings" icon="⚙️" label="Paramètres du club" onNavigate={onNavigate} />}
       </nav>
     );
   }
@@ -153,50 +200,34 @@ export default function Sidebar({ tab, setTab }) {
     );
   }
 
-  function ChatSection() {
-    return (
-      <div className="shrink-0 border-t border-felt-gold/10 flex flex-col">
-        <div className="px-5 pt-3 pb-1 text-xs font-display text-felt-cream/50 uppercase tracking-wide">
-          💬 Chat du club
-        </div>
-        <div className="h-64 px-4 pb-2">
-          <ChatPanel />
-        </div>
-      </div>
-    );
-  }
-
   function ProfileFooter({ onNavigate }) {
     return (
-      <div className="shrink-0 border-t border-felt-gold/10">
-        <div className="flex items-center gap-3 px-5 py-3">
+      <div className="shrink-0 border-t border-felt-gold/10 py-4">
+        <div className="flex flex-col items-center px-5 mb-3">
           {account.avatar_data ? (
-            <img src={account.avatar_data} alt="" className="w-10 h-10 rounded-full object-cover shrink-0" />
+            <img src={account.avatar_data} alt="" className="w-16 h-16 rounded-full object-cover mb-2" />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-black/30 flex items-center justify-center text-felt-cream/50 font-display text-sm shrink-0">
+            <div className="w-16 h-16 rounded-full bg-black/30 flex items-center justify-center text-felt-cream/50 font-display text-xl mb-2">
               {account.pseudo?.[0]?.toUpperCase()}
             </div>
           )}
-          <div className="min-w-0">
-            <div className="text-sm text-white font-medium truncate">{account.pseudo}</div>
-            <div className="text-xs text-felt-cream/40 truncate">{ROLE_LABELS[account.role]}</div>
-          </div>
+          <div className="text-sm text-white font-medium truncate max-w-full">{account.pseudo}</div>
+          <div className="text-xs text-felt-cream/40 truncate">{ROLE_LABELS[account.role]}</div>
         </div>
-        <button
-          onClick={() => {
-            setShowProfile(true);
-            onNavigate?.();
-          }}
-          className="w-full flex items-center gap-2 px-5 py-2 text-sm text-white/90 hover:text-white hover:bg-black/20 text-left"
-        >
-          👤 Profil
-        </button>
-        <button
-          onClick={logout}
-          className="w-full flex items-center gap-2 px-5 py-2 pb-3 text-sm text-white/70 hover:text-white hover:bg-black/20 text-left"
-        >
-          🚪 Déconnexion
-        </button>
+        <div className="flex items-center justify-between px-5">
+          <button
+            onClick={() => {
+              setShowProfile(true);
+              onNavigate?.();
+            }}
+            className="flex items-center gap-1.5 text-sm text-white/90 hover:text-white"
+          >
+            👤 Profil
+          </button>
+          <button onClick={logout} className="flex items-center gap-1.5 text-sm text-white/70 hover:text-white">
+            🚪 Déconnexion
+          </button>
+        </div>
       </div>
     );
   }
@@ -248,7 +279,6 @@ export default function Sidebar({ tab, setTab }) {
           </button>
         </div>
         <NavList onNavigate={handleNav} />
-        <ChatSection />
         <ProfileFooter onNavigate={() => setMobileOpen(false)} />
       </div>
 
@@ -261,7 +291,6 @@ export default function Sidebar({ tab, setTab }) {
           <div style={{ width }} className="h-full flex flex-col">
             <ClubHeader />
             <NavList onNavigate={(key) => setTab(key)} />
-            <ChatSection />
             <ProfileFooter />
           </div>
         </div>
