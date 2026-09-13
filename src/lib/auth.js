@@ -185,6 +185,26 @@ export async function updateOwnProfile(id, { pseudo, firstName, lastName, email,
   return data;
 }
 
+// Édition complète d'un compte par l'administrateur (pseudo, nom, email,
+// mot de passe, avatar). Le mot de passe n'est mis à jour que si fourni
+// (chaîne non vide), pour ne pas l'écraser par erreur.
+export async function adminUpdateAccount(id, { pseudo, firstName, lastName, email, avatarData, password }) {
+  const payload = {
+    pseudo,
+    first_name: firstName,
+    last_name: lastName,
+    email: email || null,
+  };
+  if (avatarData !== undefined) payload.avatar_data = avatarData;
+  if (password) payload.password = password;
+  const { data, error } = await supabase.from("accounts").update(payload).eq("id", id).select().single();
+  if (error) {
+    if (error.message?.includes("duplicate")) throw new Error("Ce pseudo est déjà pris.");
+    throw error;
+  }
+  return data;
+}
+
 export const ROLE_LABELS = {
   admin: "Administrateur",
   tournament_director: "Tournament Director",
@@ -195,6 +215,12 @@ export const ROLE_LABELS = {
 
 export function canManageTournaments(role) {
   return role === "admin" || role === "tournament_director";
+}
+
+// Gestion des comptes (rôles, mots de passe, suppression) : réservée à
+// l'administrateur, même le Tournament Director n'y a pas accès.
+export function canManageAccounts(role) {
+  return role === "admin";
 }
 
 export function canControlClock(role) {

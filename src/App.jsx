@@ -3,7 +3,7 @@ import Sidebar from "./components/Sidebar.jsx";
 import TournamentsGrid from "./components/TournamentsGrid.jsx";
 import { useTheme } from "./context/ThemeContext.jsx";
 import { useAccount } from "./context/AccountContext.jsx";
-import { canManageTournaments } from "./lib/auth.js";
+import { canManageTournaments, canManageAccounts } from "./lib/auth.js";
 
 // Chargés à la demande (import() dynamique) : ces écrans embarquent des
 // composants lourds (horloge éditable, structure des blinds, xlsx...) qui
@@ -30,6 +30,7 @@ function TabFallback() {
 export default function App() {
   const { account } = useAccount();
   const manage = canManageTournaments(account.role);
+  const manageAccounts = canManageAccounts(account.role);
   const isStaffOnly = account.role === "floor" || account.role === "table_captain";
 
   const [tab, setTab] = useState(isStaffOnly ? "eliminate" : "tournaments");
@@ -60,7 +61,7 @@ export default function App() {
           {tab === "eliminate" && isStaffOnly && <EliminationView />}
           {tab === "championship" && <ChampionshipView />}
           {tab === "templates" && manage && <StructureTemplatesManager />}
-          {tab === "accounts" && manage && <AccountsAdmin />}
+          {tab === "accounts" && manageAccounts && <AccountsAdmin />}
           {tab === "settings" && manage && <LayoutSettings />}
         </Suspense>
       </div>

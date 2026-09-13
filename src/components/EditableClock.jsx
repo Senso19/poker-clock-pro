@@ -823,7 +823,7 @@ function EliminatedContent({ style, lastElimination, total, textStyle }) {
   if (!lastElimination) return <div className="text-felt-cream/40 text-sm text-center">Aucune élimination</div>;
   return (
     <div className="flex flex-col items-center gap-1">
-      <Avatar data={lastElimination.registrations?.accounts?.avatar_data} name={lastElimination.registrations?.players?.full_name} size={56} />
+      <Avatar data={lastElimination.registrations?.accounts?.avatar_data} name={lastElimination.registrations?.players?.full_name} size={88} />
       <div style={textStyle(style)}>{lastElimination.registrations?.players?.full_name}</div>
       <div className="text-felt-gold text-xs">{lastElimination.finish_position} / {total}</div>
     </div>
@@ -836,7 +836,7 @@ function HeadsupContent({ style, stillIn, textStyle }) {
     <div className="flex items-center justify-center gap-6">
       {stillIn.map((r) => (
         <div key={r.id} className="flex flex-col items-center gap-1">
-          <Avatar data={r.accounts?.avatar_data} name={r.players?.full_name} size={56} />
+          <Avatar data={r.accounts?.avatar_data} name={r.players?.full_name} size={88} />
           <div style={textStyle(style)} className="text-center">{r.players?.full_name}</div>
         </div>
       ))}
@@ -863,7 +863,7 @@ function WinnerContent({ style, winner, textStyle }) {
   return (
     <div className="flex flex-col items-center gap-2">
       <div className="text-3xl">🏆</div>
-      <Avatar data={winner.accounts?.avatar_data} name={winner.players?.full_name} size={64} />
+      <Avatar data={winner.accounts?.avatar_data} name={winner.players?.full_name} size={104} />
       <div style={textStyle(style)}>{winner.players?.full_name}</div>
       <div className="text-felt-gold text-xs">Vainqueur</div>
     </div>

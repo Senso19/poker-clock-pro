@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useAccount } from "../context/AccountContext.jsx";
 import { useTheme } from "../context/ThemeContext.jsx";
-import { canManageTournaments, ROLE_LABELS, fetchClubSettings } from "../lib/auth.js";
+import { canManageTournaments, canManageAccounts, ROLE_LABELS, fetchClubSettings } from "../lib/auth.js";
 import ProfileModal from "./ProfileModal.jsx";
 import ChatPanel from "./ChatPanel.jsx";
 
@@ -10,7 +10,7 @@ const NAV = [
   { key: "eliminate", icon: "🎯", label: "Éliminer", show: (a) => a.role === "floor" || a.role === "table_captain" },
   { key: "championship", icon: "📊", label: "Championnats", show: () => true },
   { key: "templates", icon: "▦", label: "Gérer les modèles", show: (a) => canManageTournaments(a.role) },
-  { key: "accounts", icon: "👥", label: "Membres", show: (a) => canManageTournaments(a.role) },
+  { key: "accounts", icon: "👥", label: "Membres", show: (a) => canManageAccounts(a.role) },
   { key: "settings", icon: "⚙️", label: "Paramètres du club", show: (a) => canManageTournaments(a.role) },
 ];
 
