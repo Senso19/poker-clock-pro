@@ -451,11 +451,13 @@ export default function TournamentDetail({ tournamentId, onBack }) {
                       <select
                         value={current?.account_id || ""}
                         onChange={(e) => handleAssignCaptain(num, e.target.value)}
-                        className="bg-transparent text-felt-cream text-xs flex-1 min-w-0"
+                        className="bg-felt-bg text-felt-cream text-xs flex-1 min-w-0 rounded px-1 py-0.5 border border-felt-cream/10"
                       >
-                        <option value="">—</option>
+                        <option value="" style={{ backgroundColor: "#14181C", color: "#EDEAE3" }}>
+                          —
+                        </option>
                         {captainAccounts.map((a) => (
-                          <option key={a.id} value={a.id}>
+                          <option key={a.id} value={a.id} style={{ backgroundColor: "#14181C", color: "#EDEAE3" }}>
                             {a.pseudo}
                           </option>
                         ))}
