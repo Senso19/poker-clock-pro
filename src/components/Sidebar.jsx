@@ -130,6 +130,7 @@ export default function Sidebar({ tab, setTab }) {
   });
   const separators = new Set(sidebarCfg.separatorsAfter || DEFAULT_SEPARATORS);
   const fontSizes = sidebarCfg.fontSize || {};
+  const spaceHeights = sidebarCfg.spaceHeight || {};
 
   async function persistSidebarConfig(nextCfg) {
     const nextTheme = { ...theme, sidebarConfig: nextCfg };
@@ -158,8 +159,34 @@ export default function Sidebar({ tab, setTab }) {
     else next.add(key);
     persistSidebarConfig({ ...sidebarCfg, separatorsAfter: [...next] });
   }
+  function addSpace() {
+    const key = `space-${Date.now()}`;
+    persistSidebarConfig({
+      ...sidebarCfg,
+      order: [...order, key],
+      spaceHeight: { ...spaceHeights, [key]: 16 },
+    });
+  }
+  function changeSpaceHeight(key, delta) {
+    const current = spaceHeights[key] || 16;
+    const next = Math.max(4, Math.min(160, current + delta));
+    persistSidebarConfig({ ...sidebarCfg, spaceHeight: { ...spaceHeights, [key]: next } });
+  }
+  function removeSpace(key) {
+    const nextSeparators = new Set(separators);
+    nextSeparators.delete(key);
+    const nextHeights = { ...spaceHeights };
+    delete nextHeights[key];
+    persistSidebarConfig({
+      ...sidebarCfg,
+      order: order.filter((k) => k !== key),
+      separatorsAfter: [...nextSeparators],
+      spaceHeight: nextHeights,
+    });
+  }
 
   function isVisible(key) {
+    if (key.startsWith("space-")) return true;
     if (key === "templates" || key === "settings") return manage;
     if (key === "accounts") return manageAccounts;
     if (key === "eliminate") return isStaffOnly;
@@ -174,14 +201,25 @@ export default function Sidebar({ tab, setTab }) {
     const visibleOrder = order.filter(isVisible);
     return (
       <nav className="flex-1 overflow-y-auto py-3 flex flex-col min-h-0">
+        {isEditMode && (
+          <button
+            onClick={addSpace}
+            className="mx-5 mb-2 px-2 py-1.5 text-xs border border-dashed border-felt-gold/40 rounded-md text-felt-gold/80 hover:text-felt-gold hover:border-felt-gold"
+          >
+            + Ajouter un espace
+          </button>
+        )}
         {visibleOrder.map((key) => {
+          const isSpace = key.startsWith("space-");
           const def = ITEM_DEFS[key];
           const fs = fontSizes[key] || DEFAULT_FONT_SIZE;
           return (
             <div key={key}>
               <div className="flex items-center">
                 <div className="flex-1 min-w-0">
-                  {key === "chat" ? (
+                  {isSpace ? (
+                    <div style={{ height: spaceHeights[key] || 16 }} />
+                  ) : key === "chat" ? (
                     <>
                       <div
                         style={{ fontSize: fs * 0.75 }}
@@ -225,20 +263,48 @@ export default function Sidebar({ tab, setTab }) {
                     <button onClick={() => moveItem(key, 1)} title="Descendre" className="text-felt-cream/50 hover:text-white p-0.5">
                       <ChevronDown size={14} />
                     </button>
-                    <button
-                      onClick={() => changeFontSize(key, -1)}
-                      title="Réduire le texte"
-                      className="text-felt-cream/50 hover:text-white text-[10px] font-display px-0.5"
-                    >
-                      A-
-                    </button>
-                    <button
-                      onClick={() => changeFontSize(key, 1)}
-                      title="Agrandir le texte"
-                      className="text-felt-cream/50 hover:text-white text-[10px] font-display px-0.5"
-                    >
-                      A+
-                    </button>
+                    {isSpace ? (
+                      <>
+                        <button
+                          onClick={() => changeSpaceHeight(key, -8)}
+                          title="Réduire l'espace"
+                          className="text-felt-cream/50 hover:text-white text-[10px] font-display px-0.5"
+                        >
+                          -
+                        </button>
+                        <button
+                          onClick={() => changeSpaceHeight(key, 8)}
+                          title="Agrandir l'espace"
+                          className="text-felt-cream/50 hover:text-white text-[10px] font-display px-0.5"
+                        >
+                          +
+                        </button>
+                        <button
+                          onClick={() => removeSpace(key)}
+                          title="Supprimer cet espace"
+                          className="text-felt-alert/60 hover:text-felt-alert p-0.5 text-xs"
+                        >
+                          🗑
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => changeFontSize(key, -1)}
+                          title="Réduire le texte"
+                          className="text-felt-cream/50 hover:text-white text-[10px] font-display px-0.5"
+                        >
+                          A-
+                        </button>
+                        <button
+                          onClick={() => changeFontSize(key, 1)}
+                          title="Agrandir le texte"
+                          className="text-felt-cream/50 hover:text-white text-[10px] font-display px-0.5"
+                        >
+                          A+
+                        </button>
+                      </>
+                    )}
                     <button
                       onClick={() => toggleSeparator(key)}
                       title="Trait de séparation après cet élément"

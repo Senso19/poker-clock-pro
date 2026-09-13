@@ -228,7 +228,7 @@ export default function TournamentsGrid({ onOpen }) {
           <div className="text-xs font-display uppercase tracking-widest text-felt-cream/40 mb-3">
             Actifs aujourd'hui
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
             {activeToday.map((t) => (
               <TournamentCard
                 key={t.id}
@@ -299,7 +299,7 @@ export default function TournamentsGrid({ onOpen }) {
       {listed.length === 0 ? (
         <div className="text-felt-cream/50 text-sm">Aucun tournoi ne correspond.</div>
       ) : view === "grid" ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
           {listed.map((t) => (
             <TournamentCard
               key={t.id}
@@ -343,9 +343,12 @@ export default function TournamentsGrid({ onOpen }) {
 
 function TournamentCard({ t, badge, count, already, manage, busy, menuOpen, onOpen, onToggleRegister, onToggleMenu, onDelete }) {
   return (
-    <div className="relative bg-felt-panel border border-felt-cream/10 rounded-xl p-3 flex flex-col hover:border-felt-cream/20 transition-colors">
+    <div
+      onClick={onOpen}
+      className="relative bg-felt-panel border border-felt-cream/10 rounded-xl p-3 flex flex-col hover:border-felt-cream/20 transition-colors cursor-pointer"
+    >
       <div className="flex items-start justify-between gap-2 mb-1">
-        <div className="font-display text-base text-white">{t.name}</div>
+        <div className="font-display text-lg text-white leading-tight">{t.name}</div>
       </div>
       <div className="flex items-center gap-2 mb-3">
         <div className="text-xs text-felt-cream/40">
@@ -353,17 +356,17 @@ function TournamentCard({ t, badge, count, already, manage, busy, menuOpen, onOp
             ? new Date(t.scheduled_at).toLocaleString("fr-FR")
             : new Date(t.created_at).toLocaleDateString("fr-FR")}
         </div>
-        <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full ${badge.cls}`}>
+        <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${badge.cls}`}>
           {badge.dot && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
           {badge.label}
         </span>
       </div>
-      <div className="flex items-center gap-1.5 text-sm text-felt-cream/70 mb-3">
-        <span>👥</span>
+      <div className="flex items-center gap-1.5 text-lg font-display text-white mb-3">
+        <span className="text-base">👥</span>
         <span>{count}</span>
       </div>
       {t.championships?.name && (
-        <div className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded bg-felt-gold/10 text-felt-gold mb-3 w-fit">
+        <div className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-felt-gold/10 text-felt-gold mb-3 w-fit">
           📊 {t.championships.name}
           {t.stage_label ? ` — ${t.stage_label}` : ""}
         </div>
@@ -378,7 +381,10 @@ function TournamentCard({ t, badge, count, already, manage, busy, menuOpen, onOp
         {t.registration_open && (
           <button
             disabled={busy}
-            onClick={onToggleRegister}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleRegister();
+            }}
             className={`text-sm px-3 py-1.5 rounded-lg font-display ${
               already
                 ? "bg-felt-bg text-felt-cream/60 border border-felt-cream/15"
@@ -390,11 +396,20 @@ function TournamentCard({ t, badge, count, already, manage, busy, menuOpen, onOp
         )}
         {manage && (
           <div className="relative ml-auto">
-            <button onClick={onToggleMenu} className="text-felt-cream/40 hover:text-white px-1 text-lg leading-none">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleMenu();
+              }}
+              className="text-felt-cream/40 hover:text-white px-1 text-lg leading-none"
+            >
               ⋮
             </button>
             {menuOpen && (
-              <div className="absolute right-0 bottom-8 z-20 bg-felt-bg border border-felt-gold/40 rounded-md shadow-lg py-1 w-36 text-sm">
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="absolute right-0 bottom-8 z-20 bg-felt-bg border border-felt-gold/40 rounded-md shadow-lg py-1 w-36 text-sm"
+              >
                 <button onClick={onDelete} className="w-full text-left px-3 py-2 text-felt-alert hover:bg-felt-panel">
                   🗑 Supprimer
                 </button>
@@ -409,7 +424,10 @@ function TournamentCard({ t, badge, count, already, manage, busy, menuOpen, onOp
 
 function TournamentRow({ t, badge, count, already, manage, busy, menuOpen, onOpen, onToggleRegister, onToggleMenu, onDelete }) {
   return (
-    <div className="relative flex flex-wrap items-center gap-4 bg-felt-panel border border-felt-cream/10 rounded-lg px-4 py-3 hover:border-felt-cream/20 transition-colors">
+    <div
+      onClick={onOpen}
+      className="relative flex flex-wrap items-center gap-4 bg-felt-panel border border-felt-cream/10 rounded-lg px-4 py-3 hover:border-felt-cream/20 transition-colors cursor-pointer"
+    >
       <div className="min-w-0 flex-1">
         <div className="font-display text-white truncate">{t.name}</div>
         <div className="text-xs text-felt-cream/40">
@@ -436,7 +454,10 @@ function TournamentRow({ t, badge, count, already, manage, busy, menuOpen, onOpe
         {t.registration_open && (
           <button
             disabled={busy}
-            onClick={onToggleRegister}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleRegister();
+            }}
             className={`text-sm px-3 py-1.5 rounded-lg font-display ${
               already ? "bg-felt-bg text-felt-cream/60 border border-felt-cream/15" : "bg-felt-gold text-felt-bg hover:bg-felt-gold/90"
             }`}
@@ -446,11 +467,20 @@ function TournamentRow({ t, badge, count, already, manage, busy, menuOpen, onOpe
         )}
         {manage && (
           <div className="relative">
-            <button onClick={onToggleMenu} className="text-felt-cream/40 hover:text-white px-1 text-lg leading-none">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleMenu();
+              }}
+              className="text-felt-cream/40 hover:text-white px-1 text-lg leading-none"
+            >
               ⋮
             </button>
             {menuOpen && (
-              <div className="absolute right-0 top-8 z-20 bg-felt-bg border border-felt-gold/40 rounded-md shadow-lg py-1 w-36 text-sm">
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="absolute right-0 top-8 z-20 bg-felt-bg border border-felt-gold/40 rounded-md shadow-lg py-1 w-36 text-sm"
+              >
                 <button onClick={onDelete} className="w-full text-left px-3 py-2 text-felt-alert hover:bg-felt-panel">
                   🗑 Supprimer
                 </button>
