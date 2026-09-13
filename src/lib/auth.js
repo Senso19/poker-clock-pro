@@ -55,6 +55,10 @@ export async function signup({ firstName, lastName, pseudo, email, password, ava
       password,
       avatar_data: avatarData || null,
       role: isFirstAccount ? "admin" : "player",
+      // Seul ce tout premier compte (fondateur du club) est verrouillé en
+      // tant qu'admin de façon permanente (voir updateAccountRole) ; les
+      // admins promus ensuite restent librement rétrogradables par lui.
+      is_owner: isFirstAccount,
       // Le tout premier compte (admin fondateur) est validé d'office ; tous
       // les suivants attendent la validation d'un admin/TD avant de pouvoir
       // s'inscrire à un tournoi (voir canParticipate).
@@ -148,11 +152,13 @@ export async function deleteContactMessage(id) {
 }
 
 export async function updateAccountRole(id, role) {
-  // Le rôle admin est verrouillé une fois attribué : on ne le change qu'en
-  // donnant le rôle admin à quelqu'un d'autre puis en supprimant ce compte
-  // (voir mergeAccounts / deleteAccount), jamais en rétrogradant en place.
-  const { data: current } = await supabase.from("accounts").select("role").eq("id", id).maybeSingle();
-  if (current?.role === "admin") throw new Error("Le rôle administrateur ne peut pas être changé.");
+  // Seul le compte fondateur du club (is_owner) a son rôle verrouillé : on
+  // ne le change qu'en donnant le rôle admin à quelqu'un d'autre puis en
+  // supprimant ce compte (voir mergeAccounts / deleteAccount), jamais en
+  // rétrogradant en place. Les autres admins (promus ensuite) restent
+  // librement modifiables.
+  const { data: current } = await supabase.from("accounts").select("is_owner").eq("id", id).maybeSingle();
+  if (current?.is_owner) throw new Error("Le rôle de ce compte ne peut pas être changé.");
   const { error } = await supabase.from("accounts").update({ role }).eq("id", id);
   if (error) throw error;
 }

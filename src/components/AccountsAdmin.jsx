@@ -166,9 +166,9 @@ export default function AccountsAdmin() {
                 </div>
               )}
             </button>
-            {a.role === "admin" ? (
+            {a.is_owner ? (
               <span
-                title="Le rôle administrateur ne peut pas être changé ici : donnez le rôle admin à quelqu'un d'autre puis supprimez ce compte pour transférer l'accès."
+                title="Le rôle de ce compte (fondateur du club) ne peut pas être changé ici : donnez le rôle admin à quelqu'un d'autre puis supprimez ce compte pour transférer l'accès."
                 className="flex items-center gap-1.5 bg-felt-bg border border-felt-cream/10 rounded-md px-2 py-1.5 text-sm text-felt-gold shrink-0"
               >
                 <Lock size={13} /> Admin
