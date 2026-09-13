@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronUp, ChevronDown, Minus, User, LogOut, Bell } from "lucide-react";
+import { ChevronUp, ChevronDown, Minus, User, LogOut, Bell, Trophy, Target, BarChart3, LayoutGrid, Users, MessageCircle, Mail, Settings } from "lucide-react";
 import { supabase } from "../lib/supabase.js";
 import { useAccount } from "../context/AccountContext.jsx";
 import { useTheme } from "../context/ThemeContext.jsx";
@@ -17,14 +17,14 @@ const MAX_WIDTH = 420;
 const DEFAULT_WIDTH = 240;
 
 const ITEM_DEFS = {
-  tournaments: { icon: "🏆", label: "Tournois" },
-  eliminate: { icon: "🎯", label: "Éliminer" },
-  championship: { icon: "📊", label: "Championnats" },
-  templates: { icon: "▦", label: "Gérer les modèles" },
-  accounts: { icon: "👥", label: "Gérer les membres" },
-  chat: { icon: "💬", label: "Chat du club" },
-  contact: { icon: "📩", label: "Contacter l'administrateur" },
-  settings: { icon: "⚙️", label: "Paramètres du club" },
+  tournaments: { icon: Trophy, label: "Tournois" },
+  eliminate: { icon: Target, label: "Éliminer" },
+  championship: { icon: BarChart3, label: "Championnats" },
+  templates: { icon: LayoutGrid, label: "Gérer les modèles" },
+  accounts: { icon: Users, label: "Gérer les membres" },
+  chat: { icon: MessageCircle, label: "Chat du club" },
+  contact: { icon: Mail, label: "Contacter l'administrateur" },
+  settings: { icon: Settings, label: "Paramètres du club" },
 };
 const DEFAULT_ORDER = ["tournaments", "eliminate", "championship", "templates", "accounts", "chat", "contact", "settings"];
 const DEFAULT_SEPARATORS = ["championship", "accounts"];
@@ -241,9 +241,9 @@ export default function Sidebar({ tab, setTab }) {
                     <>
                       <div
                         style={{ fontSize: fs * 0.75 }}
-                        className="px-5 pt-1 pb-1 font-display text-felt-cream/50 uppercase tracking-wide"
+                        className="px-5 pt-1 pb-1 font-display text-felt-cream/50 uppercase tracking-wide flex items-center gap-2"
                       >
-                        {def.icon} {def.label}
+                        <def.icon size={14} className="text-white shrink-0" /> {def.label}
                       </div>
                       <div className="h-56 px-4 pb-2 shrink-0">
                         <ChatPanel />
@@ -255,7 +255,9 @@ export default function Sidebar({ tab, setTab }) {
                       style={{ fontSize: fs }}
                       className="w-full flex items-center gap-3 px-5 py-2.5 font-body text-left text-white/90 hover:text-white hover:bg-black/20"
                     >
-                      <span>{def.icon}</span>
+                      <span className="w-5 flex justify-center shrink-0">
+                        <def.icon size={17} className="text-white" />
+                      </span>
                       {def.label}
                     </button>
                   ) : (
@@ -268,7 +270,9 @@ export default function Sidebar({ tab, setTab }) {
                           : "text-white/90 hover:text-white hover:bg-black/20"
                       }`}
                     >
-                      <span>{def.icon}</span>
+                      <span className="w-5 flex justify-center shrink-0">
+                        <def.icon size={17} className="text-white" />
+                      </span>
                       {def.label}
                     </button>
                   )}
