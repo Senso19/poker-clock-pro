@@ -46,6 +46,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   const [captainAccounts, setCaptainAccounts] = useState([]);
   const [tableCaptains, setTableCaptains] = useState([]);
   const fileInputRef = useRef(null);
+  const isFreezeout = tournament?.structure_config?.tournamentType === "freezeout";
 
   useEffect(() => {
     selectTournament(tournamentId);
@@ -199,9 +200,8 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   // tapé lors d'un tournoi précédent). On lie la registration à ce compte.
   async function handleRegisterExisting(account) {
     try {
-      const reg = await registerOnePlayer(account.pseudo, computeOccupiedSeats(registrations), account.id);
+      await registerOnePlayer(account.pseudo, computeOccupiedSeats(registrations), account.id);
       await loadRegistrations();
-      setTicket({ type: "buyin", reg });
     } catch (e) {
       setError(e.message);
     }
@@ -209,9 +209,8 @@ export default function TournamentDetail({ tournamentId, onBack }) {
 
   async function handleRegisterNew(name) {
     try {
-      const reg = await registerOnePlayer(name, computeOccupiedSeats(registrations));
+      await registerOnePlayer(name, computeOccupiedSeats(registrations));
       await loadRegistrations();
-      setTicket({ type: "buyin", reg });
     } catch (e) {
       setError(e.message);
     }
@@ -700,8 +699,8 @@ export default function TournamentDetail({ tournamentId, onBack }) {
                     <MenuItem onClick={() => setTicket({ type: "buyin", reg })}>🎫 Ticket</MenuItem>
                     {!isOut && (
                       <>
-                        <MenuItem onClick={() => addRebuy(reg)}>+ Rebuy</MenuItem>
-                        <MenuItem onClick={() => addAddon(reg)}>+ Addon</MenuItem>
+                        {!isFreezeout && <MenuItem onClick={() => addRebuy(reg)}>+ Rebuy</MenuItem>}
+                        {!isFreezeout && <MenuItem onClick={() => addAddon(reg)}>+ Addon</MenuItem>}
                         <MenuItem onClick={() => startMoveTable(reg)}>Changer de table</MenuItem>
                         <MenuItem
                           alert
