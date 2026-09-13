@@ -323,18 +323,29 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   // Équilibrage automatique : ne touche qu'aux joueurs encore en jeu,
   // répartit le nombre minimal de tables nécessaires de façon égale
   // (round-robin), pour compenser les éliminations en cours de tournoi.
+  // Nombre de tables cible : dès que le nombre de joueurs encore en jeu est
+  // au plus égal au réglage "Nombre de joueurs à la table finale", tout le
+  // monde se regroupe sur une seule table finale (même si ce nombre dépasse
+  // le "Joueurs par table" habituel). Sinon, répartition normale par
+  // "Joueurs par table".
+  function computeTargetTableCount(activeCount, perTable, finalTableSize) {
+    if (activeCount <= finalTableSize) return 1;
+    return Math.max(1, Math.ceil(activeCount / perTable));
+  }
+
   async function autoBalanceTables() {
     setBalancing(true);
     setError(null);
     try {
       const eliminatedIdsNow = new Set(eliminations.map((e) => e.registration_id));
       const perTable = tournament?.players_per_table || 9;
+      const finalTableSize = tournament?.final_table_size || perTable;
       const active = registrations.filter((r) => !eliminatedIdsNow.has(r.id));
       if (active.length === 0) {
         setBalancing(false);
         return;
       }
-      const numTables = Math.max(1, Math.ceil(active.length / perTable));
+      const numTables = computeTargetTableCount(active.length, perTable, finalTableSize);
       const sorted = [...active].sort(
         (a, b) => (a.table_number || 0) - (b.table_number || 0) || (a.seat_number || 0) - (b.seat_number || 0)
       );
@@ -361,9 +372,10 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   function computeNeedsBalance() {
     const eliminatedIdsNow = new Set(eliminations.map((e) => e.registration_id));
     const perTable = tournament?.players_per_table || 9;
+    const finalTableSize = tournament?.final_table_size || perTable;
     const active = registrations.filter((r) => !eliminatedIdsNow.has(r.id));
     if (active.length === 0) return false;
-    const numTables = Math.max(1, Math.ceil(active.length / perTable));
+    const numTables = computeTargetTableCount(active.length, perTable, finalTableSize);
     const counts = {};
     active.forEach((r) => {
       counts[r.table_number] = (counts[r.table_number] || 0) + 1;
