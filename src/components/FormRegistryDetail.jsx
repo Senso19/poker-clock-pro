@@ -7,6 +7,8 @@ import {
   validateSubmission,
   rejectSubmission,
   reorderSubmissions,
+  resolveFieldValue,
+  resolvePlayerName,
 } from "../lib/forms.js";
 import { fetchAllTournaments } from "../lib/tournaments.js";
 import { useConfirm } from "../context/ConfirmContext.jsx";
@@ -21,6 +23,13 @@ const FIELD_TYPES = [
   ["date", "Date"],
   ["select", "Liste déroulante"],
   ["checkbox", "Case à cocher"],
+];
+const FIELD_ROLES = [
+  ["", "Aucun rôle particulier"],
+  ["prenom", "→ Prénom du joueur"],
+  ["nom", "→ Nom du joueur"],
+  ["email", "→ Email du joueur"],
+  ["club", "→ Club d'appartenance"],
 ];
 
 /**
@@ -200,11 +209,7 @@ export default function FormRegistryDetail({ registryId, onBack }) {
     return map;
   }
   function findClubValue(sub) {
-    const map = fieldLabelMap();
-    for (const [fieldId, label] of Object.entries(map)) {
-      if (/club/i.test(label) && sub.data?.[fieldId]) return sub.data[fieldId];
-    }
-    return null;
+    return resolveFieldValue(registry, sub.data, "club");
   }
 
   async function moveSubmission(groupList, index, dir) {
@@ -227,8 +232,8 @@ export default function FormRegistryDetail({ registryId, onBack }) {
 
   async function sortGroupAlphabetically(groupList) {
     const sorted = [...groupList].sort((a, b) => {
-      const nameA = `${a.data?.nom || ""} ${a.data?.prenom || ""}`.trim().toLowerCase();
-      const nameB = `${b.data?.nom || ""} ${b.data?.prenom || ""}`.trim().toLowerCase();
+      const nameA = resolvePlayerName(registry, a.data).toLowerCase();
+      const nameB = resolvePlayerName(registry, b.data).toLowerCase();
       return nameA.localeCompare(nameB);
     });
     const orderedIds = sorted.map((s) => s.id);
@@ -477,6 +482,18 @@ export default function FormRegistryDetail({ registryId, onBack }) {
                               </option>
                             ))}
                           </select>
+                          <select
+                            value={f.role || ""}
+                            onChange={(e) => updateField(page.id, f.id, { role: e.target.value || null })}
+                            title="Rôle du champ — permet à l'app de reconnaître le prénom/nom/email/club quel que soit le champ utilisé"
+                            className="bg-felt-panel border border-felt-gold/30 rounded px-2 py-1 text-xs text-felt-gold"
+                          >
+                            {FIELD_ROLES.map(([v, label]) => (
+                              <option key={v} value={v}>
+                                {label}
+                              </option>
+                            ))}
+                          </select>
                           <label className="flex items-center gap-1 text-xs text-felt-cream/50">
                             <input type="checkbox" checked={!!f.required} onChange={(e) => updateField(page.id, f.id, { required: e.target.checked })} />
                             Requis
@@ -605,6 +622,7 @@ export default function FormRegistryDetail({ registryId, onBack }) {
                       <SubmissionRow
                         key={s.id}
                         s={s}
+                        name={resolvePlayerName(registry, s.data)}
                         index={i}
                         clubLabel={findClubValue(s)}
                         canReorder
@@ -624,7 +642,7 @@ export default function FormRegistryDetail({ registryId, onBack }) {
                   <div className="text-xs font-display uppercase tracking-widest text-felt-cream/40 mb-2">Traitées</div>
                   <CustomizablePanel panelKey={`form-registry-done-${g.id || "none"}`} defaultWidth="1 1 100%" className="space-y-2">
                     {g.others.map((s, i) => (
-                      <SubmissionRow key={s.id} s={s} index={i} clubLabel={findClubValue(s)} done onOpenDetail={() => setDetailSubmission(s)} />
+                      <SubmissionRow key={s.id} s={s} name={resolvePlayerName(registry, s.data)} index={i} clubLabel={findClubValue(s)} done onOpenDetail={() => setDetailSubmission(s)} />
                     ))}
                   </CustomizablePanel>
                 </div>
@@ -636,7 +654,12 @@ export default function FormRegistryDetail({ registryId, onBack }) {
       )}
 
       {detailSubmission && (
-        <SubmissionDetailModal submission={detailSubmission} fieldLabelMap={fieldLabelMap()} onClose={() => setDetailSubmission(null)} />
+        <SubmissionDetailModal
+          submission={detailSubmission}
+          name={resolvePlayerName(registry, detailSubmission.data)}
+          fieldLabelMap={fieldLabelMap()}
+          onClose={() => setDetailSubmission(null)}
+        />
       )}
     </div>
   );
@@ -666,7 +689,7 @@ function ColorField({ label, value, onChange }) {
   );
 }
 
-function SubmissionRow({ s, index, clubLabel, busy, done, canReorder, onMoveUp, onMoveDown, onValidate, onReject, onOpenDetail }) {
+function SubmissionRow({ s, name, index, clubLabel, busy, done, canReorder, onMoveUp, onMoveDown, onValidate, onReject, onOpenDetail }) {
   return (
     <div className="bg-felt-panel border border-felt-cream/10 rounded-lg px-3 py-2.5 flex items-center gap-3">
       {canReorder && (
@@ -681,9 +704,7 @@ function SubmissionRow({ s, index, clubLabel, busy, done, canReorder, onMoveUp, 
       )}
       <div className="w-7 text-center font-display text-felt-cream/40 shrink-0">{index + 1}</div>
       <button onClick={onOpenDetail} className="flex-1 min-w-0 text-left">
-        <div className="text-lg font-display text-white truncate">
-          {s.data?.nom} {s.data?.prenom}
-        </div>
+        <div className="text-lg font-display text-white truncate">{name || "(sans nom)"}</div>
         {clubLabel && <div className="text-sm text-felt-cream/50 truncate">{clubLabel}</div>}
       </button>
       {!done ? (
@@ -716,7 +737,7 @@ function SubmissionRow({ s, index, clubLabel, busy, done, canReorder, onMoveUp, 
   );
 }
 
-function SubmissionDetailModal({ submission, fieldLabelMap, onClose }) {
+function SubmissionDetailModal({ submission, name, fieldLabelMap, onClose }) {
   const entries = Object.entries(submission.data || {});
   return (
     <div onClick={onClose} className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
@@ -725,9 +746,7 @@ function SubmissionDetailModal({ submission, fieldLabelMap, onClose }) {
         className="bg-felt-panel border border-felt-cream/10 rounded-lg w-full max-w-sm p-6 font-body text-felt-cream max-h-[85vh] overflow-y-auto"
       >
         <div className="flex items-center justify-between mb-5">
-          <div className="font-display text-lg">
-            {submission.data?.nom} {submission.data?.prenom}
-          </div>
+          <div className="font-display text-lg">{name || "(sans nom)"}</div>
           <button onClick={onClose} className="text-felt-cream/50 hover:text-felt-cream">
             ✕
           </button>

@@ -28,13 +28,31 @@ export function defaultPages() {
       title: "Vos informations",
       description: "",
       fields: [
-        { id: "prenom", type: "text", label: "Prénom", required: true },
-        { id: "nom", type: "text", label: "Nom", required: true },
-        { id: "email", type: "email", label: "Email", required: false },
+        { id: "prenom", type: "text", label: "Prénom", required: true, role: "prenom" },
+        { id: "nom", type: "text", label: "Nom", required: true, role: "nom" },
+        { id: "email", type: "email", label: "Email", required: false, role: "email" },
         { id: "telephone", type: "tel", label: "Téléphone", required: false },
       ],
     },
   ];
+}
+
+// Trouve la valeur d'un champ selon son "rôle" (prenom/nom/email/club),
+// indépendamment de son identifiant technique — indispensable dès qu'un
+// champ personnalisé est ajouté dans le constructeur (id aléatoire type
+// "field-172..."), pas seulement les champs par défaut du modèle.
+export function resolveFieldValue(registry, submissionData, role) {
+  for (const page of registry?.pages || []) {
+    for (const f of page.fields || []) {
+      if (f.role === role && submissionData?.[f.id]) return submissionData[f.id];
+    }
+  }
+  return null;
+}
+export function resolvePlayerName(registry, submissionData) {
+  const prenom = resolveFieldValue(registry, submissionData, "prenom");
+  const nom = resolveFieldValue(registry, submissionData, "nom");
+  return [prenom, nom].filter(Boolean).join(" ").trim();
 }
 
 export async function fetchFormRegistries() {
@@ -114,7 +132,7 @@ export async function reorderSubmissions(orderedIds) {
 // envoyé le formulaire (voir "Tournoi lié" dans le constructeur) — permet
 // à un même registre d'alimenter plusieurs tableaux/tournois différents
 // (ex : Day1A / Day1B d'un même Main Event).
-export async function submitFormEntry(registryId, data, tournamentId, pageId, registryName) {
+export async function submitFormEntry(registryId, data, tournamentId, pageId, registry) {
   const { error } = await supabase
     .from("form_submissions")
     .insert({ registry_id: registryId, data, status: "pending", tournament_id: tournamentId || null, page_id: pageId || null });
@@ -129,8 +147,10 @@ export async function submitFormEntry(registryId, data, tournamentId, pageId, re
       const { data: t } = await supabase.from("tournaments").select("name").eq("id", tournamentId).maybeSingle();
       tournamentName = t?.name || null;
     }
+    const playerEmail = resolveFieldValue(registry, data, "email");
+    const playerName = resolvePlayerName(registry, data);
     await supabase.functions.invoke("send-form-confirmation", {
-      body: { registryName: registryName || "Inscription", tournamentName, data },
+      body: { registryName: registry?.name || "Inscription", tournamentName, data, playerEmail, playerName },
     });
   } catch {
     // silencieux : l'inscription est déjà enregistrée, l'e-mail est secondaire
@@ -152,13 +172,14 @@ export async function validateSubmission(submission, registry) {
   const { data: tournament, error: tErr } = await supabase.from("tournaments").select("*").eq("id", tournamentId).single();
   if (tErr) throw tErr;
 
-  const fullName = [submission.data.prenom, submission.data.nom].filter(Boolean).join(" ").trim() || "Joueur";
+  const fullName = resolvePlayerName(registry, submission.data) || "Joueur";
+  const playerEmail = resolveFieldValue(registry, submission.data, "email");
 
   let { data: player } = await supabase.from("players").select("id").ilike("full_name", fullName).maybeSingle();
   if (!player) {
     const { data: created, error: pErr } = await supabase
       .from("players")
-      .insert({ full_name: fullName, email: submission.data.email || null })
+      .insert({ full_name: fullName, email: playerEmail || null })
       .select()
       .single();
     if (pErr) throw pErr;
