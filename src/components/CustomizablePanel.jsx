@@ -136,6 +136,7 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
           color: style.textColor || undefined,
           "--pcp-cell-bg": style.cellBgColor || undefined,
           "--pcp-cell-text": style.cellTextColor || undefined,
+          "--pcp-banner-height": style.bannerHeight ? `${style.bannerHeight}px` : undefined,
           gridTemplateColumns: style.cardWidth ? `repeat(auto-fill, minmax(${style.cardWidth}px, 1fr))` : undefined,
           gridAutoRows: style.cardHeight ? `${style.cardHeight}px` : undefined,
         }}
@@ -248,6 +249,16 @@ function PanelStyleEditor({ style, onChange, onClose }) {
           className="w-20 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
         />
       </label>
+      <label className="flex items-center justify-between mb-2">
+        Hauteur du bandeau image (px)
+        <input
+          type="number"
+          value={style.bannerHeight || ""}
+          placeholder="auto"
+          onChange={(e) => onChange({ bannerHeight: Number(e.target.value) || null })}
+          className="w-20 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
+        />
+      </label>
       <div className="border-t border-felt-cream/10 my-2 pt-2 text-felt-cream/50">Texte des cartes, par rôle</div>
       <SizeColorRow
         label="Titre"
@@ -293,6 +304,7 @@ function PanelStyleEditor({ style, onChange, onClose }) {
             cellTextColor: null,
             cardWidth: null,
             cardHeight: null,
+            bannerHeight: null,
             titleSize: null,
             titleColor: null,
             bodySize: null,

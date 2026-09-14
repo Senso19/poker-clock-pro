@@ -296,8 +296,11 @@ function ActiveChampionshipCard({ s, selected, onClick, manage, onBannerChange }
 function BannerImage({ image, manage, onChange }) {
   if (!image && !manage) return null;
   return (
-    <div className={`relative bg-felt-bg ${!image ? "h-16" : ""}`}>
-      {image && <img src={image} alt="" className="w-full h-auto block" />}
+    <div
+      className="relative bg-felt-bg overflow-hidden"
+      style={{ height: image ? "var(--pcp-banner-height, 140px)" : "4rem" }}
+    >
+      {image && <img src={image} alt="" className="w-full h-full object-cover block" />}
       {manage && (
         <label
           onClick={(e) => e.stopPropagation()}
