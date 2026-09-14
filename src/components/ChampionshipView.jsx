@@ -6,12 +6,14 @@ import {
   fetchChampionshipStandings,
   evaluateFormula,
   DEFAULT_FORMULA,
+  updateChampionshipBanner,
 } from "../lib/points.js";
 import { useAccount } from "../context/AccountContext.jsx";
 import { canManageTournaments } from "../lib/auth.js";
 import ChampionshipDetailPage from "./ChampionshipDetailPage.jsx";
 import CustomizablePanel from "./CustomizablePanel.jsx";
 import { useConfirm } from "../context/ConfirmContext.jsx";
+import { compressImageFile } from "../lib/imageUtils.js";
 
 const VARIABLES = [
   ["p", "nombre de joueurs"],
@@ -92,6 +94,19 @@ export default function ChampionshipView() {
       setError(e.message);
     }
     setLoading(false);
+  }
+
+  async function handleCardBannerChange(championshipId, file) {
+    if (!file) return;
+    const dataUrl = await compressImageFile(file, { maxSize: 1200 });
+    try {
+      await updateChampionshipBanner(championshipId, dataUrl);
+      setSummaries((list) =>
+        list.map((s) => (s.championship.id === championshipId ? { ...s, championship: { ...s.championship, banner_image: dataUrl } } : s))
+      );
+    } catch (e) {
+      setError(e.message);
+    }
   }
 
   async function handleCreate(form) {
@@ -187,6 +202,8 @@ export default function ChampionshipView() {
                 s={s}
                 selected={selectedId === s.championship.id}
                 onClick={() => toggleSelect(s.championship.id)}
+                manage={manage}
+                onBannerChange={(file) => handleCardBannerChange(s.championship.id, file)}
               />
             ))}
           </CustomizablePanel>
@@ -207,6 +224,8 @@ export default function ChampionshipView() {
                 s={s}
                 selected={selectedId === s.championship.id}
                 onClick={() => toggleSelect(s.championship.id)}
+                manage={manage}
+                onBannerChange={(file) => handleCardBannerChange(s.championship.id, file)}
               />
             ))}
           </CustomizablePanel>
@@ -216,106 +235,130 @@ export default function ChampionshipView() {
   );
 }
 
-function ActiveChampionshipCard({ s, selected, onClick }) {
+function ActiveChampionshipCard({ s, selected, onClick, manage, onBannerChange }) {
   return (
     <button
       onClick={onClick}
-      className={`text-left rounded-xl p-4 border transition-colors ${
+      className={`text-left rounded-xl overflow-hidden border transition-colors ${
         selected ? "bg-felt-gold/10 border-felt-gold" : "bg-felt-panel border-felt-cream/10 hover:border-felt-cream/30"
       }`}
     >
-      <div
-        style={{ fontSize: "var(--pcp-card-text-size, inherit)", color: "var(--pcp-card-text-color, white)" }}
-        className="font-display text-lg mb-2 truncate"
-      >
-        {s.championship.name}
-      </div>
-      <div className="flex items-center gap-2 mb-4">
-        <span className="text-xs px-2.5 py-1 rounded bg-felt-bg text-felt-cream/50">{s.playerCount} joueurs</span>
-        <span className="text-xs px-2.5 py-1 rounded bg-felt-bg text-felt-cream/50">{s.stageCount} tournois</span>
-      </div>
-      {s.leader ? (
-        <div className="flex items-center gap-3 bg-felt-bg rounded-lg px-3 py-3 mb-4">
-          <MiniAvatar name={s.leader.name} size={40} />
-          <div className="min-w-0 flex-1">
-            <div className="text-[10px] text-felt-cream/40 uppercase tracking-wide">Joueur en tête</div>
-            <div className="text-base text-felt-gold font-medium truncate">{s.leader.name}</div>
+      <BannerImage image={s.championship.banner_image} manage={manage} onChange={onBannerChange} />
+      <div className="p-4">
+        <div
+          style={{ fontSize: "var(--pcp-card-text-size, inherit)", color: "var(--pcp-card-text-color, white)" }}
+          className="font-display text-lg mb-2 truncate"
+        >
+          {s.championship.name}
+        </div>
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-xs px-2.5 py-1 rounded bg-felt-bg text-felt-cream/50">{s.playerCount} joueurs</span>
+          <span className="text-xs px-2.5 py-1 rounded bg-felt-bg text-felt-cream/50">{s.stageCount} tournois</span>
+        </div>
+        {s.leader ? (
+          <div className="flex items-center gap-3 bg-felt-bg rounded-lg px-3 py-3 mb-4">
+            <MiniAvatar name={s.leader.name} size={40} />
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] text-felt-cream/40 uppercase tracking-wide">Joueur en tête</div>
+              <div className="text-base text-felt-gold font-medium truncate">{s.leader.name}</div>
+            </div>
+            <div className="text-felt-gold font-display text-2xl shrink-0">{s.leader.totalPoints}</div>
           </div>
-          <div className="text-felt-gold font-display text-2xl shrink-0">{s.leader.totalPoints}</div>
-        </div>
-      ) : (
-        <div className="text-sm text-felt-cream/40 mb-4">Aucun résultat pour l'instant.</div>
-      )}
-      <div className="grid grid-cols-2 gap-3 text-xs">
-        <div>
-          <div className="text-felt-cream/30 uppercase tracking-wide mb-0.5">Précédent</div>
-          {s.previousStage ? (
-            <>
-              <div className="text-felt-gold truncate">{s.previousStage.stage_label || s.previousStage.name}</div>
-              <div className="text-felt-cream/30 text-[10px]">
-                {formatShortDate(s.previousStage.scheduled_at || s.previousStage.created_at)}
-              </div>
-            </>
-          ) : (
-            <div className="text-felt-cream/40">—</div>
-          )}
-        </div>
-        <div>
-          <div className="text-felt-cream/30 uppercase tracking-wide mb-0.5">À venir</div>
-          {s.nextStage ? (
-            <>
-              <div className="text-felt-gold truncate">{s.nextStage.stage_label || s.nextStage.name}</div>
-              <div className="text-felt-cream/30 text-[10px]">{formatShortDate(s.nextStage.scheduled_at)}</div>
-            </>
-          ) : (
-            <div className="text-felt-cream/40">—</div>
-          )}
+        ) : (
+          <div className="text-sm text-felt-cream/40 mb-4">Aucun résultat pour l'instant.</div>
+        )}
+        <div className="grid grid-cols-2 gap-3 text-xs">
+          <div>
+            <div className="text-felt-cream/30 uppercase tracking-wide mb-0.5">Précédent</div>
+            {s.previousStage ? (
+              <>
+                <div className="text-felt-gold truncate">{s.previousStage.stage_label || s.previousStage.name}</div>
+                <div className="text-felt-cream/30 text-[10px]">
+                  {formatShortDate(s.previousStage.scheduled_at || s.previousStage.created_at)}
+                </div>
+              </>
+            ) : (
+              <div className="text-felt-cream/40">—</div>
+            )}
+          </div>
+          <div>
+            <div className="text-felt-cream/30 uppercase tracking-wide mb-0.5">À venir</div>
+            {s.nextStage ? (
+              <>
+                <div className="text-felt-gold truncate">{s.nextStage.stage_label || s.nextStage.name}</div>
+                <div className="text-felt-cream/30 text-[10px]">{formatShortDate(s.nextStage.scheduled_at)}</div>
+              </>
+            ) : (
+              <div className="text-felt-cream/40">—</div>
+            )}
+          </div>
         </div>
       </div>
     </button>
   );
 }
 
-function FinishedChampionshipCard({ s, selected, onClick }) {
+function BannerImage({ image, manage, onChange }) {
+  if (!image && !manage) return null;
+  return (
+    <div className="relative h-28 bg-felt-bg">
+      {image && <img src={image} alt="" className="w-full h-full object-cover" />}
+      {manage && (
+        <label
+          onClick={(e) => e.stopPropagation()}
+          className="absolute bottom-1.5 right-1.5 text-[10px] px-2 py-1 rounded-md bg-black/60 text-white cursor-pointer hover:bg-black/80"
+        >
+          {image ? "Changer l'image" : "🖼 Ajouter une image"}
+          <input type="file" accept="image/*" onChange={(e) => onChange(e.target.files?.[0])} className="hidden" />
+        </label>
+      )}
+    </div>
+  );
+}
+
+function FinishedChampionshipCard({ s, selected, onClick, manage, onBannerChange }) {
   return (
     <button
       onClick={onClick}
-      className={`text-left rounded-xl p-4 border transition-colors ${
+      className={`text-left rounded-xl overflow-hidden border transition-colors ${
         selected ? "bg-felt-gold/10 border-felt-gold" : "bg-felt-panel border-felt-cream/10 hover:border-felt-cream/30"
       }`}
     >
-      <div
-        style={{ fontSize: "var(--pcp-card-text-size, inherit)", color: "var(--pcp-card-text-color, white)" }}
-        className="font-display text-lg mb-2 truncate"
-      >
-        {s.championship.name}
-      </div>
-      <div className="flex items-center gap-2 mb-3">
-        <span className="text-xs px-2.5 py-1 rounded bg-felt-bg text-felt-cream/50">{s.playerCount} joueurs</span>
-        <span className="text-xs px-2.5 py-1 rounded bg-felt-bg text-felt-cream/50">{s.stageCount} tournois</span>
-      </div>
-      <div className="space-y-2 mb-3">
-        {s.top3.length === 0 && <div className="text-sm text-felt-cream/40">Aucun résultat.</div>}
-        {s.top3.map((p, i) => (
-          <div key={p.playerId} className="flex items-center gap-2">
-            <span className="w-5 text-center text-sm text-felt-cream/40 shrink-0">{i === 0 ? "🏆" : i + 1}</span>
-            <MiniAvatar name={p.name} size={32} />
-            <div className="min-w-0 flex-1">
-              <div className="text-white truncate">{p.name}</div>
-              {i === 0 && <div className="text-[10px] text-felt-gold uppercase tracking-wide">Champion</div>}
-            </div>
-            <div className="text-felt-gold font-display shrink-0">{p.totalPoints}</div>
-          </div>
-        ))}
-      </div>
-      {s.dateRange && (
-        <div>
-          <div className="text-[10px] text-felt-cream/30 uppercase tracking-wide mb-0.5">Dates</div>
-          <div className="text-[11px] text-felt-cream/40">
-            {formatShortDate(s.dateRange.start)} – {formatShortDate(s.dateRange.end)}
-          </div>
+      <BannerImage image={s.championship.banner_image} manage={manage} onChange={onBannerChange} />
+      <div className="p-4">
+        <div
+          style={{ fontSize: "var(--pcp-card-text-size, inherit)", color: "var(--pcp-card-text-color, white)" }}
+          className="font-display text-lg mb-2 truncate"
+        >
+          {s.championship.name}
         </div>
-      )}
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-xs px-2.5 py-1 rounded bg-felt-bg text-felt-cream/50">{s.playerCount} joueurs</span>
+          <span className="text-xs px-2.5 py-1 rounded bg-felt-bg text-felt-cream/50">{s.stageCount} tournois</span>
+        </div>
+        <div className="space-y-2 mb-3">
+          {s.top3.length === 0 && <div className="text-sm text-felt-cream/40">Aucun résultat.</div>}
+          {s.top3.map((p, i) => (
+            <div key={p.playerId} className="flex items-center gap-2">
+              <span className="w-5 text-center text-sm text-felt-cream/40 shrink-0">{i === 0 ? "🏆" : i + 1}</span>
+              <MiniAvatar name={p.name} size={32} />
+              <div className="min-w-0 flex-1">
+                <div className="text-white truncate">{p.name}</div>
+                {i === 0 && <div className="text-[10px] text-felt-gold uppercase tracking-wide">Champion</div>}
+              </div>
+              <div className="text-felt-gold font-display shrink-0">{p.totalPoints}</div>
+            </div>
+          ))}
+        </div>
+        {s.dateRange && (
+          <div>
+            <div className="text-[10px] text-felt-cream/30 uppercase tracking-wide mb-0.5">Dates</div>
+            <div className="text-[11px] text-felt-cream/40">
+              {formatShortDate(s.dateRange.start)} – {formatShortDate(s.dateRange.end)}
+            </div>
+          </div>
+        )}
+      </div>
     </button>
   );
 }
@@ -326,6 +369,15 @@ function ChampionshipEditor({ onCreate, onCancel, loading }) {
   const [bestStages, setBestStages] = useState("");
   const [countRebuys, setCountRebuys] = useState(false);
   const [previewPlayers, setPreviewPlayers] = useState(20);
+  const [bannerImage, setBannerImage] = useState(null);
+
+  async function handleBannerFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const dataUrl = await compressImageFile(file, { maxSize: 1200 });
+    setBannerImage(dataUrl);
+    e.target.value = "";
+  }
 
   const previewRows = useMemo(() => {
     const p = Math.max(1, Number(previewPlayers) || 1);
@@ -366,6 +418,20 @@ function ChampionshipEditor({ onCreate, onCancel, loading }) {
           placeholder="Ex : Championnat Hiver 2026"
           className="w-full mb-4 bg-felt-panel border border-felt-cream/10 rounded-md px-3 py-2 text-felt-cream placeholder:text-felt-cream/40"
         />
+
+        <label className="block text-xs text-felt-cream/50 mb-1">Image en bandeau (optionnel)</label>
+        <div className="flex items-center gap-3 mb-4">
+          {bannerImage && <img src={bannerImage} alt="" className="h-14 w-24 object-cover rounded-md" />}
+          <label className="px-3 py-2 text-sm bg-felt-panel border border-felt-cream/10 rounded-md cursor-pointer hover:text-felt-gold text-felt-cream/70">
+            {bannerImage ? "Changer l'image" : "Ajouter une image"}
+            <input type="file" accept="image/*" onChange={handleBannerFile} className="hidden" />
+          </label>
+          {bannerImage && (
+            <button onClick={() => setBannerImage(null)} className="text-xs text-felt-alert/60 hover:text-felt-alert">
+              Retirer
+            </button>
+          )}
+        </div>
 
         <label className="block text-xs text-felt-cream/50 mb-1">Formule</label>
         <input
@@ -420,6 +486,7 @@ function ChampionshipEditor({ onCreate, onCancel, loading }) {
                 formulaText: formulaText.trim() || DEFAULT_FORMULA,
                 bestStagesCount: bestStages ? Number(bestStages) : null,
                 countRebuysInRanking: countRebuys,
+                bannerImage,
               })
             }
             className="px-4 py-2 bg-felt-gold text-felt-bg rounded-md font-display disabled:opacity-40"

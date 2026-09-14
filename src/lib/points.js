@@ -57,7 +57,7 @@ export async function fetchChampionships() {
   return data || [];
 }
 
-export async function createChampionship({ name, formulaText, bestStagesCount = null, countRebuysInRanking = false }) {
+export async function createChampionship({ name, formulaText, bestStagesCount = null, countRebuysInRanking = false, bannerImage = null }) {
   const { data, error } = await supabase
     .from("championships")
     .insert({
@@ -65,11 +65,17 @@ export async function createChampionship({ name, formulaText, bestStagesCount = 
       formula_text: formulaText || DEFAULT_FORMULA,
       best_stages_count: bestStagesCount,
       count_rebuys_in_ranking: countRebuysInRanking,
+      banner_image: bannerImage,
     })
     .select()
     .single();
   if (error) throw error;
   return data;
+}
+
+export async function updateChampionshipBanner(id, bannerImage) {
+  const { error } = await supabase.from("championships").update({ banner_image: bannerImage }).eq("id", id);
+  if (error) throw error;
 }
 
 export async function deleteChampionship(id) {
