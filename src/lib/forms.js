@@ -219,21 +219,29 @@ export async function validateSubmission(submission, registry) {
   const fullName = resolvePlayerName(registry, submission.data) || "Joueur";
   const playerEmail = resolveFieldValue(registry, submission.data, "email");
   const club = resolveFieldValue(registry, submission.data, "club");
+  const pseudo = resolveFieldValue(registry, submission.data, "pseudo");
 
   let { data: player } = await supabase.from("players").select("id").ilike("full_name", fullName).maybeSingle();
   if (!player) {
     const { data: created, error: pErr } = await supabase
       .from("players")
-      .insert({ full_name: fullName, first_name: prenom || null, last_name: nom || null, email: playerEmail || null, club: club || null })
+      .insert({
+        full_name: fullName,
+        first_name: prenom || null,
+        last_name: nom || null,
+        email: playerEmail || null,
+        club: club || null,
+        pseudo: pseudo || null,
+      })
       .select()
       .single();
     if (pErr) throw pErr;
     player = created;
-  } else if (club || prenom || nom) {
+  } else if (club || prenom || nom || pseudo) {
     // Complète la fiche joueur existante si ces infos manquaient encore.
     await supabase
       .from("players")
-      .update({ first_name: prenom || undefined, last_name: nom || undefined, club: club || undefined })
+      .update({ first_name: prenom || undefined, last_name: nom || undefined, club: club || undefined, pseudo: pseudo || undefined })
       .eq("id", player.id);
   }
 

@@ -32,6 +32,7 @@ const FIELD_ROLES = [
   ["", "Aucun rôle particulier"],
   ["prenom", "→ Prénom du joueur"],
   ["nom", "→ Nom du joueur"],
+  ["pseudo", "→ Pseudo du joueur"],
   ["email", "→ Email du joueur"],
   ["club", "→ Club d'appartenance"],
 ];

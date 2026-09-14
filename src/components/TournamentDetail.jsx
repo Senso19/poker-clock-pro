@@ -91,7 +91,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   async function loadRegistrations() {
     const { data, error } = await supabase
       .from("registrations")
-      .select("*, players(id, full_name, first_name, last_name, club), accounts(avatar_data, pseudo)")
+      .select("*, players(id, full_name, first_name, last_name, club, pseudo), accounts(avatar_data, pseudo)")
       .eq("tournament_id", tournamentId)
       .order("registered_at", { ascending: true });
     if (error) setError(error.message);
@@ -196,7 +196,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
         seat_number: seat,
         stack: tournament.starting_stack,
       })
-      .select("*, players(id, full_name, first_name, last_name, club), accounts(avatar_data, pseudo)")
+      .select("*, players(id, full_name, first_name, last_name, club, pseudo), accounts(avatar_data, pseudo)")
       .single();
     if (regErr) throw regErr;
     logEvent(tournamentId, "register", player.full_name, { registrationId: reg.id, playerId: player.id, accountId });
@@ -853,7 +853,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
                 ? ticket.reg.players.full_name.trim().split(/\s+/).slice(1).join(" ")
                 : null)
             }
-            pseudo={ticket.reg.accounts?.pseudo}
+            pseudo={ticket.reg.players?.pseudo || ticket.reg.accounts?.pseudo}
             club={ticket.reg.players?.club}
             table={ticket.reg.table_number}
             seat={ticket.reg.seat_number}
