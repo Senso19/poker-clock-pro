@@ -163,6 +163,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   const [carouselIdx, setCarouselIdx] = useState(0);
   const [toolbarOffset, setToolbarOffset] = useState({ x: 0, y: 0 });
   const bgFileRef = useRef(null);
+  const tournamentBgFileRef = useRef(null);
   const containerRef = useRef(null);
   const toolbarDrag = useRef(null);
 
@@ -177,6 +178,8 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   const [eliminations, setEliminations] = useState([]);
   const [sponsorIdx, setSponsorIdx] = useState(0);
   const [announcement, setAnnouncement] = useState("");
+  const [tournamentBg, setTournamentBg] = useState(null);
+  const [showBgPicker, setShowBgPicker] = useState(false);
   const tournamentLayoutAppliedRef = useRef(false);
 
   useEffect(() => {
@@ -304,6 +307,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
       setPanels(m.panels);
       setImages(m.images);
     }
+    setTournamentBg(t.clock_background || null);
     await fetchRegsAndElims(t.id);
 
     if (t.clock_seconds_left != null) {
@@ -500,6 +504,14 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
     e.target.value = "";
   }
 
+  async function handleTournamentBgImage(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const dataUrl = await compressImageFile(file, { maxSize: 1600 });
+    saveTournamentBg({ type: "image", value: dataUrl });
+    e.target.value = "";
+  }
+
   function toggleFullscreen() {
     if (document.fullscreenElement) document.exitFullscreen();
     else containerRef.current?.requestFullscreen();
@@ -549,11 +561,21 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   });
   const currentCarouselType = eligible.length > 0 ? eligible[carouselIdx % eligible.length] : null;
 
-  const bg = theme.background;
+  const bg = tournamentBg || theme.background;
   const clockBgStyle =
     bg?.type === "image"
       ? { backgroundImage: `url(${bg.value})`, backgroundSize: "cover", backgroundPosition: "center" }
       : { backgroundColor: bg?.value || "#14181C" };
+
+  async function saveTournamentBg(next) {
+    setTournamentBg(next);
+    if (!tournamentId) return;
+    try {
+      await supabase.from("tournaments").update({ clock_background: next }).eq("id", tournamentId);
+    } catch {
+      // pas bloquant pour l'affichage
+    }
+  }
 
   return (
     <div ref={containerRef} className="relative w-full h-full overflow-hidden" style={clockBgStyle}>
@@ -598,6 +620,40 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
                           + {PANEL_LABELS[k]}
                         </button>
                       ))
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="relative">
+                <button
+                  onClick={() => setShowBgPicker((v) => !v)}
+                  className="text-xs px-3 py-1.5 rounded-md font-display bg-felt-panel border border-felt-cream/10 text-felt-cream/60"
+                >
+                  🎨 Fond
+                </button>
+                {showBgPicker && (
+                  <div className="absolute top-9 right-0 bg-felt-bg border border-felt-gold/40 rounded-md p-3 w-52 text-xs text-felt-cream shadow-lg z-50">
+                    <div className="mb-2 text-felt-cream/50">Fond de l'horloge (ce tournoi uniquement)</div>
+                    <input
+                      type="color"
+                      value={tournamentBg?.type === "color" ? tournamentBg.value : "#14181C"}
+                      onChange={(e) => saveTournamentBg({ type: "color", value: e.target.value })}
+                      className="w-full h-8 bg-transparent cursor-pointer mb-2"
+                    />
+                    <button
+                      onClick={() => tournamentBgFileRef.current?.click()}
+                      className="w-full text-left px-2 py-1.5 rounded hover:bg-felt-panel text-felt-cream/80 mb-1"
+                    >
+                      🖼 Utiliser une image
+                    </button>
+                    <input ref={tournamentBgFileRef} type="file" accept="image/*" onChange={handleTournamentBgImage} className="hidden" />
+                    {tournamentBg && (
+                      <button
+                        onClick={() => saveTournamentBg(null)}
+                        className="w-full text-left px-2 py-1.5 rounded hover:bg-felt-panel text-felt-cream/60"
+                      >
+                        ↺ Revenir au fond du club
+                      </button>
                     )}
                   </div>
                 )}

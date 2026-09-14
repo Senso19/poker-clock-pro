@@ -75,7 +75,7 @@ export default function App() {
   return (
     <div className="h-screen w-screen flex" style={bgStyle}>
       <Sidebar tab={tab} setTab={goToTab} />
-      <div className="flex-1 min-w-0 h-full overflow-hidden relative pt-14 sm:pt-0">
+      <div className="flex-1 min-w-0 h-full overflow-hidden relative pt-[calc(56px+env(safe-area-inset-top))] sm:pt-0">
         <Suspense fallback={<TabFallback />}>
           {tab === "tournaments" &&
             (openTournamentId ? (

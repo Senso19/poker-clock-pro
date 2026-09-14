@@ -521,7 +521,7 @@ export default function Sidebar({ tab, setTab }) {
       {/* Barre supérieure mobile (< sm uniquement) */}
       <div
         style={{ backgroundColor: sidebarColor }}
-        className="sm:hidden fixed top-0 inset-x-0 z-30 h-14 flex items-center gap-3 px-4 border-b border-felt-gold/10"
+        className="sm:hidden fixed top-0 inset-x-0 z-30 flex items-center gap-3 px-4 border-b border-felt-gold/10 h-[calc(56px+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)]"
       >
         <button
           onClick={() => setMobileOpen(true)}
@@ -545,7 +545,7 @@ export default function Sidebar({ tab, setTab }) {
       )}
       <div
         style={{ backgroundColor: sidebarColor }}
-        className={`sm:hidden fixed inset-y-0 left-0 z-50 w-64 max-w-[80vw] flex flex-col transform transition-transform duration-200 ${
+        className={`sm:hidden fixed inset-y-0 left-0 z-50 w-64 max-w-[80vw] flex flex-col transform transition-transform duration-200 pt-[env(safe-area-inset-top)] ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >

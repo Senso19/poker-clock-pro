@@ -45,7 +45,7 @@ export default function FormRegistryDetail({ registryId, onBack }) {
   const [registry, setRegistry] = useState(null);
   const [tournaments, setTournaments] = useState([]);
   const [submissions, setSubmissions] = useState([]);
-  const [tab, setTab] = useState("builder");
+  const [tab, setTab] = useState("registry");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
