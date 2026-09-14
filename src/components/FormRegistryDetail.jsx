@@ -641,7 +641,7 @@ export default function FormRegistryDetail({ registryId, onBack }) {
           </div>
         </div>
       ) : (
-        <div className="p-4 sm:p-6 max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+        <div className="p-4 sm:p-6 max-w-full mx-auto grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 items-start">
           {groups.map((g) => (
             <div key={g.id || "none"}>
               <div className="flex items-center justify-between gap-2 mb-3">
