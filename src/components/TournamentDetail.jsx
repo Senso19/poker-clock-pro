@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase.js";
 import { importPlayersFromFile, exportResultsToExcel } from "./SheetsSync.jsx";
 import { computeTournamentPoints, fetchChampionships } from "../lib/points.js";
 import { selectTournament } from "../lib/tournaments.js";
+import { computeSeatAssignment } from "../lib/seating.js";
 import { fetchAllAccounts, assignTableCaptain, fetchTableCaptainAssignments, canParticipate } from "../lib/auth.js";
 import TicketPrint from "./TicketPrint.jsx";
 import SeatPickerModal from "./SeatPickerModal.jsx";
@@ -182,10 +183,9 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     return created;
   }
 
-  async function registerOnePlayer(name, occupied, accountId = null) {
+  async function registerOnePlayer(name, accountId = null) {
     const player = await findOrCreatePlayer(name);
-    const perTable = tournament?.players_per_table || 9;
-    const { table, seat, key } = nextFreeSeat(occupied, perTable);
+    const { table, seat } = await computeSeatAssignment(tournament);
     const { data: reg, error: regErr } = await supabase
       .from("registrations")
       .insert({
@@ -199,7 +199,6 @@ export default function TournamentDetail({ tournamentId, onBack }) {
       .select("*, players(id, full_name), accounts(avatar_data)")
       .single();
     if (regErr) throw regErr;
-    occupied.add(key);
     logEvent(tournamentId, "register", player.full_name, { registrationId: reg.id, playerId: player.id, accountId });
     return reg;
   }
@@ -208,7 +207,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   // tapé lors d'un tournoi précédent). On lie la registration à ce compte.
   async function handleRegisterExisting(account) {
     try {
-      await registerOnePlayer(account.pseudo, computeOccupiedSeats(registrations), account.id);
+      await registerOnePlayer(account.pseudo, account.id);
       await loadRegistrations();
     } catch (e) {
       setError(e.message);
@@ -217,7 +216,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
 
   async function handleRegisterNew(name) {
     try {
-      await registerOnePlayer(name, computeOccupiedSeats(registrations));
+      await registerOnePlayer(name);
       await loadRegistrations();
     } catch (e) {
       setError(e.message);
@@ -231,10 +230,9 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     setError(null);
     try {
       const players = await importPlayersFromFile(file);
-      const occupied = computeOccupiedSeats(registrations);
       for (const p of players) {
         if (!p.fullName?.trim()) continue;
-        await registerOnePlayer(p.fullName.trim(), occupied);
+        await registerOnePlayer(p.fullName.trim());
       }
       await loadRegistrations();
     } catch (e) {
@@ -504,6 +502,11 @@ export default function TournamentDetail({ tournamentId, onBack }) {
           <div className="space-y-4">
             <SettingField label="Max Joueurs" value={tournament.max_players} onChange={(v) => updateSetting("max_players", v)} />
             <SettingField label="Joueurs par table" value={tournament.players_per_table} onChange={(v) => updateSetting("players_per_table", v)} />
+            <SettingField
+              label="Nombre de tables maximum (attribution auto table/siège)"
+              value={tournament.max_tables}
+              onChange={(v) => updateSetting("max_tables", v)}
+            />
             <SettingField label="Nombre de joueurs à la table finale" value={tournament.final_table_size} onChange={(v) => updateSetting("final_table_size", v)} />
             <SettingField label="Places à réserver" value={tournament.reserved_seats} onChange={(v) => updateSetting("reserved_seats", v)} />
             <div>
@@ -838,8 +841,15 @@ export default function TournamentDetail({ tournamentId, onBack }) {
           <TicketPrint
             type={ticket.type}
             tournamentName={tournament.name}
+            stageLabel={tournament.stage_label}
             player={ticket.reg.players?.full_name}
-            seat={`Table ${ticket.reg.table_number} · Siège ${ticket.reg.seat_number}`}
+            table={ticket.reg.table_number}
+            seat={ticket.reg.seat_number}
+            tournamentDate={
+              tournament.scheduled_at
+                ? new Date(tournament.scheduled_at).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                : null
+            }
             ticketId={`${tournament.id.slice(0, 8)}-${ticket.reg.id.slice(0, 8)}-${ticket.type}`}
           />
         </TicketModal>

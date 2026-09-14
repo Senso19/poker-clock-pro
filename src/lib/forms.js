@@ -1,4 +1,5 @@
 import { supabase } from "./supabase.js";
+import { computeSeatAssignment } from "./seating.js";
 
 /**
  * forms.js — registres de formulaires d'inscription (Festival/Open) :
@@ -227,14 +228,7 @@ export async function validateSubmission(submission, registry) {
     player = created;
   }
 
-  const { count } = await supabase
-    .from("registrations")
-    .select("*", { count: "exact", head: true })
-    .eq("tournament_id", tournament.id);
-  const currentCount = count || 0;
-  const perTable = tournament.players_per_table || MAX_PER_TABLE;
-  const table = Math.floor(currentCount / perTable) + 1;
-  const seat = (currentCount % perTable) + 1;
+  const { table, seat } = await computeSeatAssignment(tournament);
 
   const { data: reg, error: regErr } = await supabase
     .from("registrations")

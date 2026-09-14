@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase.js";
 import { fetchAllTournaments, deleteTournament } from "../lib/tournaments.js";
+import { computeSeatAssignment } from "../lib/seating.js";
 import { useAccount } from "../context/AccountContext.jsx";
 import { canManageTournaments, canParticipate } from "../lib/auth.js";
 import { fetchChampionships } from "../lib/points.js";
@@ -122,10 +123,7 @@ export default function TournamentsGrid({ onOpen }) {
           if (pErr) throw pErr;
           player = created;
         }
-        const currentCount = counts[t.id] || 0;
-        const perTable = t.players_per_table || MAX_PER_TABLE;
-        const table = Math.floor(currentCount / perTable) + 1;
-        const seat = (currentCount % perTable) + 1;
+        const { table, seat } = await computeSeatAssignment(t);
         const { error: regErr } = await supabase.from("registrations").insert({
           tournament_id: t.id,
           player_id: player.id,
