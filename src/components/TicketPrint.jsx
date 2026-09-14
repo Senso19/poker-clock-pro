@@ -8,7 +8,21 @@ import { useTheme } from "../context/ThemeContext.jsx";
  *
  * type: "buyin" | "rebuy" | "addon"
  */
-export default function TicketPrint({ type, tournamentName, stageLabel, player, table, seat, amount, tournamentDate, ticketId }) {
+export default function TicketPrint({
+  type,
+  festivalName,
+  tournamentName,
+  stageLabel,
+  firstName,
+  lastName,
+  pseudo,
+  club,
+  table,
+  seat,
+  amount,
+  tournamentDate,
+  ticketId,
+}) {
   const { theme } = useTheme();
   const labels = {
     buyin: "TICKET D'INSCRIPTION",
@@ -24,19 +38,37 @@ export default function TicketPrint({ type, tournamentName, stageLabel, player, 
   return (
     <div>
       <div className="print-ticket bg-white text-black w-[300px] p-5 font-body mx-auto border border-dashed border-gray-400">
-        <div className="text-center font-display text-lg font-bold uppercase leading-tight">{tournamentName}</div>
+        {festivalName && <div className="text-center font-display text-lg font-bold uppercase leading-tight">{festivalName}</div>}
+        <div
+          className={`text-center font-display uppercase leading-tight mt-1 ${festivalName ? "text-sm" : "text-lg"}`}
+        >
+          {tournamentName}
+        </div>
         {stageLabel && <div className="text-center font-display text-sm font-bold uppercase mt-1 leading-tight">{stageLabel}</div>}
         <div className="text-center text-[11px] uppercase tracking-wide mt-1.5 text-gray-500">{labels[type]}</div>
 
         <hr className="my-3 border-gray-400" />
 
-        <div className="text-center font-display font-bold text-base">{player}</div>
+        {(firstName || lastName) && (
+          <div className="flex items-center justify-center gap-3 font-display font-bold text-base">
+            {lastName && <span>{lastName}</span>}
+            {firstName && <span>{firstName}</span>}
+          </div>
+        )}
+        {pseudo && <div className="text-center text-sm text-gray-600 mt-0.5">{pseudo}</div>}
         {amount != null && <div className="text-center text-sm mt-1.5">Montant : {amount} €</div>}
 
         {(table != null || seat != null) && (
           <div className="grid grid-cols-2 gap-3 mt-4">
             {table != null && <BoxField label="Table" value={table} />}
             {seat != null && <BoxField label="Siège" value={seat} />}
+          </div>
+        )}
+
+        {club && (
+          <div className="mt-4">
+            <div className="text-[10px] uppercase text-gray-500 text-center mb-1">Club</div>
+            <div className="border border-black rounded-md px-3 py-1.5 text-center text-sm">{club}</div>
           </div>
         )}
 

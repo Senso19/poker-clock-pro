@@ -211,21 +211,30 @@ export async function revertSubmissionToPending(submission) {
 export async function validateSubmission(submission, registry) {
   const tournamentId = submission.tournament_id || registry.tournament_id;
   if (!tournamentId) throw new Error("Cette inscription n'est liée à aucun tournoi.");
-  const { data: tournament, error: tErr } = await supabase.from("tournaments").select("*").eq("id", tournamentId).single();
+  const { data: tournament, error: tErr } = await supabase.from("tournaments").select("*, championships(name)").eq("id", tournamentId).single();
   if (tErr) throw tErr;
 
+  const prenom = resolveFieldValue(registry, submission.data, "prenom");
+  const nom = resolveFieldValue(registry, submission.data, "nom");
   const fullName = resolvePlayerName(registry, submission.data) || "Joueur";
   const playerEmail = resolveFieldValue(registry, submission.data, "email");
+  const club = resolveFieldValue(registry, submission.data, "club");
 
   let { data: player } = await supabase.from("players").select("id").ilike("full_name", fullName).maybeSingle();
   if (!player) {
     const { data: created, error: pErr } = await supabase
       .from("players")
-      .insert({ full_name: fullName, email: playerEmail || null })
+      .insert({ full_name: fullName, first_name: prenom || null, last_name: nom || null, email: playerEmail || null, club: club || null })
       .select()
       .single();
     if (pErr) throw pErr;
     player = created;
+  } else if (club || prenom || nom) {
+    // Complète la fiche joueur existante si ces infos manquaient encore.
+    await supabase
+      .from("players")
+      .update({ first_name: prenom || undefined, last_name: nom || undefined, club: club || undefined })
+      .eq("id", player.id);
   }
 
   const { table, seat } = await computeSeatAssignment(tournament);
