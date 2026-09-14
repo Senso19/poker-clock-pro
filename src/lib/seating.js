@@ -34,10 +34,12 @@ export async function computeSeatAssignment(tournament) {
       ? Math.max(INITIAL_TABLES, Math.ceil(tournament.max_players / perTable))
       : 50;
 
-  const [{ data: regs }, { data: elims }] = await Promise.all([
-    supabase.from("registrations").select("id, table_number, seat_number, created_at").eq("tournament_id", tournament.id),
+  const [{ data: regs, error: regsErr }, { data: elims, error: elimsErr }] = await Promise.all([
+    supabase.from("registrations").select("id, table_number, seat_number, registered_at").eq("tournament_id", tournament.id),
     supabase.from("eliminations").select("registration_id").eq("tournament_id", tournament.id).eq("undone", false),
   ]);
+  if (regsErr) throw regsErr;
+  if (elimsErr) throw elimsErr;
   const eliminatedIds = new Set((elims || []).map((e) => e.registration_id));
   const active = (regs || []).filter((r) => !eliminatedIds.has(r.id) && r.table_number);
 
@@ -62,7 +64,7 @@ export async function computeSeatAssignment(tournament) {
   }
 
   // Table du dernier joueur inscrit, à éviter si possible.
-  const lastReg = [...active].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+  const lastReg = [...active].sort((a, b) => new Date(b.registered_at) - new Date(a.registered_at))[0];
   const lastTable = lastReg?.table_number ?? null;
 
   function tablesWithRoom(upTo) {
