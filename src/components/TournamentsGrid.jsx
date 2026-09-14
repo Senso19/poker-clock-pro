@@ -164,6 +164,7 @@ export default function TournamentsGrid({ onOpen }) {
         .insert({
           name: form.name,
           date: form.date || new Date().toISOString().slice(0, 10),
+          scheduled_at: form.date ? new Date(`${form.date}T00:00:00`).toISOString() : new Date().toISOString(),
           starting_stack: structTemplate?.structure_config?.fields?.startingStack?.value || 5000,
           status: "running",
           championship_id: form.championshipId || null,
@@ -192,7 +193,7 @@ export default function TournamentsGrid({ onOpen }) {
   }
 
   function startDate(t) {
-    return new Date(t.scheduled_at || t.created_at);
+    return new Date(t.scheduled_at || t.date || t.created_at);
   }
   function isPastOrToday(t) {
     const endOfToday = new Date();
@@ -412,7 +413,7 @@ function TournamentCard({ t, badge, count, already, manage, busy, menuOpen, onOp
         <div className="text-xs text-felt-cream/40 truncate">
           {t.scheduled_at
             ? new Date(t.scheduled_at).toLocaleString("fr-FR")
-            : new Date(t.created_at).toLocaleDateString("fr-FR")}
+            : new Date(t.date || t.created_at).toLocaleDateString("fr-FR")}
         </div>
         <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full shrink-0 ${badge.cls}`}>
           {badge.dot && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
@@ -492,7 +493,7 @@ function TournamentRow({ t, badge, count, already, manage, busy, menuOpen, onOpe
       <div className="min-w-0 flex-1">
         <div className="font-display text-white truncate">{t.name}</div>
         <div className="text-xs text-felt-cream/40">
-          {t.scheduled_at ? new Date(t.scheduled_at).toLocaleString("fr-FR") : new Date(t.created_at).toLocaleDateString("fr-FR")}
+          {t.scheduled_at ? new Date(t.scheduled_at).toLocaleString("fr-FR") : new Date(t.date || t.created_at).toLocaleDateString("fr-FR")}
         </div>
       </div>
       <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full shrink-0 ${badge.cls}`}>
