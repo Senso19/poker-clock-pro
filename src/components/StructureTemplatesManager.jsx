@@ -214,7 +214,7 @@ export default function StructureTemplatesManager() {
               className="bg-felt-panel border border-felt-cream/10 rounded-lg p-4 cursor-pointer hover:border-felt-cream/20 transition-colors"
             >
               <div className="flex items-start justify-between mb-3">
-                <div className="font-display text-base">{t.name}</div>
+                <div className="pcp-title font-display text-base">{t.name}</div>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -281,7 +281,7 @@ export default function StructureTemplatesManager() {
               className="bg-felt-panel border border-felt-cream/10 rounded-lg p-4 cursor-pointer hover:border-felt-cream/20 transition-colors"
             >
               <div className="flex items-start justify-between mb-3">
-                <div className="font-display text-base">{t.name}</div>
+                <div className="pcp-title font-display text-base">{t.name}</div>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -341,7 +341,7 @@ export default function StructureTemplatesManager() {
               className="bg-felt-panel border border-felt-cream/10 rounded-lg p-4 cursor-pointer hover:border-felt-cream/20 transition-colors"
             >
               <div className="flex items-start justify-between mb-2">
-                <div className="font-display text-base">{t.name}</div>
+                <div className="pcp-title font-display text-base">{t.name}</div>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -352,7 +352,7 @@ export default function StructureTemplatesManager() {
                   🗑
                 </button>
               </div>
-              <div className="text-xs text-felt-cream/50">{(t.pages || []).length} page(s) · cliquer pour visualiser</div>
+              <div className="pcp-body text-xs text-felt-cream/50">{(t.pages || []).length} page(s) · cliquer pour visualiser</div>
             </div>
           ))}
         </CustomizablePanel>
@@ -423,8 +423,8 @@ export default function StructureTemplatesManager() {
 function Row({ label, value }) {
   return (
     <div className="flex items-center justify-between border-b border-felt-cream/5 pb-1.5">
-      <span className="text-felt-cream/50">{label}</span>
-      <span className="text-felt-gold font-medium">{value}</span>
+      <span className="pcp-body text-felt-cream/50">{label}</span>
+      <span className="pcp-value text-felt-gold font-medium">{value}</span>
     </div>
   );
 }
