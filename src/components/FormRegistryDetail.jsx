@@ -201,8 +201,23 @@ export default function FormRegistryDetail({ registryId, onBack }) {
   }
 
   const theme = registry.theme || {};
-  const pending = submissions.filter((s) => s.status === "pending");
-  const others = submissions.filter((s) => s.status !== "pending");
+
+  // Un même registre peut alimenter plusieurs tournois différents (une
+  // page par tournoi, ex : Day1A / Day1B) : chaque tournoi cible obtient
+  // son propre tableau dans le registre.
+  function tournamentName(id) {
+    if (!id) return "Sans tournoi lié";
+    return tournaments.find((t) => t.id === id)?.name || "Tournoi supprimé";
+  }
+  const groupIds = [...new Set(submissions.map((s) => s.tournament_id || null))];
+  const groups = groupIds
+    .map((id) => ({
+      id,
+      name: tournamentName(id),
+      pending: submissions.filter((s) => (s.tournament_id || null) === id && s.status === "pending"),
+      others: submissions.filter((s) => (s.tournament_id || null) === id && s.status !== "pending"),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <div className="h-full overflow-y-auto font-body text-white">
@@ -241,7 +256,10 @@ export default function FormRegistryDetail({ registryId, onBack }) {
       {tab === "builder" ? (
         <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
           <div className="bg-felt-panel border border-felt-cream/10 rounded-xl p-4">
-            <div className="font-display text-base mb-3">Tournoi lié</div>
+            <div className="font-display text-base mb-1">Tournoi par défaut</div>
+            <div className="text-xs text-felt-cream/40 mb-3">
+              Utilisé pour les pages qui n'ont pas leur propre tournoi lié (réglable par page, plus bas).
+            </div>
             <select
               value={registry.tournament_id || ""}
               onChange={(e) => persist({ tournament_id: e.target.value || null })}
@@ -459,33 +477,57 @@ export default function FormRegistryDetail({ registryId, onBack }) {
                       <Plus size={13} /> Ajouter un bouton de navigation
                     </button>
                   </div>
+
+                  <div className="mt-4 pt-3 border-t border-felt-cream/10">
+                    <label className="block text-[11px] text-felt-cream/40">
+                      Tournoi lié à cette page (si elle envoie le formulaire — sinon celui du registre est utilisé par
+                      défaut)
+                      <select
+                        value={page.tournamentId || ""}
+                        onChange={(e) => updatePage(page.id, { tournamentId: e.target.value || null })}
+                        className="w-full mt-1.5 bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-2 text-sm text-felt-cream"
+                      >
+                        <option value="">Tournoi par défaut du registre</option>
+                        {tournaments.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
         </div>
       ) : (
-        <div className="p-4 sm:p-6 max-w-3xl mx-auto">
-          {pending.length > 0 && (
-            <div className="mb-6">
-              <div className="text-xs font-display uppercase tracking-widest text-felt-cream/40 mb-3">En attente</div>
-              <CustomizablePanel panelKey="form-registry-pending" defaultWidth="1 1 100%" className="space-y-2">
-                {pending.map((s) => (
-                  <SubmissionRow key={s.id} s={s} busy={busyId === s.id} onValidate={() => handleValidate(s)} onReject={() => handleReject(s)} />
-                ))}
-              </CustomizablePanel>
+        <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-8">
+          {groups.map((g) => (
+            <div key={g.id || "none"}>
+              <div className="font-display text-base text-felt-gold mb-3">{g.name}</div>
+              {g.pending.length > 0 && (
+                <div className="mb-4">
+                  <div className="text-xs font-display uppercase tracking-widest text-felt-cream/40 mb-2">En attente</div>
+                  <CustomizablePanel panelKey={`form-registry-pending-${g.id || "none"}`} defaultWidth="1 1 100%" className="space-y-2">
+                    {g.pending.map((s) => (
+                      <SubmissionRow key={s.id} s={s} busy={busyId === s.id} onValidate={() => handleValidate(s)} onReject={() => handleReject(s)} />
+                    ))}
+                  </CustomizablePanel>
+                </div>
+              )}
+              {g.others.length > 0 && (
+                <div>
+                  <div className="text-xs font-display uppercase tracking-widest text-felt-cream/40 mb-2">Traitées</div>
+                  <CustomizablePanel panelKey={`form-registry-done-${g.id || "none"}`} defaultWidth="1 1 100%" className="space-y-2">
+                    {g.others.map((s) => (
+                      <SubmissionRow key={s.id} s={s} done />
+                    ))}
+                  </CustomizablePanel>
+                </div>
+              )}
             </div>
-          )}
-          {others.length > 0 && (
-            <div>
-              <div className="text-xs font-display uppercase tracking-widest text-felt-cream/40 mb-3">Traitées</div>
-              <CustomizablePanel panelKey="form-registry-done" defaultWidth="1 1 100%" className="space-y-2">
-                {others.map((s) => (
-                  <SubmissionRow key={s.id} s={s} done />
-                ))}
-              </CustomizablePanel>
-            </div>
-          )}
+          ))}
           {submissions.length === 0 && <div className="text-sm text-felt-cream/50">Aucune inscription reçue pour le moment.</div>}
         </div>
       )}

@@ -103,9 +103,14 @@ export async function fetchFormSubmissions(registryId) {
 }
 
 // Envoi public (page sans connexion) : aucune vérification d'identité, le
-// registre doit juste être ouvert.
-export async function submitFormEntry(registryId, data) {
-  const { error } = await supabase.from("form_submissions").insert({ registry_id: registryId, data, status: "pending" });
+// registre doit juste être ouvert. tournamentId vient de la page qui a
+// envoyé le formulaire (voir "Tournoi lié" dans le constructeur) — permet
+// à un même registre d'alimenter plusieurs tableaux/tournois différents
+// (ex : Day1A / Day1B d'un même Main Event).
+export async function submitFormEntry(registryId, data, tournamentId, pageId) {
+  const { error } = await supabase
+    .from("form_submissions")
+    .insert({ registry_id: registryId, data, status: "pending", tournament_id: tournamentId || null, page_id: pageId || null });
   if (error) throw error;
 }
 
@@ -115,15 +120,13 @@ export async function rejectSubmission(id) {
 }
 
 // Valide une soumission : crée (ou réutilise) le joueur, l'inscrit au
-// tournoi lié au registre avec le prochain siège libre, et relie la
-// soumission à cette inscription.
+// tournoi lié à cette soumission (celui de sa page, sinon celui par défaut
+// du registre) avec le prochain siège libre, et relie la soumission à
+// cette inscription.
 export async function validateSubmission(submission, registry) {
-  if (!registry.tournament_id) throw new Error("Ce registre n'est lié à aucun tournoi.");
-  const { data: tournament, error: tErr } = await supabase
-    .from("tournaments")
-    .select("*")
-    .eq("id", registry.tournament_id)
-    .single();
+  const tournamentId = submission.tournament_id || registry.tournament_id;
+  if (!tournamentId) throw new Error("Cette inscription n'est liée à aucun tournoi.");
+  const { data: tournament, error: tErr } = await supabase.from("tournaments").select("*").eq("id", tournamentId).single();
   if (tErr) throw tErr;
 
   const fullName = [submission.data.prenom, submission.data.nom].filter(Boolean).join(" ").trim() || "Joueur";

@@ -98,7 +98,7 @@ export default function PublicRegistrationForm({ slug }) {
   async function doSubmit() {
     setSubmitting(true);
     try {
-      await submitFormEntry(registry.id, values);
+      await submitFormEntry(registry.id, values, page.tournamentId || registry.tournament_id, page.id);
       setDone(true);
     } catch (e) {
       setFieldError(e.message);
