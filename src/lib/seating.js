@@ -95,8 +95,13 @@ export async function computeSeatAssignment(tournament) {
 
   const table = pool[Math.floor(Math.random() * pool.length)];
   const takenSeats = new Set(active.filter((r) => r.table_number === table).map((r) => r.seat_number));
-  let seat = 1;
-  while (takenSeats.has(seat) && seat <= perTable) seat += 1;
+  const freeSeats = [];
+  for (let s = 1; s <= perTable; s++) {
+    if (!takenSeats.has(s)) freeSeats.push(s);
+  }
+  // Débordement (table déjà pleine, cas de secours) : on continue après la
+  // dernière place normale plutôt que de bloquer l'inscription.
+  const seat = freeSeats.length > 0 ? freeSeats[Math.floor(Math.random() * freeSeats.length)] : perTable + 1;
 
   return { table, seat };
 }
