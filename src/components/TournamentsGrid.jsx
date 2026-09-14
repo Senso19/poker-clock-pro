@@ -194,29 +194,27 @@ export default function TournamentsGrid({ onOpen }) {
   function startDate(t) {
     return new Date(t.scheduled_at || t.created_at);
   }
-  function isSameDay(d1, d2) {
-    return d1.toDateString() === d2.toDateString();
+  function isPastOrToday(t) {
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+    return startDate(t).getTime() <= endOfToday.getTime();
   }
-  function isToday(t) {
-    return isSameDay(startDate(t), new Date());
-  }
-  function isFutureDay(t) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const d = new Date(startDate(t));
-    d.setHours(0, 0, 0, 0);
-    return d.getTime() > today.getTime();
-  }
-  // Terminé = au moins 2 inscrits et il n'en reste plus qu'un en jeu.
-  function isFinished(t) {
+  // "Terminé" si forcé manuellement (réglages du tournoi), ou si l'horloge
+  // a démarré et qu'il ne reste plus qu'un seul joueur en jeu. "Programmé"
+  // tant que l'horloge n'a jamais été lancée. Sinon "En cours".
+  function tournamentStatus(t) {
+    if (t.force_finished) return "finished";
+    if (!t.clock_started) return "scheduled";
     const total = counts[t.id] || 0;
     const eliminated = eliminatedCounts[t.id] || 0;
-    return total > 1 && total - eliminated <= 1;
+    if (total > 1 && total - eliminated <= 1) return "finished";
+    return "running";
   }
 
   function statusBadge(t) {
-    if (isFinished(t)) return { label: "Terminé", cls: "bg-felt-cream/10 text-felt-cream/60" };
-    if (isFutureDay(t)) return { label: "Programmé", cls: "bg-blue-500/20 text-blue-300" };
+    const status = tournamentStatus(t);
+    if (status === "finished") return { label: "Terminé", cls: "bg-felt-cream/10 text-felt-cream/60" };
+    if (status === "scheduled") return { label: "Programmé", cls: "bg-blue-500/20 text-blue-300" };
     return { label: "En cours", cls: "bg-emerald-500/15 text-emerald-400", dot: true };
   }
 
@@ -224,14 +222,19 @@ export default function TournamentsGrid({ onOpen }) {
     return <div className="p-6 text-felt-cream/60 font-body">Chargement…</div>;
   }
 
-  // Actifs aujourd'hui : démarrent aujourd'hui et ne sont pas terminés.
-  const activeToday = tournaments.filter((t) => isToday(t) && !isFinished(t));
-  // Terminés : plus qu'un seul joueur en jeu.
-  const finishedTournaments = tournaments.filter(isFinished);
+  // Actifs aujourd'hui : tournois du jour ou antérieurs, en cours ou programmés.
+  const activeToday = tournaments.filter((t) => {
+    const status = tournamentStatus(t);
+    return isPastOrToday(t) && (status === "running" || status === "scheduled");
+  });
+  const activeTodayIds = new Set(activeToday.map((t) => t.id));
+  // Tous les tournois : tous les autres (programmés à venir, ou terminés quelle que soit la date).
+  const otherTournaments = tournaments.filter((t) => !activeTodayIds.has(t.id));
+  const finishedTournaments = otherTournaments.filter((t) => tournamentStatus(t) === "finished");
 
-  let listed = tournaments.filter((t) => t.name.toLowerCase().includes(search.trim().toLowerCase()));
-  if (statusFilter === "upcoming") listed = listed.filter(isFutureDay);
-  else if (statusFilter === "finished") listed = listed.filter(isFinished);
+  let listed = otherTournaments.filter((t) => t.name.toLowerCase().includes(search.trim().toLowerCase()));
+  if (statusFilter === "upcoming") listed = listed.filter((t) => tournamentStatus(t) === "scheduled");
+  else if (statusFilter === "finished") listed = listed.filter((t) => tournamentStatus(t) === "finished");
 
   listed = [...listed].sort((a, b) => {
     if (sortOrder === "name") return a.name.localeCompare(b.name);
@@ -388,34 +391,6 @@ export default function TournamentsGrid({ onOpen }) {
             />
           ))}
         </CustomizablePanel>
-      )}
-
-      {finishedTournaments.length > 0 && (
-        <div className="mt-8">
-          <div className="text-xs font-display uppercase tracking-widest text-felt-cream/40 mb-3">Terminés</div>
-          <CustomizablePanel
-            panelKey="tournaments-finished"
-            defaultWidth="1 1 100%"
-            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3"
-          >
-            {finishedTournaments.map((t) => (
-              <TournamentCard
-                key={t.id}
-                t={t}
-                badge={statusBadge(t)}
-                count={counts[t.id] || 0}
-                already={myRegs.has(t.id)}
-                manage={manage}
-                busy={busyId === t.id}
-                menuOpen={openMenuId === t.id}
-                onOpen={() => onOpen(t.id)}
-                onToggleRegister={() => handleToggleRegister(t)}
-                onToggleMenu={() => setOpenMenuId(openMenuId === t.id ? null : t.id)}
-                onDelete={() => handleDelete(t)}
-              />
-            ))}
-          </CustomizablePanel>
-        </div>
       )}
     </div>
   );

@@ -20,6 +20,7 @@ export default function TournamentSettingsModal({ tournament, onClose, onSaved }
   const [managePlayers, setManagePlayers] = useState(tournament.manage_players !== false);
   const [trackKnockouts, setTrackKnockouts] = useState(!!tournament.track_knockouts);
   const [managePayouts, setManagePayouts] = useState(!!tournament.manage_payouts);
+  const [forceFinished, setForceFinished] = useState(!!tournament.force_finished);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
@@ -61,6 +62,7 @@ export default function TournamentSettingsModal({ tournament, onClose, onSaved }
           manage_players: managePlayers,
           track_knockouts: trackKnockouts,
           manage_payouts: managePayouts,
+          force_finished: forceFinished,
         })
         .eq("id", tournament.id);
       if (updErr) throw updErr;
@@ -181,6 +183,10 @@ export default function TournamentSettingsModal({ tournament, onClose, onSaved }
           <label className="flex items-center gap-2 text-sm text-felt-cream/80">
             <input type="checkbox" checked={managePayouts} onChange={(e) => setManagePayouts(e.target.checked)} />
             Gérer les Payouts
+          </label>
+          <label className="flex items-center gap-2 text-sm text-felt-alert/80 pt-2 border-t border-felt-cream/10 mt-1">
+            <input type="checkbox" checked={forceFinished} onChange={(e) => setForceFinished(e.target.checked)} />
+            Forcer le statut "Terminé"
           </label>
         </div>
 
