@@ -1,14 +1,34 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 /**
- * TableSeatingModal — vue d'ensemble en lecture seule de toutes les tables
- * et de leurs sièges, avec le joueur assis à chaque place (ou "Libre").
- * Un siège n'est considéré en conflit que si PLUSIEURS joueurs ENCORE EN
- * JEU s'y retrouvent en même temps — un éliminé affiché au même siège
- * qu'un joueur actif n'est pas une anomalie (il a juste laissé sa place).
+ * TableSeatingModal — fenêtre flottante et déplaçable montrant chaque table
+ * sous forme de vrai plateau ovale avec les sièges positionnés tout autour,
+ * pseudo du joueur affiché sur chaque siège. Les joueurs peuvent être
+ * déplacés d'un siège à l'autre par glisser-déposer, éliminés, et leur
+ * stack modifié, directement depuis cette vue.
+ *
+ * Ne se ferme QUE via la croix (pas de clic à l'extérieur), et se déplace
+ * en glissant l'en-tête — utile pour la positionner sur un second écran si
+ * la fenêtre du navigateur s'étend sur plusieurs moniteurs (déplacer la
+ * fenêtre du navigateur elle-même reste nécessaire, une page web ne peut
+ * pas s'extraire de son onglet).
  */
-export default function TableSeatingModal({ registrations, eliminatedIds, playersPerTable, onRepair, onClose }) {
+export default function TableSeatingModal({
+  registrations,
+  eliminatedIds,
+  playersPerTable,
+  onRepair,
+  onClose,
+  onMoveSeat,
+  onEliminate,
+  onUpdateStack,
+}) {
   const [repairing, setRepairing] = useState(false);
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const dragRef = useRef(null);
+  const [editingStackId, setEditingStackId] = useState(null);
+  const [stackDraft, setStackDraft] = useState("");
+
   const perTable = playersPerTable || 9;
   const maxTable = Math.max(1, ...registrations.map((r) => r.table_number || 1));
   const tables = Array.from({ length: maxTable }, (_, i) => i + 1);
@@ -29,72 +49,166 @@ export default function TableSeatingModal({ registrations, eliminatedIds, player
     setRepairing(false);
   }
 
+  function handleHeaderPointerDown(e) {
+    dragRef.current = { startX: e.clientX, startY: e.clientY, origX: pos.x, origY: pos.y };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+  function handleHeaderPointerMove(e) {
+    if (!dragRef.current) return;
+    const dx = e.clientX - dragRef.current.startX;
+    const dy = e.clientY - dragRef.current.startY;
+    setPos({ x: dragRef.current.origX + dx, y: dragRef.current.origY + dy });
+  }
+  function handleHeaderPointerUp() {
+    dragRef.current = null;
+  }
+
+  function handleDragStart(e, regId) {
+    e.dataTransfer.setData("text/plain", regId);
+    e.dataTransfer.effectAllowed = "move";
+  }
+  function handleDrop(e, table, seat) {
+    e.preventDefault();
+    const regId = e.dataTransfer.getData("text/plain");
+    if (regId) onMoveSeat(regId, table, seat);
+  }
+
+  function playerLabel(r) {
+    return r.players?.pseudo || r.accounts?.pseudo || r.players?.full_name || "?";
+  }
+
+  function startEditStack(r) {
+    setEditingStackId(r.id);
+    setStackDraft(String(r.stack ?? 0));
+  }
+  function commitStack(r) {
+    const val = Math.max(0, Number(stackDraft) || 0);
+    setEditingStackId(null);
+    onUpdateStack(r.id, val);
+  }
+
+  function seatStyle(index, total) {
+    const angle = (index / total) * 2 * Math.PI - Math.PI / 2;
+    const rx = 40;
+    const ry = 38;
+    return {
+      left: `${50 + rx * Math.cos(angle)}%`,
+      top: `${50 + ry * Math.sin(angle)}%`,
+      transform: "translate(-50%, -50%)",
+    };
+  }
+
   return (
-    <div onClick={onClose} className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div onClick={(e) => e.stopPropagation()} className="bg-felt-panel border border-felt-cream/10 rounded-lg w-full max-w-5xl p-6 font-body text-felt-cream max-h-[85vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-5">
-          <div className="font-display text-xl">Vue des tables</div>
-          <button onClick={onClose} className="text-felt-cream/50 hover:text-felt-cream">
+    <div className="fixed inset-0 z-50 pointer-events-none">
+      <div
+        style={{ transform: `translate(${pos.x}px, ${pos.y}px)` }}
+        className="absolute top-8 left-1/2 -translate-x-1/2 pointer-events-auto bg-felt-panel border border-felt-gold/30 rounded-lg shadow-2xl w-[min(96vw,1400px)] max-h-[90vh] flex flex-col"
+      >
+        <div
+          onPointerDown={handleHeaderPointerDown}
+          onPointerMove={handleHeaderPointerMove}
+          onPointerUp={handleHeaderPointerUp}
+          className="flex items-center justify-between px-5 py-3 border-b border-felt-cream/10 cursor-move select-none shrink-0"
+        >
+          <div className="font-display text-xl text-felt-cream">⠿ Vue des tables</div>
+          <button onClick={onClose} className="text-felt-cream/50 hover:text-felt-cream px-2">
             ✕
           </button>
         </div>
 
-        {duplicates.size > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-3 text-sm mb-4 bg-felt-alert/10 border border-felt-alert/30 rounded-md px-3 py-2.5">
-            <span className="text-felt-alert">
-              ⚠ {duplicates.size} siège(s) partagé(s) par plusieurs joueurs encore en jeu à la fois (signalés en
-              rouge).
-            </span>
-            <button
-              onClick={handleRepair}
-              disabled={repairing}
-              className="px-3 py-1.5 bg-felt-alert/80 text-felt-cream rounded-md font-display text-xs disabled:opacity-40 shrink-0"
-            >
-              {repairing ? "Réparation…" : "🔧 Réparer automatiquement"}
-            </button>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-          {tables.map((table) => (
-            <div key={table} className="bg-felt-bg border border-felt-cream/10 rounded-lg p-4">
-              <div className="font-display text-lg text-felt-gold mb-3">Table {table}</div>
-              <div className="grid grid-cols-3 gap-2">
-                {Array.from({ length: perTable }, (_, i) => i + 1).map((seat) => {
-                  const key = `${table}-${seat}`;
-                  const occupants = bySeat[key] || [];
-                  const isDuplicate = duplicates.has(key);
-                  const active = occupants.filter((r) => !eliminatedIds.has(r.id));
-                  const isFullyOut = occupants.length > 0 && active.length === 0;
-                  return (
-                    <div
-                      key={seat}
-                      className={`rounded-md px-2 py-2 text-xs border min-h-[52px] ${
-                        isDuplicate
-                          ? "bg-felt-alert/15 border-felt-alert/50"
-                          : occupants.length > 0
-                          ? isFullyOut
-                            ? "bg-felt-bg border-felt-cream/10 text-felt-cream/30"
-                            : "bg-felt-gold/10 border-felt-gold/30"
-                          : "bg-felt-panel border-felt-cream/10 text-felt-cream/30"
-                      }`}
-                    >
-                      <div className="text-felt-cream/40">S{seat}</div>
-                      {occupants.length === 0 ? (
-                        <div className="truncate">Libre</div>
-                      ) : (
-                        occupants.map((r) => (
-                          <div key={r.id} className={`truncate ${eliminatedIds.has(r.id) ? "line-through text-felt-cream/30" : ""}`}>
-                            {r.players?.full_name}
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+        <div className="overflow-y-auto p-5 font-body text-felt-cream">
+          {duplicates.size > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 text-sm mb-4 bg-felt-alert/10 border border-felt-alert/30 rounded-md px-3 py-2.5">
+              <span className="text-felt-alert">
+                ⚠ {duplicates.size} siège(s) partagé(s) par plusieurs joueurs encore en jeu à la fois (signalés en
+                rouge).
+              </span>
+              <button
+                onClick={handleRepair}
+                disabled={repairing}
+                className="px-3 py-1.5 bg-felt-alert/80 text-felt-cream rounded-md font-display text-xs disabled:opacity-40 shrink-0"
+              >
+                {repairing ? "Réparation…" : "🔧 Réparer automatiquement"}
+              </button>
             </div>
-          ))}
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {tables.map((table) => (
+              <div key={table}>
+                <div className="font-display text-base text-felt-gold mb-2">Table {table}</div>
+                <div className="relative w-full aspect-[4/3] bg-felt-bg rounded-lg">
+                  {/* Le plateau ovale */}
+                  <div className="absolute inset-[18%] bg-emerald-950/60 border-2 border-felt-gold/20 rounded-[50%]" />
+                  {Array.from({ length: perTable }, (_, i) => i + 1).map((seat, i) => {
+                    const key = `${table}-${seat}`;
+                    const occupants = bySeat[key] || [];
+                    const active = occupants.filter((r) => !eliminatedIds.has(r.id));
+                    const isDuplicate = duplicates.has(key);
+                    const r = active[0] || occupants[0];
+                    const isOut = r && eliminatedIds.has(r.id);
+                    return (
+                      <div
+                        key={seat}
+                        style={seatStyle(i, perTable)}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => handleDrop(e, table, seat)}
+                        className={`absolute w-[86px] rounded-md px-1.5 py-1 text-[11px] border text-center ${
+                          isDuplicate
+                            ? "bg-felt-alert/20 border-felt-alert/60"
+                            : r
+                            ? isOut
+                              ? "bg-felt-bg border-felt-cream/10 text-felt-cream/30"
+                              : "bg-felt-gold/10 border-felt-gold/40"
+                            : "bg-felt-panel border-felt-cream/10 text-felt-cream/30 border-dashed"
+                        }`}
+                      >
+                        <div className="text-felt-cream/40 text-[9px] leading-tight">S{seat}</div>
+                        {r ? (
+                          <div
+                            draggable={!isOut}
+                            onDragStart={(e) => handleDragStart(e, r.id)}
+                            className={`truncate font-medium ${isOut ? "line-through" : "cursor-grab"}`}
+                            title={playerLabel(r)}
+                          >
+                            {playerLabel(r)}
+                          </div>
+                        ) : (
+                          <div className="truncate leading-tight">Libre</div>
+                        )}
+                        {r && !isOut && (
+                          <>
+                            {editingStackId === r.id ? (
+                              <input
+                                autoFocus
+                                type="number"
+                                value={stackDraft}
+                                onChange={(e) => setStackDraft(e.target.value)}
+                                onBlur={() => commitStack(r)}
+                                onKeyDown={(e) => e.key === "Enter" && commitStack(r)}
+                                className="w-full mt-0.5 bg-felt-bg border border-felt-gold/40 rounded px-1 text-[10px] text-felt-cream text-center"
+                              />
+                            ) : (
+                              <button onClick={() => startEditStack(r)} className="block w-full text-felt-cream/60 underline decoration-dotted text-[10px] mt-0.5">
+                                {(r.stack ?? 0).toLocaleString()}
+                              </button>
+                            )}
+                            <button
+                              onClick={() => onEliminate(r)}
+                              title="Éliminer"
+                              className="mt-0.5 text-[9px] text-felt-alert/70 hover:text-felt-alert"
+                            >
+                              ✕ Éliminer
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>

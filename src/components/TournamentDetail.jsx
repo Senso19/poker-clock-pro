@@ -293,6 +293,24 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     }
   }
 
+  async function moveSeatDirect(regId, table, seat) {
+    try {
+      await supabase.from("registrations").update({ table_number: table, seat_number: seat }).eq("id", regId);
+      await loadRegistrations();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function updateStackDirect(regId, stack) {
+    try {
+      await supabase.from("registrations").update({ stack }).eq("id", regId);
+      await loadRegistrations();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
   async function unregisterPlayer(reg) {
     setOpenMenuId(null);
     if (!(await confirmAction(`Désinscrire ${reg.players?.full_name} ?`))) return;
@@ -834,6 +852,9 @@ export default function TournamentDetail({ tournamentId, onBack }) {
           playersPerTable={tournament?.players_per_table}
           onRepair={repairDuplicateSeats}
           onClose={() => setShowTableSeating(false)}
+          onMoveSeat={moveSeatDirect}
+          onEliminate={(reg) => confirmElimination(reg, null)}
+          onUpdateStack={updateStackDirect}
         />
       )}
 
