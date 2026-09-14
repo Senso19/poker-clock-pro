@@ -3,6 +3,7 @@ import { fetchStructureTemplates, deleteStructureTemplate, saveLevels, saveStruc
 import { fetchClockTemplates, deleteClockTemplate, applyClockTemplateToTournament } from "../lib/clockTemplates.js";
 import { fetchAllTournaments } from "../lib/tournaments.js";
 import { fetchFormTemplates, deleteFormTemplate } from "../lib/forms.js";
+import FormTemplatePreviewModal from "./FormTemplatePreviewModal.jsx";
 import StructureEditor from "./StructureEditor.jsx";
 import ClockTemplateEditor from "./ClockTemplateEditor.jsx";
 import CustomizablePanel from "./CustomizablePanel.jsx";
@@ -18,6 +19,7 @@ export default function StructureTemplatesManager() {
   const [structTemplates, setStructTemplates] = useState([]);
   const [clockTemplates, setClockTemplates] = useState([]);
   const [formTemplates, setFormTemplates] = useState([]);
+  const [previewTemplate, setPreviewTemplate] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [editingStruct, setEditingStruct] = useState(null); // null | {} (nouveau) | template
@@ -333,18 +335,29 @@ export default function StructureTemplatesManager() {
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
         >
           {formTemplates.map((t) => (
-            <div key={t.id} className="bg-felt-panel border border-felt-cream/10 rounded-lg p-4">
+            <div
+              key={t.id}
+              onClick={() => setPreviewTemplate(t)}
+              className="bg-felt-panel border border-felt-cream/10 rounded-lg p-4 cursor-pointer hover:border-felt-cream/20 transition-colors"
+            >
               <div className="flex items-start justify-between mb-2">
                 <div className="font-display text-base">{t.name}</div>
-                <button onClick={() => handleDeleteFormTemplate(t.id)} className="text-xs text-felt-alert/60 hover:text-felt-alert">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteFormTemplate(t.id);
+                  }}
+                  className="text-xs text-felt-alert/60 hover:text-felt-alert"
+                >
                   🗑
                 </button>
               </div>
-              <div className="text-xs text-felt-cream/50">{(t.pages || []).length} page(s)</div>
+              <div className="text-xs text-felt-cream/50">{(t.pages || []).length} page(s) · cliquer pour visualiser</div>
             </div>
           ))}
         </CustomizablePanel>
       )}
+      {previewTemplate && <FormTemplatePreviewModal template={previewTemplate} onClose={() => setPreviewTemplate(null)} />}
 
       {applyingStructTemplate && (
         <div onClick={() => setApplyingStructTemplate(null)} className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
