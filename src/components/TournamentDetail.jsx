@@ -6,6 +6,7 @@ import { selectTournament } from "../lib/tournaments.js";
 import { computeSeatAssignment } from "../lib/seating.js";
 import { fetchAllAccounts, assignTableCaptain, fetchTableCaptainAssignments, canParticipate } from "../lib/auth.js";
 import TicketPrint from "./TicketPrint.jsx";
+import TicketModal from "./TicketModal.jsx";
 import SeatPickerModal from "./SeatPickerModal.jsx";
 import RegisterPlayerModal from "./RegisterPlayerModal.jsx";
 import TableSeatingModal from "./TableSeatingModal.jsx";
@@ -925,22 +926,6 @@ function EliminationPicker({ candidates, onConfirm, onCancel }) {
       <button onClick={onCancel} className="text-xs px-3 py-1.5 text-felt-cream/50 hover:text-felt-cream">
         Annuler
       </button>
-    </div>
-  );
-}
-
-function TicketModal({ children, onClose }) {
-  return (
-    <div onClick={onClose} className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 print:bg-white print:static">
-      <div onClick={(e) => e.stopPropagation()} className="bg-felt-panel rounded-lg p-6 relative print:bg-transparent print:p-0">
-        <button
-          onClick={onClose}
-          className="absolute top-2 right-2 text-felt-cream/50 hover:text-felt-cream text-sm print:hidden"
-        >
-          ✕ Fermer
-        </button>
-        {children}
-      </div>
     </div>
   );
 }

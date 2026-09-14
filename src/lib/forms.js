@@ -266,7 +266,7 @@ export async function validateSubmission(submission, registry) {
     .eq("id", submission.id);
   if (subErr) throw subErr;
 
-  return reg;
+  return { registration: reg, tournament, player };
 }
 
 // Modèles de formulaire — réutilisables entre registres, gérés depuis

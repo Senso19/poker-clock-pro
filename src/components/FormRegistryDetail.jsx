@@ -16,6 +16,8 @@ import {
 } from "../lib/forms.js";
 import { fetchAllTournaments, updateTournamentCapacity } from "../lib/tournaments.js";
 import { useConfirm } from "../context/ConfirmContext.jsx";
+import TicketPrint from "./TicketPrint.jsx";
+import TicketModal from "./TicketModal.jsx";
 import CustomizablePanel from "./CustomizablePanel.jsx";
 
 const FIELD_TYPES = [
@@ -54,6 +56,7 @@ export default function FormRegistryDetail({ registryId, onBack }) {
   const [busyId, setBusyId] = useState(null);
   const [copied, setCopied] = useState(false);
   const [capacityOpenFor, setCapacityOpenFor] = useState(null);
+  const [validatedTicket, setValidatedTicket] = useState(null);
   const [detailSubmission, setDetailSubmission] = useState(null);
   const [formTemplates, setFormTemplates] = useState([]);
   const [showApplyTemplate, setShowApplyTemplate] = useState(false);
@@ -191,7 +194,8 @@ export default function FormRegistryDetail({ registryId, onBack }) {
   async function handleValidate(sub) {
     setBusyId(sub.id);
     try {
-      await validateSubmission(sub, registry);
+      const result = await validateSubmission(sub, registry);
+      setValidatedTicket(result);
       await load();
     } catch (e) {
       setError(e.message);
@@ -801,6 +805,43 @@ export default function FormRegistryDetail({ registryId, onBack }) {
           fieldLabelMap={fieldLabelMap()}
           onClose={() => setDetailSubmission(null)}
         />
+      )}
+
+      {validatedTicket && (
+        <TicketModal onClose={() => setValidatedTicket(null)}>
+          <TicketPrint
+            type="buyin"
+            festivalName={validatedTicket.tournament.championships?.name}
+            tournamentName={validatedTicket.tournament.name}
+            stageLabel={validatedTicket.tournament.stage_label}
+            firstName={
+              validatedTicket.player.first_name ||
+              (validatedTicket.player.full_name ? validatedTicket.player.full_name.trim().split(/\s+/)[0] : null)
+            }
+            lastName={
+              validatedTicket.player.last_name ||
+              (validatedTicket.player.full_name && validatedTicket.player.full_name.trim().split(/\s+/).length > 1
+                ? validatedTicket.player.full_name.trim().split(/\s+/).slice(1).join(" ")
+                : null)
+            }
+            pseudo={validatedTicket.player.pseudo}
+            club={validatedTicket.player.club}
+            table={validatedTicket.registration.table_number}
+            seat={validatedTicket.registration.seat_number}
+            tournamentDate={
+              validatedTicket.tournament.scheduled_at
+                ? new Date(validatedTicket.tournament.scheduled_at).toLocaleString("fr-FR", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : null
+            }
+            ticketId={`${validatedTicket.tournament.id.slice(0, 8)}-${validatedTicket.registration.id.slice(0, 8)}-buyin`}
+          />
+        </TicketModal>
       )}
 
       {showApplyTemplate && (
