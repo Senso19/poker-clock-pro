@@ -85,8 +85,12 @@ export default function TicketPrint({
 
         {(theme.logoData || theme.partnerLogoData) && (
           <div className="flex items-center justify-center gap-4">
-            {theme.logoData && <img src={theme.logoData} alt="" className="h-12 w-auto max-w-[45%] object-contain" />}
-            {theme.partnerLogoData && <img src={theme.partnerLogoData} alt="" className="h-12 w-auto max-w-[45%] object-contain" />}
+            {theme.logoData && (
+              <img src={theme.logoData} alt="" style={{ height: theme.ticketLogoHeight || 48 }} className="w-auto max-w-[45%] object-contain" />
+            )}
+            {theme.partnerLogoData && (
+              <img src={theme.partnerLogoData} alt="" style={{ height: theme.ticketLogoHeight || 48 }} className="w-auto max-w-[45%] object-contain" />
+            )}
           </div>
         )}
 

@@ -106,6 +106,12 @@ export default function LayoutSettings() {
     await persist(next);
   }
 
+  async function updateTicketLogoHeight(value) {
+    const next = { ...theme, ticketLogoHeight: Number(value) || null };
+    setTheme(next);
+    await persist(next);
+  }
+
   async function updatePanelBorderColor(value) {
     const next = { ...theme, panelBorderColor: value };
     setTheme(next);
@@ -230,6 +236,15 @@ export default function LayoutSettings() {
             </button>
           )}
         </div>
+        <label className="flex items-center justify-between mt-3 pt-3 border-t border-felt-cream/10 text-sm">
+          Taille des logos sur le ticket (px)
+          <input
+            type="number"
+            value={theme.ticketLogoHeight || 48}
+            onChange={(e) => updateTicketLogoHeight(e.target.value)}
+            className="w-20 bg-felt-bg border border-felt-cream/10 rounded px-2 py-1 text-felt-cream"
+          />
+        </label>
       </div>
 
       <div className="mb-6">

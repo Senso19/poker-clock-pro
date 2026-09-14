@@ -221,7 +221,7 @@ export async function validateSubmission(submission, registry) {
   const club = resolveFieldValue(registry, submission.data, "club");
   const pseudo = resolveFieldValue(registry, submission.data, "pseudo");
 
-  let { data: player } = await supabase.from("players").select("id").ilike("full_name", fullName).maybeSingle();
+  let { data: player } = await supabase.from("players").select("*").ilike("full_name", fullName).maybeSingle();
   if (!player) {
     const { data: created, error: pErr } = await supabase
       .from("players")
@@ -239,10 +239,11 @@ export async function validateSubmission(submission, registry) {
     player = created;
   } else if (club || prenom || nom || pseudo) {
     // Complète la fiche joueur existante si ces infos manquaient encore.
-    await supabase
-      .from("players")
-      .update({ first_name: prenom || undefined, last_name: nom || undefined, club: club || undefined, pseudo: pseudo || undefined })
-      .eq("id", player.id);
+    const patch = { first_name: prenom || undefined, last_name: nom || undefined, club: club || undefined, pseudo: pseudo || undefined };
+    await supabase.from("players").update(patch).eq("id", player.id);
+    // On répercute localement le correctif (le ticket affiché juste après
+    // la validation doit refléter ces infos, pas l'ancienne fiche).
+    player = { ...player, ...Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)) };
   }
 
   const { table, seat } = await computeSeatAssignment(tournament);
