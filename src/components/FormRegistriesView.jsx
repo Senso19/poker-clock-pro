@@ -108,22 +108,22 @@ export default function FormRegistriesView() {
               onClick={() => setOpenId(r.id)}
               className="text-left bg-felt-panel border border-felt-cream/10 rounded-xl p-6 hover:border-felt-cream/30 transition-colors"
             >
-              <div className="font-display text-2xl text-white mb-2 truncate">{r.name}</div>
-              <div className="text-sm text-felt-cream/40 mb-4">/inscription/{r.slug}</div>
+              <div className="pcp-title font-display text-2xl text-white mb-2 truncate">{r.name}</div>
+              <div className="pcp-body text-sm text-felt-cream/40 mb-4">/inscription/{r.slug}</div>
               <div className="flex items-center gap-2 mb-4">
                 <span
-                  className={`text-sm px-3 py-1.5 rounded-full ${
+                  className={`pcp-body text-sm px-3 py-1.5 rounded-full ${
                     r.is_open ? "bg-emerald-500/15 text-emerald-400" : "bg-felt-bg text-felt-cream/50"
                   }`}
                 >
                   {r.is_open ? "Ouvert" : "Fermé"}
                 </span>
                 {r.tournaments?.name ? (
-                  <span className="text-sm px-3 py-1.5 rounded-full bg-felt-gold/10 text-felt-gold truncate">
+                  <span className="pcp-body text-sm px-3 py-1.5 rounded-full bg-felt-gold/10 text-felt-gold truncate">
                     {r.tournaments.name}
                   </span>
                 ) : (
-                  <span className="text-sm px-3 py-1.5 rounded-full bg-felt-bg text-felt-cream/40">Aucun tournoi lié</span>
+                  <span className="pcp-body text-sm px-3 py-1.5 rounded-full bg-felt-bg text-felt-cream/40">Aucun tournoi lié</span>
                 )}
               </div>
               <button

@@ -159,9 +159,9 @@ export default function AccountsAdmin() {
               </div>
             )}
             <button onClick={() => setEditingAccount(a)} className="min-w-0 flex-1 text-left">
-              <div className="text-felt-gold hover:text-felt-gold/80 font-medium truncate">{a.pseudo}</div>
+              <div className="pcp-title text-felt-gold hover:text-felt-gold/80 font-medium truncate">{a.pseudo}</div>
               {(a.first_name || a.last_name) && (
-                <div className="text-xs text-felt-cream/40 truncate">
+                <div className="pcp-body text-xs text-felt-cream/40 truncate">
                   {a.first_name} {a.last_name}
                 </div>
               )}

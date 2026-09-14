@@ -93,8 +93,8 @@ export default function EliminationView() {
               className="flex flex-wrap items-center justify-between gap-2 rounded-md px-4 py-2 border border-felt-cream/10"
             >
               <div>
-                <span className="font-medium">{reg.players?.full_name}</span>
-                <span className="text-felt-cream/40 text-sm ml-2">
+                <span className="pcp-title font-medium">{reg.players?.full_name}</span>
+                <span className="pcp-body text-felt-cream/40 text-sm ml-2">
                   Table {reg.table_number} · Siège {reg.seat_number}
                 </span>
               </div>

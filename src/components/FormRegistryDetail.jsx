@@ -893,10 +893,10 @@ function SubmissionRow({
           </button>
         </div>
       )}
-      <div className="w-7 text-center font-display text-felt-cream/40 shrink-0">{index + 1}</div>
+      <div className="pcp-value w-7 text-center font-display text-felt-cream/40 shrink-0">{index + 1}</div>
       <button onClick={onOpenDetail} className="flex-1 min-w-0 text-left">
-        <div className="text-lg font-display text-white truncate">{name || "(sans nom)"}</div>
-        {clubLabel && <div className="text-sm text-felt-cream/50 truncate">{clubLabel}</div>}
+        <div className="pcp-title text-lg font-display text-white truncate">{name || "(sans nom)"}</div>
+        {clubLabel && <div className="pcp-body text-sm text-felt-cream/50 truncate">{clubLabel}</div>}
       </button>
       {!done ? (
         <div className="flex items-center gap-2 shrink-0">

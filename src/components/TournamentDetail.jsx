@@ -648,7 +648,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
                     isOut ? "opacity-50" : ""
                   }`}
                 >
-                  <div className="text-felt-gold font-display text-lg">
+                  <div className="pcp-value text-felt-gold font-display text-lg">
                     {isOut ? (position ? `${position}e` : "") : showTable ? reg.table_number : ""}
                   </div>
                   <div className="flex items-center gap-3 min-w-0">
@@ -660,10 +660,10 @@ export default function TournamentDetail({ tournamentId, onBack }) {
                       </div>
                     )}
                     <div className="min-w-0">
-                      <div className={`font-medium text-lg truncate ${isOut ? "text-felt-cream/40" : "text-felt-gold"}`}>
+                      <div className={`pcp-title font-medium text-lg truncate ${isOut ? "text-felt-cream/40" : "text-felt-gold"}`}>
                         {reg.players?.full_name}
                       </div>
-                      <div className="text-sm text-felt-cream/40 truncate">
+                      <div className="pcp-body text-sm text-felt-cream/40 truncate">
                         {isOut ? (
                           <>
                             Éliminé{eliminatorName ? ` par ${eliminatorName}` : ""}
@@ -689,7 +689,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
                         className="w-24 bg-felt-bg border border-felt-gold/40 rounded px-2 py-1.5 text-base text-felt-cream"
                       />
                     ) : (
-                      <button onClick={() => startEditStack(reg)} className="text-felt-cream underline decoration-felt-cream/30 text-base">
+                      <button onClick={() => startEditStack(reg)} className="pcp-value text-felt-cream underline decoration-felt-cream/30 text-base">
                         {(reg.stack ?? 0).toLocaleString()}
                       </button>
                     )}
