@@ -6,6 +6,8 @@ import {
   fetchFormSubmissions,
   validateSubmission,
   rejectSubmission,
+  deleteSubmission,
+  revertSubmissionToPending,
   reorderSubmissions,
   resolveFieldValue,
   resolvePlayerName,
@@ -200,6 +202,35 @@ export default function FormRegistryDetail({ registryId, onBack }) {
     setBusyId(sub.id);
     try {
       await rejectSubmission(sub.id);
+      await load();
+    } catch (e) {
+      setError(e.message);
+    }
+    setBusyId(null);
+  }
+
+  async function handleDeleteSubmission(sub) {
+    const name = resolvePlayerName(registry, sub.data) || "cette inscription";
+    if (!(await confirmAction(`Supprimer définitivement ${name} du registre ?`))) return;
+    setBusyId(sub.id);
+    try {
+      await deleteSubmission(sub.id);
+      setSubmissions((all) => all.filter((s) => s.id !== sub.id));
+    } catch (e) {
+      setError(e.message);
+    }
+    setBusyId(null);
+  }
+
+  async function handleRevertToPending(sub) {
+    const msg =
+      sub.status === "validated"
+        ? "Remettre cette inscription en attente ? Son inscription au tournoi (table/siège) sera retirée."
+        : "Remettre cette inscription en attente ?";
+    if (!(await confirmAction(msg))) return;
+    setBusyId(sub.id);
+    try {
+      await revertSubmissionToPending(sub);
       await load();
     } catch (e) {
       setError(e.message);
@@ -669,7 +700,18 @@ export default function FormRegistryDetail({ registryId, onBack }) {
                   <div className="text-xs font-display uppercase tracking-widest text-felt-cream/40 mb-2">Validées</div>
                   <CustomizablePanel panelKey={`form-registry-validated-${g.id || "none"}`} defaultWidth="1 1 100%" className="space-y-2">
                     {g.validated.map((s, i) => (
-                      <SubmissionRow key={s.id} s={s} name={resolvePlayerName(registry, s.data)} index={i} clubLabel={findClubValue(s)} done onOpenDetail={() => setDetailSubmission(s)} />
+                      <SubmissionRow
+                        key={s.id}
+                        s={s}
+                        name={resolvePlayerName(registry, s.data)}
+                        index={i}
+                        clubLabel={findClubValue(s)}
+                        done
+                        busy={busyId === s.id}
+                        onRevert={() => handleRevertToPending(s)}
+                        onDelete={() => handleDeleteSubmission(s)}
+                        onOpenDetail={() => setDetailSubmission(s)}
+                      />
                     ))}
                   </CustomizablePanel>
                 </div>
@@ -691,6 +733,7 @@ export default function FormRegistryDetail({ registryId, onBack }) {
                         busy={busyId === s.id}
                         onValidate={() => handleValidate(s)}
                         onReject={() => handleReject(s)}
+                        onDelete={() => handleDeleteSubmission(s)}
                         onOpenDetail={() => setDetailSubmission(s)}
                       />
                     ))}
@@ -702,7 +745,18 @@ export default function FormRegistryDetail({ registryId, onBack }) {
                   <div className="text-xs font-display uppercase tracking-widest text-felt-cream/40 mb-2">Refusées</div>
                   <CustomizablePanel panelKey={`form-registry-rejected-${g.id || "none"}`} defaultWidth="1 1 100%" className="space-y-2">
                     {g.rejected.map((s, i) => (
-                      <SubmissionRow key={s.id} s={s} name={resolvePlayerName(registry, s.data)} index={i} clubLabel={findClubValue(s)} done onOpenDetail={() => setDetailSubmission(s)} />
+                      <SubmissionRow
+                        key={s.id}
+                        s={s}
+                        name={resolvePlayerName(registry, s.data)}
+                        index={i}
+                        clubLabel={findClubValue(s)}
+                        done
+                        busy={busyId === s.id}
+                        onRevert={() => handleRevertToPending(s)}
+                        onDelete={() => handleDeleteSubmission(s)}
+                        onOpenDetail={() => setDetailSubmission(s)}
+                      />
                     ))}
                   </CustomizablePanel>
                 </div>
@@ -811,7 +865,22 @@ function ColorField({ label, value, onChange }) {
   );
 }
 
-function SubmissionRow({ s, name, index, clubLabel, busy, done, canReorder, onMoveUp, onMoveDown, onValidate, onReject, onOpenDetail }) {
+function SubmissionRow({
+  s,
+  name,
+  index,
+  clubLabel,
+  busy,
+  done,
+  canReorder,
+  onMoveUp,
+  onMoveDown,
+  onValidate,
+  onReject,
+  onRevert,
+  onDelete,
+  onOpenDetail,
+}) {
   return (
     <div className="bg-felt-panel border border-felt-cream/10 rounded-lg px-3 py-2.5 flex items-center gap-3">
       {canReorder && (
@@ -845,15 +914,31 @@ function SubmissionRow({ s, name, index, clubLabel, busy, done, canReorder, onMo
           >
             {busy ? "…" : "Valider"}
           </button>
+          <button onClick={onDelete} disabled={busy} title="Supprimer" className="text-felt-cream/30 hover:text-felt-alert disabled:opacity-40">
+            <Trash2 size={15} />
+          </button>
         </div>
       ) : (
-        <span
-          className={`text-xs px-2.5 py-1 rounded-full shrink-0 ${
-            s.status === "validated" ? "bg-emerald-500/15 text-emerald-400" : "bg-felt-alert/15 text-felt-alert"
-          }`}
-        >
-          {s.status === "validated" ? "Validée" : "Refusée"}
-        </span>
+        <div className="flex items-center gap-2 shrink-0">
+          <span
+            className={`text-xs px-2.5 py-1 rounded-full ${
+              s.status === "validated" ? "bg-emerald-500/15 text-emerald-400" : "bg-felt-alert/15 text-felt-alert"
+            }`}
+          >
+            {s.status === "validated" ? "Validée" : "Refusée"}
+          </span>
+          <button
+            onClick={onRevert}
+            disabled={busy}
+            title="Revoir la décision (remettre en attente)"
+            className="text-xs px-2.5 py-1.5 rounded-md border border-felt-cream/10 text-felt-cream/50 hover:text-white disabled:opacity-40"
+          >
+            ↺
+          </button>
+          <button onClick={onDelete} disabled={busy} title="Supprimer" className="text-felt-cream/30 hover:text-felt-alert disabled:opacity-40">
+            <Trash2 size={15} />
+          </button>
+        </div>
       )}
     </div>
   );

@@ -181,6 +181,28 @@ export async function rejectSubmission(id) {
   if (error) throw error;
 }
 
+// Supprime définitivement une ligne du registre (n'annule PAS une
+// éventuelle inscription au tournoi déjà créée si la soumission était
+// validée — ça se gère depuis la fiche du tournoi).
+export async function deleteSubmission(id) {
+  const { error } = await supabase.from("form_submissions").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// Remet une soumission "en attente" pour pouvoir revoir la décision. Si
+// elle était validée, l'inscription au tournoi (table/siège) créée à la
+// validation est retirée pour rester cohérent.
+export async function revertSubmissionToPending(submission) {
+  if (submission.status === "validated" && submission.registration_id) {
+    await supabase.from("registrations").delete().eq("id", submission.registration_id);
+  }
+  const { error } = await supabase
+    .from("form_submissions")
+    .update({ status: "pending", registration_id: null, validated_at: null })
+    .eq("id", submission.id);
+  if (error) throw error;
+}
+
 // Valide une soumission : crée (ou réutilise) le joueur, l'inscrit au
 // tournoi lié à cette soumission (celui de sa page, sinon celui par défaut
 // du registre) avec le prochain siège libre, et relie la soumission à
