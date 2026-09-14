@@ -319,8 +319,9 @@ export default function FormRegistryDetail({ registryId, onBack }) {
     .map((id) => ({
       id,
       name: tournamentName(id),
+      validated: submissions.filter((s) => (s.tournament_id || null) === id && s.status === "validated"),
       pending: submissions.filter((s) => (s.tournament_id || null) === id && s.status === "pending"),
-      others: submissions.filter((s) => (s.tournament_id || null) === id && s.status !== "pending"),
+      rejected: submissions.filter((s) => (s.tournament_id || null) === id && s.status === "rejected"),
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
@@ -648,14 +649,14 @@ export default function FormRegistryDetail({ registryId, onBack }) {
                 <div className="font-display text-base text-felt-gold">{g.name}</div>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => sortGroupAlphabetically([...g.pending, ...g.others])}
+                    onClick={() => sortGroupAlphabetically([...g.validated, ...g.pending, ...g.rejected])}
                     title="Trier par ordre alphabétique"
                     className="flex items-center gap-1 text-xs px-2.5 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/60 hover:text-white"
                   >
                     <ArrowDownAZ size={13} /> A-Z
                   </button>
                   <button
-                    onClick={() => exportGroupToExcel([...g.pending, ...g.others], g.name)}
+                    onClick={() => exportGroupToExcel([...g.validated, ...g.pending, ...g.rejected], g.name)}
                     title="Exporter en Excel"
                     className="flex items-center gap-1 text-xs px-2.5 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/60 hover:text-white"
                   >
@@ -663,6 +664,16 @@ export default function FormRegistryDetail({ registryId, onBack }) {
                   </button>
                 </div>
               </div>
+              {g.validated.length > 0 && (
+                <div className="mb-4">
+                  <div className="text-xs font-display uppercase tracking-widest text-felt-cream/40 mb-2">Validées</div>
+                  <CustomizablePanel panelKey={`form-registry-validated-${g.id || "none"}`} defaultWidth="1 1 100%" className="space-y-2">
+                    {g.validated.map((s, i) => (
+                      <SubmissionRow key={s.id} s={s} name={resolvePlayerName(registry, s.data)} index={i} clubLabel={findClubValue(s)} done onOpenDetail={() => setDetailSubmission(s)} />
+                    ))}
+                  </CustomizablePanel>
+                </div>
+              )}
               {g.pending.length > 0 && (
                 <div className="mb-4">
                   <div className="text-xs font-display uppercase tracking-widest text-felt-cream/40 mb-2">En attente</div>
@@ -686,11 +697,11 @@ export default function FormRegistryDetail({ registryId, onBack }) {
                   </CustomizablePanel>
                 </div>
               )}
-              {g.others.length > 0 && (
+              {g.rejected.length > 0 && (
                 <div>
-                  <div className="text-xs font-display uppercase tracking-widest text-felt-cream/40 mb-2">Traitées</div>
-                  <CustomizablePanel panelKey={`form-registry-done-${g.id || "none"}`} defaultWidth="1 1 100%" className="space-y-2">
-                    {g.others.map((s, i) => (
+                  <div className="text-xs font-display uppercase tracking-widest text-felt-cream/40 mb-2">Refusées</div>
+                  <CustomizablePanel panelKey={`form-registry-rejected-${g.id || "none"}`} defaultWidth="1 1 100%" className="space-y-2">
+                    {g.rejected.map((s, i) => (
                       <SubmissionRow key={s.id} s={s} name={resolvePlayerName(registry, s.data)} index={i} clubLabel={findClubValue(s)} done onOpenDetail={() => setDetailSubmission(s)} />
                     ))}
                   </CustomizablePanel>
