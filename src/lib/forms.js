@@ -235,3 +235,22 @@ export async function validateSubmission(submission, registry) {
 
   return reg;
 }
+
+// Modèles de formulaire — réutilisables entre registres, gérés depuis
+// "Gérer les modèles" et proposés dans le constructeur de chaque registre.
+export async function fetchFormTemplates() {
+  const { data, error } = await supabase.from("form_templates").select("*").order("created_at", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function saveFormTemplate(name, pages, theme) {
+  const { data, error } = await supabase.from("form_templates").insert({ name, pages, theme }).select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteFormTemplate(id) {
+  const { error } = await supabase.from("form_templates").delete().eq("id", id);
+  if (error) throw error;
+}

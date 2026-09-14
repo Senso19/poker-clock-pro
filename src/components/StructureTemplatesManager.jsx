@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { fetchStructureTemplates, deleteStructureTemplate, saveLevels, saveStructureConfig } from "../lib/levels.js";
 import { fetchClockTemplates, deleteClockTemplate, applyClockTemplateToTournament } from "../lib/clockTemplates.js";
 import { fetchAllTournaments } from "../lib/tournaments.js";
+import { fetchFormTemplates, deleteFormTemplate } from "../lib/forms.js";
 import StructureEditor from "./StructureEditor.jsx";
 import ClockTemplateEditor from "./ClockTemplateEditor.jsx";
 import CustomizablePanel from "./CustomizablePanel.jsx";
@@ -16,6 +17,7 @@ export default function StructureTemplatesManager() {
   const confirmAction = useConfirm();
   const [structTemplates, setStructTemplates] = useState([]);
   const [clockTemplates, setClockTemplates] = useState([]);
+  const [formTemplates, setFormTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [editingStruct, setEditingStruct] = useState(null); // null | {} (nouveau) | template
@@ -33,9 +35,10 @@ export default function StructureTemplatesManager() {
   async function load() {
     setLoading(true);
     try {
-      const [s, c] = await Promise.all([fetchStructureTemplates(), fetchClockTemplates()]);
+      const [s, c, f] = await Promise.all([fetchStructureTemplates(), fetchClockTemplates(), fetchFormTemplates()]);
       setStructTemplates(s);
       setClockTemplates(c);
+      setFormTemplates(f);
     } catch (e) {
       setError(e.message);
     }
@@ -82,6 +85,16 @@ export default function StructureTemplatesManager() {
     try {
       await deleteClockTemplate(id);
       setClockTemplates((prev) => prev.filter((t) => t.id !== id));
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function handleDeleteFormTemplate(id) {
+    if (!(await confirmAction("Supprimer ce modèle de formulaire ?"))) return;
+    try {
+      await deleteFormTemplate(id);
+      setFormTemplates((prev) => prev.filter((t) => t.id !== id));
     } catch (e) {
       setError(e.message);
     }
@@ -298,6 +311,36 @@ export default function StructureTemplatesManager() {
                   {appliedAt === t.id ? "✓ Appliqué" : "▶ Appliquer"}
                 </button>
               </div>
+            </div>
+          ))}
+        </CustomizablePanel>
+      )}
+
+      <div className="flex items-baseline justify-between mb-3 mt-8">
+        <div className="font-display text-lg">Modèles de formulaire</div>
+      </div>
+      <div className="text-xs text-felt-cream/40 mb-3">
+        Enregistrés depuis le Constructeur d'un registre (« Inscriptions Festival et Open »), et proposables sur n'importe
+        quel autre registre.
+      </div>
+
+      {formTemplates.length === 0 ? (
+        <div className="text-felt-cream/50 text-sm">Aucun modèle de formulaire enregistré pour le moment.</div>
+      ) : (
+        <CustomizablePanel
+          panelKey="form-templates-grid"
+          defaultWidth="1 1 100%"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+        >
+          {formTemplates.map((t) => (
+            <div key={t.id} className="bg-felt-panel border border-felt-cream/10 rounded-lg p-4">
+              <div className="flex items-start justify-between mb-2">
+                <div className="font-display text-base">{t.name}</div>
+                <button onClick={() => handleDeleteFormTemplate(t.id)} className="text-xs text-felt-alert/60 hover:text-felt-alert">
+                  🗑
+                </button>
+              </div>
+              <div className="text-xs text-felt-cream/50">{(t.pages || []).length} page(s)</div>
             </div>
           ))}
         </CustomizablePanel>

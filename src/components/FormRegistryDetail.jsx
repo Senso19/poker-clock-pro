@@ -9,6 +9,8 @@ import {
   reorderSubmissions,
   resolveFieldValue,
   resolvePlayerName,
+  fetchFormTemplates,
+  saveFormTemplate,
 } from "../lib/forms.js";
 import { fetchAllTournaments } from "../lib/tournaments.js";
 import { useConfirm } from "../context/ConfirmContext.jsx";
@@ -49,10 +51,16 @@ export default function FormRegistryDetail({ registryId, onBack }) {
   const [busyId, setBusyId] = useState(null);
   const [copied, setCopied] = useState(false);
   const [detailSubmission, setDetailSubmission] = useState(null);
+  const [formTemplates, setFormTemplates] = useState([]);
+  const [showApplyTemplate, setShowApplyTemplate] = useState(false);
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [savingTemplate, setSavingTemplate] = useState(false);
 
   useEffect(() => {
     load();
     fetchAllTournaments().then(setTournaments).catch(() => {});
+    fetchFormTemplates().then(setFormTemplates).catch(() => {});
   }, [registryId]);
 
   async function load() {
@@ -265,6 +273,26 @@ export default function FormRegistryDetail({ registryId, onBack }) {
     XLSX.writeFile(wb, `${registry.name}-${groupName}.xlsx`.replace(/[^a-z0-9-]+/gi, "_"));
   }
 
+  async function handleApplyTemplate(template) {
+    if (!(await confirmAction(`Remplacer les pages actuelles du constructeur par le modèle « ${template.name} » ?`))) return;
+    await persist({ pages: template.pages, theme: { ...(registry.theme || {}), ...template.theme, title: registry.theme?.title } });
+    setShowApplyTemplate(false);
+  }
+
+  async function handleSaveTemplate() {
+    if (!templateName.trim()) return;
+    setSavingTemplate(true);
+    try {
+      const created = await saveFormTemplate(templateName.trim(), registry.pages || [], registry.theme || {});
+      setFormTemplates((prev) => [created, ...prev]);
+      setTemplateName("");
+      setShowSaveTemplate(false);
+    } catch (e) {
+      setError(e.message);
+    }
+    setSavingTemplate(false);
+  }
+
   function copyLink() {
     const url = `${window.location.origin}/inscription/${registry.slug}`;
     navigator.clipboard?.writeText(url).then(() => {
@@ -402,12 +430,26 @@ export default function FormRegistryDetail({ registryId, onBack }) {
           <div>
             <div className="flex items-center justify-between mb-3">
               <div className="font-display text-base">Pages du formulaire</div>
-              <button
-                onClick={addPage}
-                className="flex items-center gap-1 text-xs px-3 py-1.5 bg-felt-gold text-felt-bg rounded-md font-display"
-              >
-                <Plus size={13} /> Nouvelle page
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowApplyTemplate(true)}
+                  className="flex items-center gap-1 text-xs px-3 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-white"
+                >
+                  Utiliser un modèle
+                </button>
+                <button
+                  onClick={() => setShowSaveTemplate(true)}
+                  className="flex items-center gap-1 text-xs px-3 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-white"
+                >
+                  Enregistrer comme modèle
+                </button>
+                <button
+                  onClick={addPage}
+                  className="flex items-center gap-1 text-xs px-3 py-1.5 bg-felt-gold text-felt-bg rounded-md font-display"
+                >
+                  <Plus size={13} /> Nouvelle page
+                </button>
+              </div>
             </div>
             <div className="space-y-4">
               {(registry.pages || []).map((page, i) => (
@@ -667,6 +709,68 @@ export default function FormRegistryDetail({ registryId, onBack }) {
           fieldLabelMap={fieldLabelMap()}
           onClose={() => setDetailSubmission(null)}
         />
+      )}
+
+      {showApplyTemplate && (
+        <div onClick={() => setShowApplyTemplate(false)} className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-felt-panel border border-felt-cream/10 rounded-lg w-full max-w-sm p-6 font-body text-felt-cream max-h-[80vh] flex flex-col"
+          >
+            <div className="font-display text-lg mb-4">Utiliser un modèle</div>
+            {formTemplates.length === 0 ? (
+              <div className="text-sm text-felt-cream/50 mb-4">
+                Aucun modèle enregistré pour le moment. Construisez vos pages puis cliquez « Enregistrer comme modèle » pour
+                en créer un.
+              </div>
+            ) : (
+              <div className="space-y-2 overflow-y-auto mb-4">
+                {formTemplates.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => handleApplyTemplate(t)}
+                    className="w-full text-left px-3 py-2 bg-felt-bg border border-felt-cream/10 rounded-md text-sm text-felt-cream hover:border-felt-gold/40"
+                  >
+                    {t.name} <span className="text-felt-cream/40 text-xs">— {(t.pages || []).length} page(s)</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <button onClick={() => setShowApplyTemplate(false)} className="w-full px-4 py-2 text-felt-cream/60 hover:text-felt-cream">
+              Fermer
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showSaveTemplate && (
+        <div onClick={() => setShowSaveTemplate(false)} className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div onClick={(e) => e.stopPropagation()} className="bg-felt-panel border border-felt-cream/10 rounded-lg w-full max-w-sm p-6 font-body text-felt-cream">
+            <div className="font-display text-lg mb-4">Enregistrer comme modèle</div>
+            <label className="block text-xs text-felt-cream/50 mb-4">
+              Nom du modèle
+              <input
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                placeholder="Ex : Inscription festival standard"
+                onKeyDown={(e) => e.key === "Enter" && handleSaveTemplate()}
+                className="w-full mt-1 bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-2 text-felt-cream placeholder:text-felt-cream/40"
+              />
+            </label>
+            <div className="flex gap-2">
+              <button onClick={() => setShowSaveTemplate(false)} className="flex-1 px-4 py-2 text-felt-cream/60 hover:text-felt-cream">
+                Annuler
+              </button>
+              <button
+                onClick={handleSaveTemplate}
+                disabled={savingTemplate || !templateName.trim()}
+                className="flex-1 px-4 py-2 bg-felt-gold text-felt-bg rounded-md font-display disabled:opacity-40"
+              >
+                {savingTemplate ? "Enregistrement…" : "Enregistrer"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
