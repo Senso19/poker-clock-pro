@@ -91,6 +91,21 @@ export default function LayoutSettings() {
     await persist(next);
   }
 
+  async function handlePartnerLogoUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const dataUrl = await compressImageFile(file, { maxSize: 300 });
+    const next = { ...theme, partnerLogoData: dataUrl };
+    setTheme(next);
+    await persist(next);
+  }
+
+  async function removePartnerLogo() {
+    const next = { ...theme, partnerLogoData: null };
+    setTheme(next);
+    await persist(next);
+  }
+
   async function updatePanelBorderColor(value) {
     const next = { ...theme, panelBorderColor: value };
     setTheme(next);
@@ -191,6 +206,26 @@ export default function LayoutSettings() {
           </label>
           {theme.logoData && (
             <button onClick={removeLogo} className="text-xs text-felt-alert/70 hover:text-felt-alert">
+              Retirer
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="mb-6 bg-felt-panel border border-felt-cream/10 rounded-md px-4 py-3">
+        <div className="font-medium mb-1">Logo partenaire (ex : Winamax)</div>
+        <div className="text-xs text-felt-cream/50 mb-3">
+          Téléversez ici le fichier logo officiel fourni par votre partenaire — il s'affichera tel quel sur les tickets
+          imprimables. Utilisez uniquement un fichier dont vous avez l'autorisation d'usage.
+        </div>
+        <div className="flex items-center gap-3">
+          {theme.partnerLogoData && <img src={theme.partnerLogoData} alt="" className="h-12 w-auto max-w-[140px] object-contain" />}
+          <label className="cursor-pointer px-3 py-1.5 text-sm bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display">
+            {theme.partnerLogoData ? "Changer le logo" : "Importer un logo"}
+            <input type="file" accept="image/*" onChange={handlePartnerLogoUpload} className="hidden" />
+          </label>
+          {theme.partnerLogoData && (
+            <button onClick={removePartnerLogo} className="text-xs text-felt-alert/70 hover:text-felt-alert">
               Retirer
             </button>
           )}

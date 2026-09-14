@@ -51,9 +51,10 @@ export default function TicketPrint({ type, tournamentName, stageLabel, player, 
 
         <hr className="my-3 border-gray-400" />
 
-        {theme.logoData && (
-          <div className="flex items-center justify-center">
-            <img src={theme.logoData} alt="" className="h-12 w-auto max-w-full object-contain" />
+        {(theme.logoData || theme.partnerLogoData) && (
+          <div className="flex items-center justify-center gap-4">
+            {theme.logoData && <img src={theme.logoData} alt="" className="h-12 w-auto max-w-[45%] object-contain" />}
+            {theme.partnerLogoData && <img src={theme.partnerLogoData} alt="" className="h-12 w-auto max-w-[45%] object-contain" />}
           </div>
         )}
 
