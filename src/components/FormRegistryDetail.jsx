@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Copy, Plus, Trash2, ChevronUp, ChevronDown, ArrowDownAZ, Download } from "lucide-react";
+import { Copy, Plus, Trash2, ChevronUp, ChevronDown, ArrowDownAZ, Download, Settings2 } from "lucide-react";
 import {
   fetchFormRegistry,
   updateFormRegistry,
@@ -52,6 +52,7 @@ export default function FormRegistryDetail({ registryId, onBack }) {
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [capacityOpenFor, setCapacityOpenFor] = useState(null);
   const [detailSubmission, setDetailSubmission] = useState(null);
   const [formTemplates, setFormTemplates] = useState([]);
   const [showApplyTemplate, setShowApplyTemplate] = useState(false);
@@ -418,12 +419,6 @@ export default function FormRegistryDetail({ registryId, onBack }) {
                 </option>
               ))}
             </select>
-            {registry.tournament_id && (
-              <TournamentCapacityEditor
-                tournament={tournaments.find((t) => t.id === registry.tournament_id)}
-                onChange={(patch) => handleUpdateCapacity(registry.tournament_id, patch)}
-              />
-            )}
             <label className="flex items-center gap-2 text-sm text-felt-cream/80 mt-3 pt-3 border-t border-felt-cream/10">
               <input
                 type="checkbox"
@@ -681,12 +676,6 @@ export default function FormRegistryDetail({ registryId, onBack }) {
                         ))}
                       </select>
                     </label>
-                    {page.tournamentId && (
-                      <TournamentCapacityEditor
-                        tournament={tournaments.find((t) => t.id === page.tournamentId)}
-                        onChange={(patch) => handleUpdateCapacity(page.tournamentId, patch)}
-                      />
-                    )}
                   </div>
                 </div>
               ))}
@@ -700,6 +689,15 @@ export default function FormRegistryDetail({ registryId, onBack }) {
               <div className="flex items-center justify-between gap-2 mb-3">
                 <div className="font-display text-base text-felt-gold">{g.name}</div>
                 <div className="flex items-center gap-2">
+                  {g.id && (
+                    <button
+                      onClick={() => setCapacityOpenFor(capacityOpenFor === g.id ? null : g.id)}
+                      title="Capacité du tournoi (joueurs total / par table)"
+                      className="flex items-center gap-1 text-xs px-2.5 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/60 hover:text-white"
+                    >
+                      <Settings2 size={13} /> Capacité
+                    </button>
+                  )}
                   <button
                     onClick={() => sortGroupAlphabetically([...g.validated, ...g.pending, ...g.rejected])}
                     title="Trier par ordre alphabétique"
@@ -716,6 +714,13 @@ export default function FormRegistryDetail({ registryId, onBack }) {
                   </button>
                 </div>
               </div>
+              {capacityOpenFor === g.id && (
+                <TournamentCapacityEditor
+                  tournament={tournaments.find((t) => t.id === g.id)}
+                  onChange={(patch) => handleUpdateCapacity(g.id, patch)}
+                  bare
+                />
+              )}
               {g.validated.length > 0 && (
                 <div className="mb-4">
                   <div className="text-xs font-display uppercase tracking-widest text-felt-cream/40 mb-2">Validées</div>
@@ -862,7 +867,7 @@ export default function FormRegistryDetail({ registryId, onBack }) {
   );
 }
 
-function TournamentCapacityEditor({ tournament, onChange }) {
+function TournamentCapacityEditor({ tournament, onChange, bare }) {
   const [maxPlayers, setMaxPlayers] = useState(tournament?.max_players ?? "");
   const [perTable, setPerTable] = useState(tournament?.players_per_table ?? "");
 
@@ -875,7 +880,7 @@ function TournamentCapacityEditor({ tournament, onChange }) {
   const estimatedTables = maxPlayers && perTable ? Math.ceil(Number(maxPlayers) / Number(perTable)) : null;
 
   return (
-    <div className="mt-3 pt-3 border-t border-felt-cream/10">
+    <div className={bare ? "bg-felt-panel border border-felt-cream/10 rounded-lg p-3 mb-4" : "mt-3 pt-3 border-t border-felt-cream/10"}>
       <div className="text-[11px] text-felt-cream/40 mb-2">
         Capacité de <strong className="text-felt-cream/60">{tournament.name}</strong> — détermine combien de tables
         seront ouvertes automatiquement à la validation des inscriptions.
