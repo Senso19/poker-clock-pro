@@ -251,16 +251,15 @@ export default function FormRegistryDetail({ registryId, onBack }) {
 
   async function exportGroupToExcel(groupList, groupName) {
     const map = fieldLabelMap();
+    const fieldEntries = Object.entries(map); // [[fieldId, label], ...] — ordre stable et déterministe
     const XLSX = await import("xlsx");
-    const rows = groupList.map((s, i) => {
-      const row = { "N°": i + 1 };
-      for (const [fieldId, label] of Object.entries(map)) {
-        row[label] = s.data?.[fieldId] ?? "";
-      }
-      row["Statut"] = s.status === "validated" ? "Validée" : s.status === "rejected" ? "Refusée" : "En attente";
-      return row;
-    });
-    const ws = XLSX.utils.json_to_sheet(rows);
+    const headers = ["N°", ...fieldEntries.map(([, label]) => label), "Statut"];
+    const rows = groupList.map((s, i) => [
+      i + 1,
+      ...fieldEntries.map(([fieldId]) => s.data?.[fieldId] ?? ""),
+      s.status === "validated" ? "Validée" : s.status === "rejected" ? "Refusée" : "En attente",
+    ]);
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, groupName.slice(0, 31) || "Inscriptions");
     XLSX.writeFile(wb, `${registry.name}-${groupName}.xlsx`.replace(/[^a-z0-9-]+/gi, "_"));
@@ -321,11 +320,11 @@ export default function FormRegistryDetail({ registryId, onBack }) {
       </div>
 
       <div className="flex gap-1 px-4 sm:px-6 pt-4">
-        <TabButton active={tab === "builder"} onClick={() => setTab("builder")}>
-          Constructeur
-        </TabButton>
         <TabButton active={tab === "registry"} onClick={() => setTab("registry")}>
           Registre {submissions.length > 0 && `(${submissions.length})`}
+        </TabButton>
+        <TabButton active={tab === "builder"} onClick={() => setTab("builder")}>
+          Constructeur
         </TabButton>
       </div>
 
@@ -350,6 +349,14 @@ export default function FormRegistryDetail({ registryId, onBack }) {
                 </option>
               ))}
             </select>
+            <label className="flex items-center gap-2 text-sm text-felt-cream/80 mt-3 pt-3 border-t border-felt-cream/10">
+              <input
+                type="checkbox"
+                checked={!!registry.block_duplicates}
+                onChange={(e) => persist({ block_duplicates: e.target.checked })}
+              />
+              Bloquer les joueurs déjà inscrits (empêche une double inscription au même formulaire, par nom ou email)
+            </label>
           </div>
 
           <div className="bg-felt-panel border border-felt-cream/10 rounded-xl p-4">
@@ -592,7 +599,7 @@ export default function FormRegistryDetail({ registryId, onBack }) {
           </div>
         </div>
       ) : (
-        <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-8">
+        <div className="p-4 sm:p-6 max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
           {groups.map((g) => (
             <div key={g.id || "none"}>
               <div className="flex items-center justify-between gap-2 mb-3">

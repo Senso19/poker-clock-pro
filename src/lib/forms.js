@@ -133,6 +133,25 @@ export async function reorderSubmissions(orderedIds) {
 // à un même registre d'alimenter plusieurs tableaux/tournois différents
 // (ex : Day1A / Day1B d'un même Main Event).
 export async function submitFormEntry(registryId, data, tournamentId, pageId, registry) {
+  // Si l'admin a activé "Bloquer les doublons" pour ce registre, on refuse
+  // une nouvelle soumission dont le nom ou l'email correspond déjà à une
+  // inscription existante (en attente ou validée) sur ce même registre.
+  if (registry?.block_duplicates) {
+    const playerName = resolvePlayerName(registry, data).trim().toLowerCase();
+    const playerEmail = (resolveFieldValue(registry, data, "email") || "").trim().toLowerCase();
+    const { data: existing } = await supabase
+      .from("form_submissions")
+      .select("data")
+      .eq("registry_id", registryId)
+      .neq("status", "rejected");
+    const isDuplicate = (existing || []).some((s) => {
+      const otherName = resolvePlayerName(registry, s.data).trim().toLowerCase();
+      const otherEmail = (resolveFieldValue(registry, s.data, "email") || "").trim().toLowerCase();
+      return (playerName && otherName && playerName === otherName) || (playerEmail && otherEmail && playerEmail === otherEmail);
+    });
+    if (isDuplicate) throw new Error("Vous êtes déjà inscrit à ce formulaire.");
+  }
+
   const { error } = await supabase
     .from("form_submissions")
     .insert({ registry_id: registryId, data, status: "pending", tournament_id: tournamentId || null, page_id: pageId || null });
