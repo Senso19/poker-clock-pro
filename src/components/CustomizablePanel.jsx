@@ -79,9 +79,11 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
   }
 
   const flexBasis = style.width ? `0 0 ${style.width}` : defaultWidth;
+  const panelDomId = `pcp-${panelKey.replace(/[^a-zA-Z0-9_-]/g, "")}`;
 
   return (
     <div
+      id={panelDomId}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -102,6 +104,13 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
       }}
       className={`relative ${dragOver ? "ring-2 ring-felt-gold" : ""} ${className || ""}`}
     >
+      {(style.cardTextSize || style.textAlign) && (
+        <style>
+          {`#${panelDomId} *{${style.cardTextSize ? `font-size:${style.cardTextSize}px !important;` : ""}${
+            style.textAlign ? `text-align:${style.textAlign} !important;` : ""
+          }}`}
+        </style>
+      )}
       {isEditMode && (
         <div className="absolute top-3 right-3 z-20 flex gap-2">
           <button
@@ -223,6 +232,22 @@ function PanelStyleEditor({ style, onChange, onClose }) {
           className="w-20 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
         />
       </label>
+      <div className="text-[10px] text-felt-cream/40 mb-2 -mt-1">
+        S'applique à tout le texte de ce tableau, quelle que soit la carte.
+      </div>
+      <label className="flex items-center justify-between mb-2">
+        Alignement du texte
+        <select
+          value={style.textAlign || ""}
+          onChange={(e) => onChange({ textAlign: e.target.value || null })}
+          className="bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream"
+        >
+          <option value="">Par défaut</option>
+          <option value="left">Gauche</option>
+          <option value="center">Centré</option>
+          <option value="right">Droite</option>
+        </select>
+      </label>
       <label className="flex items-center justify-between mb-2">
         Couleur du texte des cartes
         <input
@@ -244,6 +269,7 @@ function PanelStyleEditor({ style, onChange, onClose }) {
             cardHeight: null,
             cardTextSize: null,
             cardTextColor: null,
+            textAlign: null,
             order: null,
           })
         }
