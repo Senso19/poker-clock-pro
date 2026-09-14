@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { Copy, Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react";
+import { Copy, Plus, Trash2, ChevronUp, ChevronDown, ArrowDownAZ, Download } from "lucide-react";
 import {
   fetchFormRegistry,
   updateFormRegistry,
   fetchFormSubmissions,
   validateSubmission,
   rejectSubmission,
+  reorderSubmissions,
 } from "../lib/forms.js";
 import { fetchAllTournaments } from "../lib/tournaments.js";
 import { useConfirm } from "../context/ConfirmContext.jsx";
@@ -38,6 +39,7 @@ export default function FormRegistryDetail({ registryId, onBack }) {
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [detailSubmission, setDetailSubmission] = useState(null);
 
   useEffect(() => {
     load();
@@ -186,6 +188,77 @@ export default function FormRegistryDetail({ registryId, onBack }) {
       setError(e.message);
     }
     setBusyId(null);
+  }
+
+  // Champ dont le libellé contient "club" (n'importe quelle page), pour
+  // l'afficher directement sur la ligne sans avoir à ouvrir la fiche.
+  function fieldLabelMap() {
+    const map = {};
+    for (const p of registry?.pages || []) {
+      for (const f of p.fields || []) map[f.id] = f.label;
+    }
+    return map;
+  }
+  function findClubValue(sub) {
+    const map = fieldLabelMap();
+    for (const [fieldId, label] of Object.entries(map)) {
+      if (/club/i.test(label) && sub.data?.[fieldId]) return sub.data[fieldId];
+    }
+    return null;
+  }
+
+  async function moveSubmission(groupList, index, dir) {
+    const arr = [...groupList];
+    const j = index + dir;
+    if (j < 0 || j >= arr.length) return;
+    [arr[index], arr[j]] = [arr[j], arr[index]];
+    const orderedIds = arr.map((s) => s.id);
+    setSubmissions((all) => {
+      const orderMap = new Map(orderedIds.map((id, i) => [id, i]));
+      return all.map((s) => (orderMap.has(s.id) ? { ...s, sort_order: orderMap.get(s.id) } : s));
+    });
+    try {
+      await reorderSubmissions(orderedIds);
+    } catch (e) {
+      setError(e.message);
+      await load();
+    }
+  }
+
+  async function sortGroupAlphabetically(groupList) {
+    const sorted = [...groupList].sort((a, b) => {
+      const nameA = `${a.data?.nom || ""} ${a.data?.prenom || ""}`.trim().toLowerCase();
+      const nameB = `${b.data?.nom || ""} ${b.data?.prenom || ""}`.trim().toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+    const orderedIds = sorted.map((s) => s.id);
+    setSubmissions((all) => {
+      const orderMap = new Map(orderedIds.map((id, i) => [id, i]));
+      return all.map((s) => (orderMap.has(s.id) ? { ...s, sort_order: orderMap.get(s.id) } : s));
+    });
+    try {
+      await reorderSubmissions(orderedIds);
+    } catch (e) {
+      setError(e.message);
+      await load();
+    }
+  }
+
+  async function exportGroupToExcel(groupList, groupName) {
+    const map = fieldLabelMap();
+    const XLSX = await import("xlsx");
+    const rows = groupList.map((s, i) => {
+      const row = { "N°": i + 1 };
+      for (const [fieldId, label] of Object.entries(map)) {
+        row[label] = s.data?.[fieldId] ?? "";
+      }
+      row["Statut"] = s.status === "validated" ? "Validée" : s.status === "rejected" ? "Refusée" : "En attente";
+      return row;
+    });
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, groupName.slice(0, 31) || "Inscriptions");
+    XLSX.writeFile(wb, `${registry.name}-${groupName}.xlsx`.replace(/[^a-z0-9-]+/gi, "_"));
   }
 
   function copyLink() {
@@ -505,13 +578,43 @@ export default function FormRegistryDetail({ registryId, onBack }) {
         <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-8">
           {groups.map((g) => (
             <div key={g.id || "none"}>
-              <div className="font-display text-base text-felt-gold mb-3">{g.name}</div>
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="font-display text-base text-felt-gold">{g.name}</div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => sortGroupAlphabetically([...g.pending, ...g.others])}
+                    title="Trier par ordre alphabétique"
+                    className="flex items-center gap-1 text-xs px-2.5 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/60 hover:text-white"
+                  >
+                    <ArrowDownAZ size={13} /> A-Z
+                  </button>
+                  <button
+                    onClick={() => exportGroupToExcel([...g.pending, ...g.others], g.name)}
+                    title="Exporter en Excel"
+                    className="flex items-center gap-1 text-xs px-2.5 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/60 hover:text-white"
+                  >
+                    <Download size={13} /> Excel
+                  </button>
+                </div>
+              </div>
               {g.pending.length > 0 && (
                 <div className="mb-4">
                   <div className="text-xs font-display uppercase tracking-widest text-felt-cream/40 mb-2">En attente</div>
                   <CustomizablePanel panelKey={`form-registry-pending-${g.id || "none"}`} defaultWidth="1 1 100%" className="space-y-2">
-                    {g.pending.map((s) => (
-                      <SubmissionRow key={s.id} s={s} busy={busyId === s.id} onValidate={() => handleValidate(s)} onReject={() => handleReject(s)} />
+                    {g.pending.map((s, i) => (
+                      <SubmissionRow
+                        key={s.id}
+                        s={s}
+                        index={i}
+                        clubLabel={findClubValue(s)}
+                        canReorder
+                        onMoveUp={() => moveSubmission(g.pending, i, -1)}
+                        onMoveDown={() => moveSubmission(g.pending, i, 1)}
+                        busy={busyId === s.id}
+                        onValidate={() => handleValidate(s)}
+                        onReject={() => handleReject(s)}
+                        onOpenDetail={() => setDetailSubmission(s)}
+                      />
                     ))}
                   </CustomizablePanel>
                 </div>
@@ -520,8 +623,8 @@ export default function FormRegistryDetail({ registryId, onBack }) {
                 <div>
                   <div className="text-xs font-display uppercase tracking-widest text-felt-cream/40 mb-2">Traitées</div>
                   <CustomizablePanel panelKey={`form-registry-done-${g.id || "none"}`} defaultWidth="1 1 100%" className="space-y-2">
-                    {g.others.map((s) => (
-                      <SubmissionRow key={s.id} s={s} done />
+                    {g.others.map((s, i) => (
+                      <SubmissionRow key={s.id} s={s} index={i} clubLabel={findClubValue(s)} done onOpenDetail={() => setDetailSubmission(s)} />
                     ))}
                   </CustomizablePanel>
                 </div>
@@ -530,6 +633,10 @@ export default function FormRegistryDetail({ registryId, onBack }) {
           ))}
           {submissions.length === 0 && <div className="text-sm text-felt-cream/50">Aucune inscription reçue pour le moment.</div>}
         </div>
+      )}
+
+      {detailSubmission && (
+        <SubmissionDetailModal submission={detailSubmission} fieldLabelMap={fieldLabelMap()} onClose={() => setDetailSubmission(null)} />
       )}
     </div>
   );
@@ -559,46 +666,83 @@ function ColorField({ label, value, onChange }) {
   );
 }
 
-function SubmissionRow({ s, busy, done, onValidate, onReject }) {
-  const entries = Object.entries(s.data || {});
+function SubmissionRow({ s, index, clubLabel, busy, done, canReorder, onMoveUp, onMoveDown, onValidate, onReject, onOpenDetail }) {
   return (
-    <div className="bg-felt-panel border border-felt-cream/10 rounded-lg px-4 py-3">
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-        <div className="text-white">
-          {s.data?.prenom} {s.data?.nom}
+    <div className="bg-felt-panel border border-felt-cream/10 rounded-lg px-3 py-2.5 flex items-center gap-3">
+      {canReorder && (
+        <div className="flex flex-col shrink-0">
+          <button onClick={onMoveUp} className="text-felt-cream/40 hover:text-white">
+            <ChevronUp size={15} />
+          </button>
+          <button onClick={onMoveDown} className="text-felt-cream/40 hover:text-white">
+            <ChevronDown size={15} />
+          </button>
         </div>
-        {!done ? (
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={onReject}
-              disabled={busy}
-              className="text-xs px-3 py-1.5 rounded-md border border-felt-alert/30 text-felt-alert disabled:opacity-40"
-            >
-              Refuser
-            </button>
-            <button
-              onClick={onValidate}
-              disabled={busy}
-              className="text-xs px-3 py-1.5 rounded-md bg-felt-gold text-felt-bg font-display disabled:opacity-40"
-            >
-              {busy ? "…" : "Valider"}
-            </button>
-          </div>
-        ) : (
-          <span
-            className={`text-xs px-2.5 py-1 rounded-full shrink-0 ${
-              s.status === "validated" ? "bg-emerald-500/15 text-emerald-400" : "bg-felt-alert/15 text-felt-alert"
-            }`}
+      )}
+      <div className="w-7 text-center font-display text-felt-cream/40 shrink-0">{index + 1}</div>
+      <button onClick={onOpenDetail} className="flex-1 min-w-0 text-left">
+        <div className="text-lg font-display text-white truncate">
+          {s.data?.nom} {s.data?.prenom}
+        </div>
+        {clubLabel && <div className="text-sm text-felt-cream/50 truncate">{clubLabel}</div>}
+      </button>
+      {!done ? (
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={onReject}
+            disabled={busy}
+            className="text-xs px-3 py-1.5 rounded-md border border-felt-alert/30 text-felt-alert disabled:opacity-40"
           >
-            {s.status === "validated" ? "Validée" : "Refusée"}
-          </span>
-        )}
-      </div>
-      <div className="text-xs text-felt-cream/40">
-        {entries
-          .filter(([k]) => k !== "prenom" && k !== "nom")
-          .map(([k, v]) => `${k}: ${v}`)
-          .join(" · ")}
+            Refuser
+          </button>
+          <button
+            onClick={onValidate}
+            disabled={busy}
+            className="text-xs px-3 py-1.5 rounded-md bg-felt-gold text-felt-bg font-display disabled:opacity-40"
+          >
+            {busy ? "…" : "Valider"}
+          </button>
+        </div>
+      ) : (
+        <span
+          className={`text-xs px-2.5 py-1 rounded-full shrink-0 ${
+            s.status === "validated" ? "bg-emerald-500/15 text-emerald-400" : "bg-felt-alert/15 text-felt-alert"
+          }`}
+        >
+          {s.status === "validated" ? "Validée" : "Refusée"}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function SubmissionDetailModal({ submission, fieldLabelMap, onClose }) {
+  const entries = Object.entries(submission.data || {});
+  return (
+    <div onClick={onClose} className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-felt-panel border border-felt-cream/10 rounded-lg w-full max-w-sm p-6 font-body text-felt-cream max-h-[85vh] overflow-y-auto"
+      >
+        <div className="flex items-center justify-between mb-5">
+          <div className="font-display text-lg">
+            {submission.data?.nom} {submission.data?.prenom}
+          </div>
+          <button onClick={onClose} className="text-felt-cream/50 hover:text-felt-cream">
+            ✕
+          </button>
+        </div>
+        <div className="space-y-3">
+          {entries.map(([fieldId, value]) => (
+            <div key={fieldId}>
+              <div className="text-xs text-felt-cream/40 uppercase tracking-wide">{fieldLabelMap[fieldId] || fieldId}</div>
+              <div className="text-sm text-white">{String(value) || "—"}</div>
+            </div>
+          ))}
+        </div>
+        <button onClick={onClose} className="w-full mt-6 px-4 py-2 bg-felt-gold text-felt-bg rounded-md font-display">
+          Fermer
+        </button>
       </div>
     </div>
   );

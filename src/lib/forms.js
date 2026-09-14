@@ -97,9 +97,16 @@ export async function fetchFormSubmissions(registryId) {
     .from("form_submissions")
     .select("*")
     .eq("registry_id", registryId)
+    .order("sort_order", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: true });
   if (error) throw error;
   return data || [];
+}
+
+// Réordonne manuellement une liste de soumissions (même groupe/tournoi) :
+// écrit leur nouveau sort_order un par un pour refléter l'ordre affiché.
+export async function reorderSubmissions(orderedIds) {
+  await Promise.all(orderedIds.map((id, i) => supabase.from("form_submissions").update({ sort_order: i }).eq("id", id)));
 }
 
 // Envoi public (page sans connexion) : aucune vérification d'identité, le
@@ -107,11 +114,27 @@ export async function fetchFormSubmissions(registryId) {
 // envoyé le formulaire (voir "Tournoi lié" dans le constructeur) — permet
 // à un même registre d'alimenter plusieurs tableaux/tournois différents
 // (ex : Day1A / Day1B d'un même Main Event).
-export async function submitFormEntry(registryId, data, tournamentId, pageId) {
+export async function submitFormEntry(registryId, data, tournamentId, pageId, registryName) {
   const { error } = await supabase
     .from("form_submissions")
     .insert({ registry_id: registryId, data, status: "pending", tournament_id: tournamentId || null, page_id: pageId || null });
   if (error) throw error;
+
+  // E-mail de confirmation au joueur (s'il a renseigné une adresse) + copie
+  // au club, via la fonction Edge send-form-confirmation. Best-effort : un
+  // souci d'envoi ne doit pas empêcher l'inscription elle-même de réussir.
+  try {
+    let tournamentName = null;
+    if (tournamentId) {
+      const { data: t } = await supabase.from("tournaments").select("name").eq("id", tournamentId).maybeSingle();
+      tournamentName = t?.name || null;
+    }
+    await supabase.functions.invoke("send-form-confirmation", {
+      body: { registryName: registryName || "Inscription", tournamentName, data },
+    });
+  } catch {
+    // silencieux : l'inscription est déjà enregistrée, l'e-mail est secondaire
+  }
 }
 
 export async function rejectSubmission(id) {
