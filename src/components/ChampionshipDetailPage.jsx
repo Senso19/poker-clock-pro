@@ -33,12 +33,7 @@ export default function ChampionshipDetailPage({ summary, manage, onBack, onDele
         <button onClick={onBack} className="text-felt-cream/60 hover:text-white text-2xl leading-none">
           ←
         </button>
-        <div
-          style={{ fontSize: "var(--pcp-card-text-size, inherit)", color: "var(--pcp-card-text-color, white)" }}
-          className="font-display text-2xl truncate flex-1"
-        >
-          {championship.name}
-        </div>
+        <div className="pcp-title font-display text-2xl truncate flex-1">{championship.name}</div>
         {manage && (
           <button onClick={onDelete} className="text-felt-alert/70 hover:text-felt-alert text-sm shrink-0">
             🗑 Supprimer
@@ -48,14 +43,14 @@ export default function ChampionshipDetailPage({ summary, manage, onBack, onDele
 
       <div className="p-4 sm:p-6 max-w-3xl mx-auto">
         <CustomizablePanel panelKey="championship-detail-meta" defaultWidth="1 1 100%" className="mb-6">
-          <div className="text-base text-felt-cream/60 mb-6">
+          <div className="pcp-body text-base text-felt-cream/60 mb-6">
             {summary.stageCount} tournois · {summary.playerCount} joueurs ·{" "}
             {championship.best_stages_count
               ? `${championship.best_stages_count} meilleures étapes comptent`
               : "toutes les étapes comptent"}
           </div>
 
-          <div className="font-display text-xl">Classement du championnat</div>
+          <div className="pcp-title font-display text-xl">Classement du championnat</div>
         </CustomizablePanel>
 
         {standings.length === 0 ? (

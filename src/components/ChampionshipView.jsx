@@ -245,51 +245,46 @@ function ActiveChampionshipCard({ s, selected, onClick, manage, onBannerChange }
     >
       <BannerImage image={s.championship.banner_image} manage={manage} onChange={onBannerChange} />
       <div className="p-4">
-        <div
-          style={{ fontSize: "var(--pcp-card-text-size, inherit)", color: "var(--pcp-card-text-color, white)" }}
-          className="font-display text-lg mb-2 truncate"
-        >
-          {s.championship.name}
-        </div>
+        <div className="pcp-title font-display text-lg mb-2 truncate">{s.championship.name}</div>
         <div className="flex items-center gap-2 mb-4">
-          <span className="text-xs px-2.5 py-1 rounded bg-felt-bg text-felt-cream/50">{s.playerCount} joueurs</span>
-          <span className="text-xs px-2.5 py-1 rounded bg-felt-bg text-felt-cream/50">{s.stageCount} tournois</span>
+          <span className="pcp-body text-xs px-2.5 py-1 rounded bg-felt-bg text-felt-cream/50">{s.playerCount} joueurs</span>
+          <span className="pcp-body text-xs px-2.5 py-1 rounded bg-felt-bg text-felt-cream/50">{s.stageCount} tournois</span>
         </div>
         {s.leader ? (
           <div className="flex items-center gap-3 bg-felt-bg rounded-lg px-3 py-3 mb-4">
             <MiniAvatar name={s.leader.name} size={40} />
             <div className="min-w-0 flex-1">
-              <div className="text-[10px] text-felt-cream/40 uppercase tracking-wide">Joueur en tête</div>
-              <div className="text-base text-felt-gold font-medium truncate">{s.leader.name}</div>
+              <div className="pcp-body text-[10px] text-felt-cream/40 uppercase tracking-wide">Joueur en tête</div>
+              <div className="pcp-body text-base text-felt-gold font-medium truncate">{s.leader.name}</div>
             </div>
-            <div className="text-felt-gold font-display text-2xl shrink-0">{s.leader.totalPoints}</div>
+            <div className="pcp-value text-felt-gold font-display text-2xl shrink-0">{s.leader.totalPoints}</div>
           </div>
         ) : (
-          <div className="text-sm text-felt-cream/40 mb-4">Aucun résultat pour l'instant.</div>
+          <div className="pcp-body text-sm text-felt-cream/40 mb-4">Aucun résultat pour l'instant.</div>
         )}
         <div className="grid grid-cols-2 gap-3 text-xs">
           <div>
-            <div className="text-felt-cream/30 uppercase tracking-wide mb-0.5">Précédent</div>
+            <div className="pcp-body text-felt-cream/30 uppercase tracking-wide mb-0.5">Précédent</div>
             {s.previousStage ? (
               <>
-                <div className="text-felt-gold truncate">{s.previousStage.stage_label || s.previousStage.name}</div>
-                <div className="text-felt-cream/30 text-[10px]">
+                <div className="pcp-body text-felt-gold truncate">{s.previousStage.stage_label || s.previousStage.name}</div>
+                <div className="pcp-body text-felt-cream/30 text-[10px]">
                   {formatShortDate(s.previousStage.scheduled_at || s.previousStage.created_at)}
                 </div>
               </>
             ) : (
-              <div className="text-felt-cream/40">—</div>
+              <div className="pcp-body text-felt-cream/40">—</div>
             )}
           </div>
           <div>
-            <div className="text-felt-cream/30 uppercase tracking-wide mb-0.5">À venir</div>
+            <div className="pcp-body text-felt-cream/30 uppercase tracking-wide mb-0.5">À venir</div>
             {s.nextStage ? (
               <>
-                <div className="text-felt-gold truncate">{s.nextStage.stage_label || s.nextStage.name}</div>
-                <div className="text-felt-cream/30 text-[10px]">{formatShortDate(s.nextStage.scheduled_at)}</div>
+                <div className="pcp-body text-felt-gold truncate">{s.nextStage.stage_label || s.nextStage.name}</div>
+                <div className="pcp-body text-felt-cream/30 text-[10px]">{formatShortDate(s.nextStage.scheduled_at)}</div>
               </>
             ) : (
-              <div className="text-felt-cream/40">—</div>
+              <div className="pcp-body text-felt-cream/40">—</div>
             )}
           </div>
         </div>
@@ -326,34 +321,29 @@ function FinishedChampionshipCard({ s, selected, onClick, manage, onBannerChange
     >
       <BannerImage image={s.championship.banner_image} manage={manage} onChange={onBannerChange} />
       <div className="p-4">
-        <div
-          style={{ fontSize: "var(--pcp-card-text-size, inherit)", color: "var(--pcp-card-text-color, white)" }}
-          className="font-display text-lg mb-2 truncate"
-        >
-          {s.championship.name}
-        </div>
+        <div className="pcp-title font-display text-lg mb-2 truncate">{s.championship.name}</div>
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-xs px-2.5 py-1 rounded bg-felt-bg text-felt-cream/50">{s.playerCount} joueurs</span>
-          <span className="text-xs px-2.5 py-1 rounded bg-felt-bg text-felt-cream/50">{s.stageCount} tournois</span>
+          <span className="pcp-body text-xs px-2.5 py-1 rounded bg-felt-bg text-felt-cream/50">{s.playerCount} joueurs</span>
+          <span className="pcp-body text-xs px-2.5 py-1 rounded bg-felt-bg text-felt-cream/50">{s.stageCount} tournois</span>
         </div>
         <div className="space-y-2 mb-3">
-          {s.top3.length === 0 && <div className="text-sm text-felt-cream/40">Aucun résultat.</div>}
+          {s.top3.length === 0 && <div className="pcp-body text-sm text-felt-cream/40">Aucun résultat.</div>}
           {s.top3.map((p, i) => (
             <div key={p.playerId} className="flex items-center gap-2">
-              <span className="w-5 text-center text-sm text-felt-cream/40 shrink-0">{i === 0 ? "🏆" : i + 1}</span>
+              <span className="pcp-body w-5 text-center text-sm text-felt-cream/40 shrink-0">{i === 0 ? "🏆" : i + 1}</span>
               <MiniAvatar name={p.name} size={32} />
               <div className="min-w-0 flex-1">
-                <div className="text-white truncate">{p.name}</div>
-                {i === 0 && <div className="text-[10px] text-felt-gold uppercase tracking-wide">Champion</div>}
+                <div className="pcp-body text-white truncate">{p.name}</div>
+                {i === 0 && <div className="pcp-body text-[10px] text-felt-gold uppercase tracking-wide">Champion</div>}
               </div>
-              <div className="text-felt-gold font-display shrink-0">{p.totalPoints}</div>
+              <div className="pcp-value text-felt-gold font-display shrink-0">{p.totalPoints}</div>
             </div>
           ))}
         </div>
         {s.dateRange && (
           <div>
-            <div className="text-[10px] text-felt-cream/30 uppercase tracking-wide mb-0.5">Dates</div>
-            <div className="text-[11px] text-felt-cream/40">
+            <div className="pcp-body text-[10px] text-felt-cream/30 uppercase tracking-wide mb-0.5">Dates</div>
+            <div className="pcp-body text-[11px] text-felt-cream/40">
               {formatShortDate(s.dateRange.start)} – {formatShortDate(s.dateRange.end)}
             </div>
           </div>

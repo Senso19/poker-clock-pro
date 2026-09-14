@@ -403,32 +403,24 @@ function TournamentCard({ t, badge, count, already, manage, busy, menuOpen, onOp
       onClick={onOpen}
       className="relative bg-felt-panel border border-felt-cream/10 rounded-xl p-4 flex flex-col hover:border-felt-cream/20 transition-colors cursor-pointer"
     >
-      <div
-        style={{ fontSize: "var(--pcp-card-text-size, inherit)", color: "var(--pcp-card-text-color, white)" }}
-        className="font-display text-base leading-tight mb-1 truncate"
-      >
-        {t.name}
-      </div>
+      <div className="pcp-title font-display text-base leading-tight mb-1 truncate">{t.name}</div>
       <div className="flex items-center justify-between gap-2 mb-3">
-        <div className="text-xs text-felt-cream/40 truncate">
+        <div className="pcp-body text-xs text-felt-cream/40 truncate">
           {t.scheduled_at
             ? new Date(t.scheduled_at).toLocaleString("fr-FR")
             : new Date(t.date || t.created_at).toLocaleDateString("fr-FR")}
         </div>
-        <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full shrink-0 ${badge.cls}`}>
+        <span className={`pcp-body inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full shrink-0 ${badge.cls}`}>
           {badge.dot && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
           {badge.label}
         </span>
       </div>
-      <div
-        style={{ fontSize: "var(--pcp-card-text-size, inherit)", color: "var(--pcp-card-text-color, white)" }}
-        className="flex items-center justify-center gap-2 text-xl font-display py-3 mb-3"
-      >
+      <div className="pcp-value flex items-center justify-center gap-2 text-xl font-display py-3 mb-3">
         <span className="text-base opacity-70">👥</span>
         <span>{count}</span>
       </div>
       {t.championships?.name && (
-        <div className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border border-felt-gold/40 text-felt-gold mb-3 w-fit max-w-full truncate">
+        <div className="pcp-body inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border border-felt-gold/40 text-felt-gold mb-3 w-fit max-w-full truncate">
           📊 {t.championships.name}
           {t.stage_label ? ` — ${t.stage_label}` : ""}
         </div>
@@ -491,8 +483,8 @@ function TournamentRow({ t, badge, count, already, manage, busy, menuOpen, onOpe
       className="relative flex flex-wrap items-center gap-4 bg-felt-panel border border-felt-cream/10 rounded-lg px-4 py-3 hover:border-felt-cream/20 transition-colors cursor-pointer"
     >
       <div className="min-w-0 flex-1">
-        <div className="font-display text-white truncate">{t.name}</div>
-        <div className="text-xs text-felt-cream/40">
+        <div className="pcp-title font-display text-white truncate">{t.name}</div>
+        <div className="pcp-body text-xs text-felt-cream/40">
           {t.scheduled_at ? new Date(t.scheduled_at).toLocaleString("fr-FR") : new Date(t.date || t.created_at).toLocaleDateString("fr-FR")}
         </div>
       </div>

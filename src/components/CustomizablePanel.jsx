@@ -14,7 +14,14 @@ import { useEditMode } from "../context/EditModeContext.jsx";
  *
  * Les enfants peuvent utiliser les variables CSS --pcp-cell-bg et
  * --pcp-cell-text pour que leurs propres cellules/champs suivent la
- * couleur de cellule choisie (voir StructureEditor / TournamentDetail).
+ * couleur de cellule choisie (voir StructureEditor / TournamentDetail),
+ * et les classes pcp-title / pcp-body / pcp-value pour que leur texte
+ * suive les réglages Titre / Texte secondaire / Valeurs (voir
+ * TournamentCard / ActiveChampionshipCard par exemple).
+ *
+ * Le bouton 🎨 et son popover de réglages sont rendus HORS du conteneur
+ * ciblé par les règles de style forcées, pour ne jamais être affectés
+ * par les tailles/couleurs qu'on y choisit.
  */
 export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", defaultOrder = 0, className, children }) {
   const { theme, setTheme } = useTheme();
@@ -81,36 +88,21 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
   const flexBasis = style.width ? `0 0 ${style.width}` : defaultWidth;
   const panelDomId = `pcp-${panelKey.replace(/[^a-zA-Z0-9_-]/g, "")}`;
 
+  const forcedCssRules = [];
+  if (style.titleSize) forcedCssRules.push(`#${panelDomId} .pcp-title{font-size:${style.titleSize}px !important;}`);
+  if (style.titleColor) forcedCssRules.push(`#${panelDomId} .pcp-title{color:${style.titleColor} !important;}`);
+  if (style.bodySize) forcedCssRules.push(`#${panelDomId} .pcp-body{font-size:${style.bodySize}px !important;}`);
+  if (style.bodyColor) forcedCssRules.push(`#${panelDomId} .pcp-body{color:${style.bodyColor} !important;}`);
+  if (style.valueSize) forcedCssRules.push(`#${panelDomId} .pcp-value{font-size:${style.valueSize}px !important;}`);
+  if (style.valueColor) forcedCssRules.push(`#${panelDomId} .pcp-value{color:${style.valueColor} !important;}`);
+  if (style.textAlign) forcedCssRules.push(`#${panelDomId} .pcp-title,#${panelDomId} .pcp-body{text-align:${style.textAlign} !important;}`);
+
   return (
     <div
-      id={panelDomId}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-      style={{
-        flex: flexBasis,
-        width: style.width || undefined,
-        maxWidth: style.width || undefined,
-        order,
-        minWidth: 0,
-        backgroundColor: style.bgColor || theme.panelBgColor || undefined,
-        color: style.textColor || undefined,
-        "--pcp-cell-bg": style.cellBgColor || undefined,
-        "--pcp-cell-text": style.cellTextColor || undefined,
-        "--pcp-card-text-size": style.cardTextSize ? `${style.cardTextSize}px` : undefined,
-        "--pcp-card-text-color": style.cardTextColor || undefined,
-        gridTemplateColumns: style.cardWidth ? `repeat(auto-fill, minmax(${style.cardWidth}px, 1fr))` : undefined,
-        gridAutoRows: style.cardHeight ? `${style.cardHeight}px` : undefined,
-      }}
-      className={`relative ${dragOver ? "ring-2 ring-felt-gold" : ""} ${className || ""}`}
+      className="relative"
+      style={{ flex: flexBasis, width: style.width || undefined, maxWidth: style.width || undefined, order, minWidth: 0 }}
     >
-      {(style.cardTextSize || style.textAlign) && (
-        <style>
-          {`#${panelDomId} *{${style.cardTextSize ? `font-size:${style.cardTextSize}px !important;` : ""}${
-            style.textAlign ? `text-align:${style.textAlign} !important;` : ""
-          }}`}
-        </style>
-      )}
+      {forcedCssRules.length > 0 && <style>{forcedCssRules.join("")}</style>}
       {isEditMode && (
         <div className="absolute top-3 right-3 z-20 flex gap-2">
           <button
@@ -134,7 +126,41 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
         </div>
       )}
       {open && <PanelStyleEditor style={style} onChange={update} onClose={() => setOpen(false)} />}
-      {children}
+      <div
+        id={panelDomId}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        style={{
+          backgroundColor: style.bgColor || theme.panelBgColor || undefined,
+          color: style.textColor || undefined,
+          "--pcp-cell-bg": style.cellBgColor || undefined,
+          "--pcp-cell-text": style.cellTextColor || undefined,
+          gridTemplateColumns: style.cardWidth ? `repeat(auto-fill, minmax(${style.cardWidth}px, 1fr))` : undefined,
+          gridAutoRows: style.cardHeight ? `${style.cardHeight}px` : undefined,
+        }}
+        className={`${dragOver ? "ring-2 ring-felt-gold" : ""} ${className || ""}`}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function SizeColorRow({ label, sizeValue, colorValue, onSizeChange, onColorChange }) {
+  return (
+    <div className="mb-2">
+      <div className="text-felt-cream/70 mb-1">{label}</div>
+      <div className="flex items-center gap-2">
+        <input
+          type="number"
+          value={sizeValue || ""}
+          placeholder="taille (px)"
+          onChange={(e) => onSizeChange(Number(e.target.value) || null)}
+          className="w-24 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
+        />
+        <input type="color" value={colorValue || "#EDEAE3"} onChange={(e) => onColorChange(e.target.value)} className="w-8 h-6 bg-transparent cursor-pointer" />
+      </div>
     </div>
   );
 }
@@ -144,7 +170,7 @@ function PanelStyleEditor({ style, onChange, onClose }) {
     <div
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
-      className="absolute top-12 right-3 z-30 bg-felt-bg border border-felt-gold/40 rounded-md p-3 w-64 text-xs text-felt-cream shadow-lg max-h-96 overflow-y-auto"
+      className="absolute top-12 right-3 z-30 bg-felt-bg border border-felt-gold/40 rounded-md p-3 w-64 text-xs text-felt-cream shadow-lg max-h-[28rem] overflow-y-auto"
     >
       <div className="flex items-center justify-between mb-2">
         <span className="font-display">Personnaliser ce tableau</span>
@@ -222,21 +248,30 @@ function PanelStyleEditor({ style, onChange, onClose }) {
           className="w-20 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
         />
       </label>
-      <label className="flex items-center justify-between mb-2">
-        Taille du texte (px)
-        <input
-          type="number"
-          value={style.cardTextSize || ""}
-          placeholder="auto"
-          onChange={(e) => onChange({ cardTextSize: Number(e.target.value) || null })}
-          className="w-20 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
-        />
-      </label>
-      <div className="text-[10px] text-felt-cream/40 mb-2 -mt-1">
-        S'applique à tout le texte de ce tableau, quelle que soit la carte.
-      </div>
-      <label className="flex items-center justify-between mb-2">
-        Alignement du texte
+      <div className="border-t border-felt-cream/10 my-2 pt-2 text-felt-cream/50">Texte des cartes, par rôle</div>
+      <SizeColorRow
+        label="Titre"
+        sizeValue={style.titleSize}
+        colorValue={style.titleColor}
+        onSizeChange={(v) => onChange({ titleSize: v })}
+        onColorChange={(v) => onChange({ titleColor: v })}
+      />
+      <SizeColorRow
+        label="Texte secondaire (sous-titre, description, dates)"
+        sizeValue={style.bodySize}
+        colorValue={style.bodyColor}
+        onSizeChange={(v) => onChange({ bodySize: v })}
+        onColorChange={(v) => onChange({ bodyColor: v })}
+      />
+      <SizeColorRow
+        label="Valeurs / chiffres mis en avant"
+        sizeValue={style.valueSize}
+        colorValue={style.valueColor}
+        onSizeChange={(v) => onChange({ valueSize: v })}
+        onColorChange={(v) => onChange({ valueColor: v })}
+      />
+      <label className="flex items-center justify-between mb-2 mt-2">
+        Alignement (titre + texte secondaire)
         <select
           value={style.textAlign || ""}
           onChange={(e) => onChange({ textAlign: e.target.value || null })}
@@ -248,15 +283,6 @@ function PanelStyleEditor({ style, onChange, onClose }) {
           <option value="right">Droite</option>
         </select>
       </label>
-      <label className="flex items-center justify-between mb-2">
-        Couleur du texte des cartes
-        <input
-          type="color"
-          value={style.cardTextColor || "#EDEAE3"}
-          onChange={(e) => onChange({ cardTextColor: e.target.value })}
-          className="w-8 h-6 bg-transparent cursor-pointer"
-        />
-      </label>
       <button
         onClick={() =>
           onChange({
@@ -267,8 +293,12 @@ function PanelStyleEditor({ style, onChange, onClose }) {
             cellTextColor: null,
             cardWidth: null,
             cardHeight: null,
-            cardTextSize: null,
-            cardTextColor: null,
+            titleSize: null,
+            titleColor: null,
+            bodySize: null,
+            bodyColor: null,
+            valueSize: null,
+            valueColor: null,
             textAlign: null,
             order: null,
           })
