@@ -259,7 +259,7 @@ export default function Sidebar({ tab, setTab }) {
                       >
                         <def.icon size={14} className="text-white shrink-0" /> {def.label}
                       </div>
-                      <div className="h-56 px-4 pb-2 shrink-0">
+                      <div className="h-96 px-4 pb-2 shrink-0">
                         <ChatPanel />
                       </div>
                     </>
