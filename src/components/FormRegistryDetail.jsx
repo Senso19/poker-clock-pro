@@ -124,6 +124,38 @@ export default function FormRegistryDetail({ registryId, onBack }) {
     updatePages(pages);
   }
 
+  function handlePageImageChange(pageId, e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => updatePage(pageId, { image: reader.result });
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  }
+
+  function addNavButton(pageId) {
+    const pages = (registry.pages || []).map((p) => {
+      if (p.id !== pageId) return p;
+      const navButtons = [...(p.navButtons || []), { id: `btn-${Date.now()}`, label: "Continuer", targetPageId: "" }];
+      return { ...p, navButtons };
+    });
+    updatePages(pages);
+  }
+  function updateNavButton(pageId, btnId, patch) {
+    const pages = (registry.pages || []).map((p) => {
+      if (p.id !== pageId) return p;
+      return { ...p, navButtons: (p.navButtons || []).map((b) => (b.id === btnId ? { ...b, ...patch } : b)) };
+    });
+    updatePages(pages);
+  }
+  function deleteNavButton(pageId, btnId) {
+    const pages = (registry.pages || []).map((p) => {
+      if (p.id !== pageId) return p;
+      return { ...p, navButtons: (p.navButtons || []).filter((b) => b.id !== btnId) };
+    });
+    updatePages(pages);
+  }
+
   async function handleLogoChange(e) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -285,12 +317,25 @@ export default function FormRegistryDetail({ registryId, onBack }) {
                         className="w-full bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-2 text-sm font-display text-felt-cream"
                         placeholder="Titre de la page"
                       />
-                      <input
+                      <textarea
                         value={page.description || ""}
                         onChange={(e) => updatePage(page.id, { description: e.target.value })}
+                        rows={2}
                         className="w-full bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-2 text-xs text-felt-cream/70"
-                        placeholder="Description (optionnel)"
+                        placeholder="Texte de la page (description, présentation du festival...)"
                       />
+                      <div className="flex items-center gap-2">
+                        {page.image && <img src={page.image} alt="" className="h-10 w-16 object-cover rounded" />}
+                        <label className="px-2.5 py-1 text-[11px] bg-felt-bg border border-felt-cream/10 rounded cursor-pointer hover:text-felt-gold text-felt-cream/60">
+                          {page.image ? "Changer l'image" : "+ Ajouter une image"}
+                          <input type="file" accept="image/*" onChange={(e) => handlePageImageChange(page.id, e)} className="hidden" />
+                        </label>
+                        {page.image && (
+                          <button onClick={() => updatePage(page.id, { image: null })} className="text-[11px] text-felt-alert/60 hover:text-felt-alert">
+                            Retirer
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <div className="flex flex-col gap-1 shrink-0">
                       <button onClick={() => movePage(i, -1)} className="text-felt-cream/40 hover:text-white">
@@ -371,6 +416,49 @@ export default function FormRegistryDetail({ registryId, onBack }) {
                   >
                     <Plus size={13} /> Ajouter un champ
                   </button>
+
+                  <div className="mt-4 pt-3 border-t border-felt-cream/10">
+                    <div className="text-[11px] text-felt-cream/40 mb-2">
+                      Boutons de navigation personnalisés (facultatif — remplace le bouton "Suivant" par défaut ;
+                      utile pour un choix qui redirige vers une page précise, ex : "Day1A" / "Day1B")
+                    </div>
+                    <div className="space-y-2">
+                      {(page.navButtons || []).map((b) => (
+                        <div key={b.id} className="flex flex-wrap items-center gap-2 bg-felt-bg rounded-md px-3 py-2">
+                          <input
+                            value={b.label}
+                            onChange={(e) => updateNavButton(page.id, b.id, { label: e.target.value })}
+                            placeholder="Texte du bouton"
+                            className="flex-1 min-w-[100px] bg-transparent text-sm text-felt-cream"
+                          />
+                          <select
+                            value={b.targetPageId}
+                            onChange={(e) => updateNavButton(page.id, b.id, { targetPageId: e.target.value })}
+                            className="bg-felt-panel border border-felt-cream/10 rounded px-2 py-1 text-xs text-felt-cream"
+                          >
+                            <option value="">Choisir la page cible…</option>
+                            {(registry.pages || [])
+                              .filter((p) => p.id !== page.id)
+                              .map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.title || "(sans titre)"}
+                                </option>
+                              ))}
+                            <option value="__submit__">→ Envoyer le formulaire</option>
+                          </select>
+                          <button onClick={() => deleteNavButton(page.id, b.id)} className="text-felt-alert/60 hover:text-felt-alert">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => addNavButton(page.id)}
+                      className="mt-2 flex items-center gap-1 text-xs text-felt-cream/50 hover:text-felt-gold"
+                    >
+                      <Plus size={13} /> Ajouter un bouton de navigation
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
