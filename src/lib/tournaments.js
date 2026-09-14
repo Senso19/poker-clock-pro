@@ -46,3 +46,11 @@ export async function deleteTournament(id) {
   if (error) throw error;
   if (getCurrentTournamentId() === id) setCurrentTournamentId(null);
 }
+
+// Réglages de capacité (nombre de joueurs attendu, joueurs par table) d'un
+// tournoi, modifiables directement depuis le registre d'inscription auquel
+// il est lié — évite d'avoir à ouvrir le tournoi séparément.
+export async function updateTournamentCapacity(id, patch) {
+  const { error } = await supabase.from("tournaments").update(patch).eq("id", id);
+  if (error) throw error;
+}

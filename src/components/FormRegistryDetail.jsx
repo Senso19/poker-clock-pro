@@ -14,7 +14,7 @@ import {
   fetchFormTemplates,
   saveFormTemplate,
 } from "../lib/forms.js";
-import { fetchAllTournaments } from "../lib/tournaments.js";
+import { fetchAllTournaments, updateTournamentCapacity } from "../lib/tournaments.js";
 import { useConfirm } from "../context/ConfirmContext.jsx";
 import CustomizablePanel from "./CustomizablePanel.jsx";
 
@@ -304,6 +304,15 @@ export default function FormRegistryDetail({ registryId, onBack }) {
     XLSX.writeFile(wb, `${registry.name}-${groupName}.xlsx`.replace(/[^a-z0-9-]+/gi, "_"));
   }
 
+  async function handleUpdateCapacity(tournamentId, patch) {
+    try {
+      await updateTournamentCapacity(tournamentId, patch);
+      setTournaments((list) => list.map((t) => (t.id === tournamentId ? { ...t, ...patch } : t)));
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
   async function handleApplyTemplate(template) {
     if (!(await confirmAction(`Remplacer les pages actuelles du constructeur par le modèle « ${template.name} » ?`))) return;
     await persist({ pages: template.pages, theme: { ...(registry.theme || {}), ...template.theme, title: registry.theme?.title } });
@@ -409,6 +418,12 @@ export default function FormRegistryDetail({ registryId, onBack }) {
                 </option>
               ))}
             </select>
+            {registry.tournament_id && (
+              <TournamentCapacityEditor
+                tournament={tournaments.find((t) => t.id === registry.tournament_id)}
+                onChange={(patch) => handleUpdateCapacity(registry.tournament_id, patch)}
+              />
+            )}
             <label className="flex items-center gap-2 text-sm text-felt-cream/80 mt-3 pt-3 border-t border-felt-cream/10">
               <input
                 type="checkbox"
@@ -666,6 +681,12 @@ export default function FormRegistryDetail({ registryId, onBack }) {
                         ))}
                       </select>
                     </label>
+                    {page.tournamentId && (
+                      <TournamentCapacityEditor
+                        tournament={tournaments.find((t) => t.id === page.tournamentId)}
+                        onChange={(patch) => handleUpdateCapacity(page.tournamentId, patch)}
+                      />
+                    )}
                   </div>
                 </div>
               ))}
@@ -835,6 +856,55 @@ export default function FormRegistryDetail({ registryId, onBack }) {
               </button>
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TournamentCapacityEditor({ tournament, onChange }) {
+  const [maxPlayers, setMaxPlayers] = useState(tournament?.max_players ?? "");
+  const [perTable, setPerTable] = useState(tournament?.players_per_table ?? "");
+
+  useEffect(() => {
+    setMaxPlayers(tournament?.max_players ?? "");
+    setPerTable(tournament?.players_per_table ?? "");
+  }, [tournament?.id]);
+
+  if (!tournament) return null;
+  const estimatedTables = maxPlayers && perTable ? Math.ceil(Number(maxPlayers) / Number(perTable)) : null;
+
+  return (
+    <div className="mt-3 pt-3 border-t border-felt-cream/10">
+      <div className="text-[11px] text-felt-cream/40 mb-2">
+        Capacité de <strong className="text-felt-cream/60">{tournament.name}</strong> — détermine combien de tables
+        seront ouvertes automatiquement à la validation des inscriptions.
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block text-[11px] text-felt-cream/50">
+          Nombre de joueurs total
+          <input
+            type="number"
+            value={maxPlayers}
+            onChange={(e) => setMaxPlayers(e.target.value)}
+            onBlur={() => onChange({ max_players: Number(maxPlayers) || null })}
+            className="w-full mt-1 bg-felt-bg border border-felt-cream/10 rounded-md px-2.5 py-1.5 text-sm text-felt-cream"
+          />
+        </label>
+        <label className="block text-[11px] text-felt-cream/50">
+          Joueurs par table
+          <input
+            type="number"
+            value={perTable}
+            onChange={(e) => setPerTable(e.target.value)}
+            onBlur={() => onChange({ players_per_table: Number(perTable) || null })}
+            className="w-full mt-1 bg-felt-bg border border-felt-cream/10 rounded-md px-2.5 py-1.5 text-sm text-felt-cream"
+          />
+        </label>
+      </div>
+      {estimatedTables && (
+        <div className="text-[11px] text-felt-gold mt-2">
+          → {estimatedTables} table(s) au total seront nécessaires pour {maxPlayers} joueurs.
         </div>
       )}
     </div>
