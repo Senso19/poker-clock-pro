@@ -71,6 +71,15 @@ function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
 }
 
+function hexToRgba(hex, alpha = 1) {
+  const clean = (hex || "#000000").replace("#", "");
+  const bigint = parseInt(clean.length === 3 ? clean.split("").map((c) => c + c).join("") : clean, 16);
+  const r = (bigint >> 16) & 255;
+  const g = (bigint >> 8) & 255;
+  const b = bigint & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 const SNAP_THRESHOLD = 1.5;
 
 // Accroche une valeur sur la cible la plus proche (bord d'un autre panneau
@@ -575,9 +584,14 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
       ? { backgroundImage: `url(${bg.value})`, backgroundSize: "cover", backgroundPosition: "center" }
       : bg?.type === "stripes"
       ? {
-          backgroundImage: `repeating-linear-gradient(90deg, ${bg.colorA || "#0A0C0F"} 0, ${bg.colorA || "#0A0C0F"} ${bg.width || 40}px, ${
-            bg.colorB || "#1B2027"
-          } ${bg.width || 40}px, ${bg.colorB || "#1B2027"} ${(bg.width || 40) * 2}px)`,
+          backgroundImage: `repeating-linear-gradient(90deg, ${hexToRgba(bg.colorA || "#0A0C0F", bg.opacity ?? 1)} 0, ${hexToRgba(
+            bg.colorA || "#0A0C0F",
+            bg.opacity ?? 1
+          )} ${bg.width || 40}px, ${hexToRgba(bg.colorB || "#1B2027", bg.opacity ?? 1)} ${bg.width || 40}px, ${hexToRgba(
+            bg.colorB || "#1B2027",
+            bg.opacity ?? 1
+          )} ${(bg.width || 40) * 2}px)`,
+          backgroundPositionX: `${bg.offsetX || 0}px`,
         }
       : { backgroundColor: bg?.value || "#14181C" };
   const bgTintStyle =
@@ -593,6 +607,14 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
     } catch {
       // pas bloquant pour l'affichage
     }
+  }
+
+  function updateStripe(patch) {
+    const base =
+      tournamentBg?.type === "stripes"
+        ? tournamentBg
+        : { type: "stripes", colorA: "#0A0C0F", colorB: "#1B2027", width: 40, opacity: 1, offsetX: 0 };
+    saveTournamentBg({ ...base, ...patch });
   }
 
   return (
@@ -708,46 +730,49 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
                         <input
                           type="color"
                           value={tournamentBg?.type === "stripes" ? tournamentBg.colorA || "#0A0C0F" : "#0A0C0F"}
-                          onChange={(e) =>
-                            saveTournamentBg({
-                              type: "stripes",
-                              colorA: e.target.value,
-                              colorB: tournamentBg?.type === "stripes" ? tournamentBg.colorB : "#1B2027",
-                              width: tournamentBg?.type === "stripes" ? tournamentBg.width : 40,
-                            })
-                          }
+                          onChange={(e) => updateStripe({ colorA: e.target.value })}
                           className="w-8 h-6 bg-transparent cursor-pointer"
                         />
                         <input
                           type="color"
                           value={tournamentBg?.type === "stripes" ? tournamentBg.colorB || "#1B2027" : "#1B2027"}
-                          onChange={(e) =>
-                            saveTournamentBg({
-                              type: "stripes",
-                              colorA: tournamentBg?.type === "stripes" ? tournamentBg.colorA : "#0A0C0F",
-                              colorB: e.target.value,
-                              width: tournamentBg?.type === "stripes" ? tournamentBg.width : 40,
-                            })
-                          }
+                          onChange={(e) => updateStripe({ colorB: e.target.value })}
                           className="w-8 h-6 bg-transparent cursor-pointer"
                         />
                         <input
                           type="number"
+                          title="Taille horizontale des rayures (px)"
                           value={tournamentBg?.type === "stripes" ? tournamentBg.width || 40 : 40}
-                          onChange={(e) =>
-                            saveTournamentBg({
-                              type: "stripes",
-                              colorA: tournamentBg?.type === "stripes" ? tournamentBg.colorA : "#0A0C0F",
-                              colorB: tournamentBg?.type === "stripes" ? tournamentBg.colorB : "#1B2027",
-                              width: Number(e.target.value) || 40,
-                            })
-                          }
+                          onChange={(e) => updateStripe({ width: Number(e.target.value) || 40 })}
                           className="w-14 bg-felt-panel border border-felt-cream/10 rounded px-1 py-1 text-felt-cream"
                         />
                       </div>
+                      <label className="flex items-center gap-2 mb-1.5">
+                        <span className="text-felt-cream/50 shrink-0 w-24">Transparence</span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.05"
+                          value={tournamentBg?.type === "stripes" ? tournamentBg.opacity ?? 1 : 1}
+                          onChange={(e) => updateStripe({ opacity: Number(e.target.value) })}
+                          className="flex-1"
+                        />
+                      </label>
+                      <label className="flex items-center gap-2 mb-1.5">
+                        <span className="text-felt-cream/50 shrink-0 w-24">Déplacer (px)</span>
+                        <input
+                          type="range"
+                          min="0"
+                          max={((tournamentBg?.type === "stripes" ? tournamentBg.width : 40) || 40) * 2}
+                          value={tournamentBg?.type === "stripes" ? tournamentBg.offsetX || 0 : 0}
+                          onChange={(e) => updateStripe({ offsetX: Number(e.target.value) })}
+                          className="flex-1"
+                        />
+                      </label>
                       {tournamentBg?.type !== "stripes" && (
                         <button
-                          onClick={() => saveTournamentBg({ type: "stripes", colorA: "#0A0C0F", colorB: "#1B2027", width: 40 })}
+                          onClick={() => saveTournamentBg({ type: "stripes", colorA: "#0A0C0F", colorB: "#1B2027", width: 40, opacity: 1, offsetX: 0 })}
                           className="w-full text-left px-2 py-1.5 rounded hover:bg-felt-panel text-felt-cream/80"
                         >
                           ▥ Appliquer les rayures
