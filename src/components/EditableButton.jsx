@@ -88,7 +88,10 @@ export default function EditableButton({ groupKey, id, children, className, wrap
     borderWidth: style.borderColor || style.transparent ? "1px" : undefined,
     borderStyle: style.borderColor || style.transparent ? "solid" : undefined,
     fontSize: style.fontSize ? `${style.fontSize}px` : undefined,
-    padding: style.padding != null ? `${style.padding}px ${Math.round(style.padding * 1.6)}px` : undefined,
+    paddingTop: style.paddingY != null ? `${style.paddingY}px` : undefined,
+    paddingBottom: style.paddingY != null ? `${style.paddingY}px` : undefined,
+    paddingLeft: style.paddingX != null ? `${style.paddingX}px` : undefined,
+    paddingRight: style.paddingX != null ? `${style.paddingX}px` : undefined,
   };
 
   const livePos = dragPos || (hasFreePosition ? { x: style.posX, y: style.posY } : null);
@@ -177,12 +180,22 @@ export default function EditableButton({ groupKey, id, children, className, wrap
               />
             </label>
             <label className="flex items-center justify-between mb-2">
-              Taille du bouton (rembourrage, px)
+              Taille verticale (hauteur, px)
               <input
                 type="number"
-                value={style.padding ?? ""}
+                value={style.paddingY ?? ""}
                 placeholder="auto"
-                onChange={(e) => update({ padding: e.target.value === "" ? null : Number(e.target.value) })}
+                onChange={(e) => update({ paddingY: e.target.value === "" ? null : Number(e.target.value) })}
+                className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
+              />
+            </label>
+            <label className="flex items-center justify-between mb-2">
+              Taille horizontale (largeur, px)
+              <input
+                type="number"
+                value={style.paddingX ?? ""}
+                placeholder="auto"
+                onChange={(e) => update({ paddingX: e.target.value === "" ? null : Number(e.target.value) })}
                 className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
               />
             </label>
@@ -200,7 +213,8 @@ export default function EditableButton({ groupKey, id, children, className, wrap
                   borderColor: null,
                   transparent: null,
                   fontSize: null,
-                  padding: null,
+                  paddingX: null,
+                  paddingY: null,
                   posX: null,
                   posY: null,
                 })
