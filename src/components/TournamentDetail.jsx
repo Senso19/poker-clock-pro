@@ -37,6 +37,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   const [showJournal, setShowJournal] = useState(false);
   const [showTableSeating, setShowTableSeating] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [showPasteImport, setShowPasteImport] = useState(false);
   const [ticket, setTicket] = useState(null);
   const [eliminatingReg, setEliminatingReg] = useState(null);
   const [openMenuId, setOpenMenuId] = useState(null);
@@ -241,6 +242,27 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     }
     setImporting(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  async function handlePasteImport(text) {
+    // Une ligne par joueur (copié/collé depuis BlindValet ou ailleurs, tant
+    // qu'aucun export de fichier n'est disponible, ex: en cours de tournoi).
+    const names = text
+      .split("\n")
+      .map((l) => l.replace(/^[\d.)\-•\s]+/, "").trim()) // retire numéros de liste, tirets, puces
+      .filter(Boolean);
+    if (names.length === 0) return;
+    setImporting(true);
+    setError(null);
+    try {
+      for (const name of names) {
+        await registerOnePlayer(name);
+      }
+      await loadRegistrations();
+    } catch (e) {
+      setError(e.message);
+    }
+    setImporting(false);
   }
 
   async function addRebuy(reg) {
@@ -606,6 +628,13 @@ export default function TournamentDetail({ tournamentId, onBack }) {
               >
                 {importing ? "Import…" : "Importer Excel/CSV"}
               </label>
+              <button
+                onClick={() => setShowPasteImport(true)}
+                title="Collez une liste de noms (un par ligne) — pratique si l'app source (ex: BlindValet en cours de tournoi) ne permet pas d'export fichier"
+                className="px-3 py-1.5 text-xs bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display whitespace-nowrap"
+              >
+                Coller une liste
+              </button>
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <button
@@ -889,6 +918,53 @@ export default function TournamentDetail({ tournamentId, onBack }) {
           />
         </TicketModal>
       )}
+      {showPasteImport && (
+        <PasteImportModal
+          importing={importing}
+          onClose={() => setShowPasteImport(false)}
+          onSubmit={async (text) => {
+            await handlePasteImport(text);
+            setShowPasteImport(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function PasteImportModal({ importing, onClose, onSubmit }) {
+  const [text, setText] = useState("");
+  const count = text.split("\n").map((l) => l.trim()).filter(Boolean).length;
+  return (
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-5 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+        <div className="font-display text-base mb-1">Coller une liste de joueurs</div>
+        <div className="text-xs text-felt-cream/50 mb-3">
+          Un nom par ligne (ex: copié depuis l'écran des joueurs de BlindValet ou toute autre source). Les numéros de
+          liste ou puces sont ignorés automatiquement.
+        </div>
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder={"Jean Dupont\nMarie Martin\n3. Paul Durand"}
+          rows={10}
+          autoFocus
+          className="w-full bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-2 text-felt-cream text-sm placeholder:text-felt-cream/30 font-mono"
+        />
+        <div className="text-xs text-felt-cream/40 mt-1 mb-4">{count} joueur{count > 1 ? "s" : ""} détecté{count > 1 ? "s" : ""}</div>
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="px-3 py-1.5 text-sm text-felt-cream/60 hover:text-felt-cream">
+            Annuler
+          </button>
+          <button
+            onClick={() => onSubmit(text)}
+            disabled={count === 0 || importing}
+            className="px-4 py-1.5 text-sm bg-felt-gold text-felt-bg rounded-md font-display disabled:opacity-40"
+          >
+            {importing ? "Inscription…" : `Inscrire ${count || ""} joueur${count > 1 ? "s" : ""}`}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
