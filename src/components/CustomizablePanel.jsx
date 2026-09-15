@@ -23,7 +23,7 @@ import { useEditMode } from "../context/EditModeContext.jsx";
  * ciblé par les règles de style forcées, pour ne jamais être affectés
  * par les tailles/couleurs qu'on y choisit.
  */
-export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", defaultOrder = 0, className, children }) {
+export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", defaultMaxWidth, defaultOrder = 0, className, children }) {
   const { theme, setTheme } = useTheme();
   const { isEditMode } = useEditMode();
   const [open, setOpen] = useState(false);
@@ -208,11 +208,16 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
       }
     : {
         flex: flexBasis,
-        width: style.width || undefined,
-        maxWidth: style.width || undefined,
+        width: style.width || (defaultMaxWidth ? "100%" : undefined),
+        maxWidth: style.width || defaultMaxWidth || undefined,
         height: liveSize?.h ? `${liveSize.h}px` : style.height || undefined,
         order,
         minWidth: 0,
+        // Quand une largeur explicite est réglée (ou qu'une largeur par
+        // défaut est fournie par la page), le tableau reste centré dans
+        // sa zone même en devenant plus large ou plus étroit.
+        marginLeft: style.width || defaultMaxWidth ? "auto" : undefined,
+        marginRight: style.width || defaultMaxWidth ? "auto" : undefined,
       };
 
   return (

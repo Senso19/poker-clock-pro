@@ -41,8 +41,8 @@ export default function ChampionshipDetailPage({ summary, manage, onBack, onDele
         )}
       </CustomizablePanel>
 
-      <div className="p-4 sm:p-6 max-w-3xl mx-auto">
-        <CustomizablePanel panelKey="championship-detail-meta" defaultWidth="1 1 100%" className="mb-6">
+      <div className="p-4 sm:p-6">
+        <CustomizablePanel panelKey="championship-detail-meta" defaultWidth="1 1 768px" defaultMaxWidth="768px" className="mb-6">
           <div className="pcp-body text-base text-felt-cream/60 mb-6">
             {summary.stageCount} tournois · {summary.playerCount} joueurs ·{" "}
             {championship.best_stages_count
@@ -56,7 +56,7 @@ export default function ChampionshipDetailPage({ summary, manage, onBack, onDele
         {standings.length === 0 ? (
           <div className="text-base text-felt-cream/50">Aucune étape terminée pour l'instant.</div>
         ) : (
-          <CustomizablePanel panelKey="championship-standings" className="space-y-2.5" defaultWidth="1 1 100%">
+          <CustomizablePanel panelKey="championship-standings" className="space-y-2.5" defaultWidth="1 1 768px" defaultMaxWidth="768px">
             {standings.map((s, i) => {
               const expanded = expandedId === s.playerId;
               return (

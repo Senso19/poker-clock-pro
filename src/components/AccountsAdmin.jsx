@@ -102,7 +102,7 @@ export default function AccountsAdmin() {
 
   return (
     <div className="p-4 sm:p-6 font-body text-white h-full overflow-y-auto">
-      <div className="max-w-3xl mx-auto">
+      <div className="w-full">
       <div className="text-xs font-display uppercase tracking-widest text-felt-cream/40 mb-6">Membres</div>
 
       <div className="flex flex-wrap items-center gap-3 mb-6">
@@ -146,7 +146,7 @@ export default function AccountsAdmin() {
 
       {error && <div className="text-felt-alert text-sm mb-3">{error}</div>}
 
-      <CustomizablePanel panelKey="members-list" defaultWidth="1 1 100%" className="divide-y divide-felt-cream/5 border-t border-felt-cream/5">
+      <CustomizablePanel panelKey="members-list" defaultWidth="1 1 768px" defaultMaxWidth="768px" className="divide-y divide-felt-cream/5 border-t border-felt-cream/5">
         {filtered.map((a) => (
           <div
             key={a.id}
