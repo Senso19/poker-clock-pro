@@ -591,7 +591,14 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   }
 
   function textStyle(style) {
-    return { color: style.color, fontSize: `${style.fontSize}px`, textAlign: style.align, fontFamily: FONT_FAMILY[style.font] || FONT_FAMILY.display };
+    return {
+      color: style.color,
+      fontSize: `${style.fontSize}px`,
+      textAlign: style.align,
+      fontFamily: FONT_FAMILY[style.font] || FONT_FAMILY.display,
+      fontWeight: style.bold ? "bold" : "normal",
+      fontStyle: style.italic ? "italic" : "normal",
+    };
   }
   function titleStyle(style) {
     return {
@@ -599,6 +606,8 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
       textAlign: style.titlePosition === "left" || style.titlePosition === "right" ? "left" : style.align,
       color: style.titleColor || undefined,
       fontFamily: FONT_FAMILY[style.titleFont] || FONT_FAMILY.display,
+      fontWeight: style.titleBold ? "bold" : "normal",
+      fontStyle: style.titleItalic ? "italic" : "normal",
     };
   }
   // Enveloppe titre + contenu d'un panneau, pour pouvoir positionner le
@@ -1762,6 +1771,25 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
         </select>
       </label>
       <label className="flex items-center justify-between mb-2">
+        Style du titre
+        <span className="flex gap-1">
+          <button
+            type="button"
+            onClick={() => onChange({ titleBold: !style.titleBold })}
+            className={`px-2 py-0.5 rounded border font-bold ${style.titleBold ? "bg-felt-gold text-felt-bg border-felt-gold" : "border-felt-cream/20 text-felt-cream/60"}`}
+          >
+            G
+          </button>
+          <button
+            type="button"
+            onClick={() => onChange({ titleItalic: !style.titleItalic })}
+            className={`px-2 py-0.5 rounded border italic ${style.titleItalic ? "bg-felt-gold text-felt-bg border-felt-gold" : "border-felt-cream/20 text-felt-cream/60"}`}
+          >
+            I
+          </button>
+        </span>
+      </label>
+      <label className="flex items-center justify-between mb-2">
         Couleur du texte
         <input type="color" value={style.color} onChange={(e) => onChange({ color: e.target.value })} className="w-8 h-6 bg-transparent cursor-pointer" />
       </label>
@@ -1806,6 +1834,25 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
           <option value="chewy">Chewy (rond enfantin)</option>
           <option value="baloo2">Baloo 2 (rond épais)</option>
         </select>
+      </label>
+      <label className="flex items-center justify-between mb-2">
+        Style du texte
+        <span className="flex gap-1">
+          <button
+            type="button"
+            onClick={() => onChange({ bold: !style.bold })}
+            className={`px-2 py-0.5 rounded border font-bold ${style.bold ? "bg-felt-gold text-felt-bg border-felt-gold" : "border-felt-cream/20 text-felt-cream/60"}`}
+          >
+            G
+          </button>
+          <button
+            type="button"
+            onClick={() => onChange({ italic: !style.italic })}
+            className={`px-2 py-0.5 rounded border italic ${style.italic ? "bg-felt-gold text-felt-bg border-felt-gold" : "border-felt-cream/20 text-felt-cream/60"}`}
+          >
+            I
+          </button>
+        </span>
       </label>
       <div className="border-t border-felt-cream/10 my-2 pt-2 text-felt-cream/50">Fond du panneau</div>
       <label className="flex items-center justify-between mb-2">
