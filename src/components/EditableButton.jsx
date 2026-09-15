@@ -92,6 +92,7 @@ export default function EditableButton({ groupKey, id, children, className, wrap
     paddingBottom: style.paddingY != null ? `${style.paddingY}px` : undefined,
     paddingLeft: style.paddingX != null ? `${style.paddingX}px` : undefined,
     paddingRight: style.paddingX != null ? `${style.paddingX}px` : undefined,
+    width: style.fillWidth ? "100%" : undefined,
   };
 
   const livePos = dragPos || (hasFreePosition ? { x: style.posX, y: style.posY } : null);
@@ -100,8 +101,12 @@ export default function EditableButton({ groupKey, id, children, className, wrap
     : { order };
 
   return (
-    <span ref={wrapperRef} className={`inline-flex ${!livePos ? "relative" : ""} ${dragPos ? "opacity-80" : ""} ${!livePos ? wrapperClassName || "" : ""}`} style={wrapperStyle}>
-      <span className="relative inline-flex">
+    <span
+      ref={wrapperRef}
+      className={`${style.fillWidth && !livePos ? "flex w-full" : "inline-flex"} ${!livePos ? "relative" : ""} ${dragPos ? "opacity-80" : ""} ${!livePos ? wrapperClassName || "" : ""}`}
+      style={wrapperStyle}
+    >
+      <span className={`relative ${style.fillWidth ? "flex w-full" : "inline-flex"}`}>
         <button onClick={onClick} disabled={disabled} style={btnStyle} className={className}>
           {label}
         </button>
@@ -180,6 +185,10 @@ export default function EditableButton({ groupKey, id, children, className, wrap
               />
             </label>
             <label className="flex items-center justify-between mb-2">
+              <span>S'adapter à la largeur disponible (comme le texte)</span>
+              <input type="checkbox" checked={!!style.fillWidth} onChange={(e) => update({ fillWidth: e.target.checked })} />
+            </label>
+            <label className="flex items-center justify-between mb-2">
               Taille verticale (hauteur, px)
               <input
                 type="number"
@@ -215,6 +224,7 @@ export default function EditableButton({ groupKey, id, children, className, wrap
                   fontSize: null,
                   paddingX: null,
                   paddingY: null,
+                  fillWidth: null,
                   posX: null,
                   posY: null,
                 })
