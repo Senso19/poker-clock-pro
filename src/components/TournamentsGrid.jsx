@@ -427,6 +427,7 @@ function TournamentCard({ t, badge, count, already, manage, busy, menuOpen, onOp
           {t.stage_label ? ` — ${t.stage_label}` : ""}
         </div>
       )}
+      <div className="pcp-space-2" />
       <div className="mt-auto flex items-center gap-2 pt-1">
         <EditableButton
           groupKey="tournament-card-grid"

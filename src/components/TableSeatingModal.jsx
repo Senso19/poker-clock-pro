@@ -63,14 +63,18 @@ export default function TableSeatingModal({
     dragRef.current = null;
   }
 
-  function handleDragStart(e, regId) {
-    e.dataTransfer.setData("text/plain", regId);
-    e.dataTransfer.effectAllowed = "move";
-  }
-  function handleDrop(e, table, seat) {
+  function handlePlayerPointerDown(e, regId) {
     e.preventDefault();
-    const regId = e.dataTransfer.getData("text/plain");
-    if (regId) onMoveSeat(regId, table, seat);
+    e.stopPropagation();
+    function onUp(ev) {
+      window.removeEventListener("pointerup", onUp);
+      const el = document.elementFromPoint(ev.clientX, ev.clientY);
+      const seatEl = el?.closest("[data-seat-table][data-seat-number]");
+      if (seatEl) {
+        onMoveSeat(regId, Number(seatEl.getAttribute("data-seat-table")), Number(seatEl.getAttribute("data-seat-number")));
+      }
+    }
+    window.addEventListener("pointerup", onUp);
   }
 
   function playerLabel(r) {
@@ -151,8 +155,8 @@ export default function TableSeatingModal({
                       <div
                         key={seat}
                         style={seatStyle(i, perTable)}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={(e) => handleDrop(e, table, seat)}
+                        data-seat-table={table}
+                        data-seat-number={seat}
                         className={`absolute w-[86px] rounded-md px-1.5 py-1 text-[11px] border text-center ${
                           isDuplicate
                             ? "bg-felt-alert/20 border-felt-alert/60"
@@ -166,8 +170,8 @@ export default function TableSeatingModal({
                         <div className="text-felt-cream/40 text-[9px] leading-tight">S{seat}</div>
                         {r ? (
                           <div
-                            draggable={!isOut}
-                            onDragStart={(e) => handleDragStart(e, r.id)}
+                            onPointerDown={(e) => !isOut && handlePlayerPointerDown(e, r.id)}
+                            style={{ touchAction: isOut ? undefined : "none" }}
                             className={`truncate font-medium ${isOut ? "line-through" : "cursor-grab"}`}
                             title={playerLabel(r)}
                           >

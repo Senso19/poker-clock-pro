@@ -36,7 +36,7 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
     return () => document.removeEventListener("click", close);
   }, [open]);
 
-  const [dragOver, setDragOver] = useState(false);
+  const [dragging, setDragging] = useState(false);
   const style = theme.panelStyles?.[panelKey] || {};
   const order = style.order ?? defaultOrder;
 
@@ -54,35 +54,38 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
     persist(nextTheme);
   }
 
-  function handleDragStart(e) {
-    e.dataTransfer.setData("text/plain", `${panelKey}|${order}`);
-    e.dataTransfer.effectAllowed = "move";
-  }
-  function handleDragOver(e) {
-    if (!isEditMode) return;
-    e.preventDefault();
-    setDragOver(true);
-  }
-  function handleDragLeave() {
-    setDragOver(false);
-  }
-  function handleDrop(e) {
-    if (!isEditMode) return;
-    e.preventDefault();
-    setDragOver(false);
-    const data = e.dataTransfer.getData("text/plain");
-    if (!data) return;
-    const [sourceKey, sourceOrderStr] = data.split("|");
-    if (!sourceKey || sourceKey === panelKey) return;
-    const sourceOrder = Number(sourceOrderStr);
+  function swapWith(targetKey) {
+    if (!targetKey || targetKey === panelKey) return;
+    const targetStyle = theme.panelStyles?.[targetKey] || {};
+    const targetOrder = targetStyle.order ?? 0;
     const nextPanelStyles = {
       ...(theme.panelStyles || {}),
-      [panelKey]: { ...(theme.panelStyles?.[panelKey] || {}), order: sourceOrder },
-      [sourceKey]: { ...(theme.panelStyles?.[sourceKey] || {}), order },
+      [panelKey]: { ...style, order: targetOrder },
+      [targetKey]: { ...targetStyle, order },
     };
     const nextTheme = { ...theme, panelStyles: nextPanelStyles };
     setTheme(nextTheme);
     persist(nextTheme);
+  }
+
+  // Déplacement au pointeur (souris + tactile) plutôt qu'en drag-and-drop
+  // HTML5 natif, qui ne fonctionne pas du tout sur écrans tactiles :
+  // on maintient la poignée ⠿, on glisse, et au relâchement on repère
+  // quel tableau se trouve sous le doigt/curseur pour échanger les places.
+  function handlePointerDown(e) {
+    e.preventDefault();
+    setDragging(true);
+    function onMove() {}
+    function onUp(ev) {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      setDragging(false);
+      const el = document.elementFromPoint(ev.clientX, ev.clientY);
+      const targetEl = el?.closest("[data-pcp-panel-key]");
+      if (targetEl) swapWith(targetEl.getAttribute("data-pcp-panel-key"));
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
   }
 
   const flexBasis = style.width ? `0 0 ${style.width}` : defaultWidth;
@@ -100,6 +103,7 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
   if (style.btnBgColor) forcedCssRules.push(`#${panelDomId} .pcp-btn{background-color:${style.btnBgColor} !important; border-color:${style.btnBgColor} !important;}`);
   if (style.btnTextColor) forcedCssRules.push(`#${panelDomId} .pcp-btn{color:${style.btnTextColor} !important;}`);
   if (style.spaceHeight) forcedCssRules.push(`#${panelDomId} .pcp-space{height:${style.spaceHeight}px !important; display:block !important;}`);
+  if (style.spaceHeight2) forcedCssRules.push(`#${panelDomId} .pcp-space-2{height:${style.spaceHeight2}px !important; display:block !important;}`);
 
   return (
     <div
@@ -110,9 +114,9 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
       {isEditMode && (
         <div className="absolute top-3 right-3 z-20 flex gap-2">
           <button
-            draggable
-            onDragStart={handleDragStart}
-            title="Glisser sur un autre tableau pour échanger leur place"
+            onPointerDown={handlePointerDown}
+            title="Maintenir, glisser sur un autre tableau, relâcher pour échanger leur place"
+            style={{ touchAction: "none" }}
             className="w-8 h-8 rounded-md bg-felt-bg border border-felt-gold/40 text-felt-gold flex items-center justify-center text-sm shadow cursor-move"
           >
             ⠿
@@ -132,9 +136,7 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
       {open && <PanelStyleEditor style={style} onChange={update} onClose={() => setOpen(false)} />}
       <div
         id={panelDomId}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
+        data-pcp-panel-key={panelKey}
         style={{
           backgroundColor: style.bgColor || theme.panelBgColor || undefined,
           color: style.textColor || undefined,
@@ -144,7 +146,7 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
           gridTemplateColumns: style.cardWidth ? `repeat(auto-fill, minmax(${style.cardWidth}px, 1fr))` : undefined,
           gridAutoRows: style.cardHeight ? `${style.cardHeight}px` : undefined,
         }}
-        className={`${dragOver ? "ring-2 ring-felt-gold" : ""} ${className || ""}`}
+        className={`${dragging ? "opacity-60" : ""} ${className || ""}`}
       >
         {children}
       </div>
@@ -345,12 +347,22 @@ function PanelStyleEditor({ style, onChange, onClose }) {
       )}
       <div className="border-t border-felt-cream/10 my-2 pt-2 text-felt-cream/50">Espacement</div>
       <label className="flex items-center justify-between mb-2">
-        Espace ajouté dans les cartes (px)
+        Espace 1 — après les badges (px)
         <input
           type="number"
           value={style.spaceHeight || ""}
           placeholder="0"
           onChange={(e) => onChange({ spaceHeight: Number(e.target.value) || null })}
+          className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
+        />
+      </label>
+      <label className="flex items-center justify-between mb-2">
+        Espace 2 — avant les boutons (px)
+        <input
+          type="number"
+          value={style.spaceHeight2 || ""}
+          placeholder="0"
+          onChange={(e) => onChange({ spaceHeight2: Number(e.target.value) || null })}
           className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
         />
       </label>
@@ -379,6 +391,7 @@ function PanelStyleEditor({ style, onChange, onClose }) {
             btnBgColor: null,
             btnTextColor: null,
             spaceHeight: null,
+            spaceHeight2: null,
             order: null,
           })
         }

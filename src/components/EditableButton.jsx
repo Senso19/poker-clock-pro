@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase.js";
 import { useTheme } from "../context/ThemeContext.jsx";
 import { useEditMode } from "../context/EditModeContext.jsx";
@@ -9,18 +9,17 @@ import { useEditMode } from "../context/EditModeContext.jsx";
  * en mode personnalisation, au même titre que CustomizablePanel pour les
  * tableaux. Persisté dans club_settings.theme.buttonStyles[groupKey.id].
  *
- * - groupKey : identifiant du groupe de boutons (ex. "tournaments-toolbar")
- *   — la position ne peut être échangée qu'entre boutons du même groupe.
- * - id : identifiant stable de CE bouton dans le groupe.
- * - children : le texte/contenu par défaut du bouton.
- * - className : classes de base (mise en forme, indépendantes du style
- *   personnalisé qui vient s'ajouter par-dessus).
+ * Le déplacement utilise les Pointer Events (et non le drag-and-drop HTML5
+ * natif, qui ne fonctionne pas du tout sur écrans tactiles) : on maintient
+ * la poignée ⠿, on glisse, et on relâche sur un autre bouton du même
+ * groupe pour échanger leur place — ça marche à la souris comme au doigt.
  */
 export default function EditableButton({ groupKey, id, children, className, onClick, disabled, defaultOrder = 0 }) {
   const { theme, setTheme } = useTheme();
   const { isEditMode } = useEditMode();
   const [open, setOpen] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const dragInfo = useRef(null);
 
   const storeKey = `${groupKey}.${id}`;
   const style = theme.buttonStyles?.[storeKey] || {};
@@ -47,38 +46,40 @@ export default function EditableButton({ groupKey, id, children, className, onCl
     persist(nextTheme);
   }
 
-  function handleDragStart(e) {
-    e.stopPropagation();
-    e.dataTransfer.setData("text/plain", `${groupKey}|${storeKey}|${order}`);
-    e.dataTransfer.effectAllowed = "move";
-  }
-  function handleDragOver(e) {
-    if (!isEditMode) return;
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOver(true);
-  }
-  function handleDragLeave() {
-    setDragOver(false);
-  }
-  function handleDrop(e) {
-    if (!isEditMode) return;
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOver(false);
-    const data = e.dataTransfer.getData("text/plain");
-    if (!data) return;
-    const [sourceGroup, sourceKey, sourceOrderStr] = data.split("|");
-    if (sourceGroup !== groupKey || sourceKey === storeKey) return;
-    const sourceOrder = Number(sourceOrderStr);
+  function swapWith(targetStoreKey) {
+    if (!targetStoreKey || targetStoreKey === storeKey) return;
+    const targetStyle = theme.buttonStyles?.[targetStoreKey] || {};
+    const targetOrder = targetStyle.order ?? 0;
     const nextButtonStyles = {
       ...(theme.buttonStyles || {}),
-      [storeKey]: { ...(theme.buttonStyles?.[storeKey] || {}), order: sourceOrder },
-      [sourceKey]: { ...(theme.buttonStyles?.[sourceKey] || {}), order },
+      [storeKey]: { ...style, order: targetOrder },
+      [targetStoreKey]: { ...targetStyle, order },
     };
     const nextTheme = { ...theme, buttonStyles: nextButtonStyles };
     setTheme(nextTheme);
     persist(nextTheme);
+  }
+
+  function handlePointerDown(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragInfo.current = { startX: e.clientX, startY: e.clientY };
+    setDragging(true);
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+  }
+  function handlePointerMove() {
+    // Pas de fantôme visuel pour rester simple — juste le repérage à la
+    // fin, comme un glisser physique de puce.
+  }
+  function handlePointerUp(e) {
+    window.removeEventListener("pointermove", handlePointerMove);
+    window.removeEventListener("pointerup", handlePointerUp);
+    setDragging(false);
+    dragInfo.current = null;
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const targetEl = el?.closest(`[data-pcp-btn-group="${groupKey}"]`);
+    if (targetEl) swapWith(targetEl.getAttribute("data-pcp-btn-key"));
   }
 
   const label = style.label || children;
@@ -91,10 +92,9 @@ export default function EditableButton({ groupKey, id, children, className, onCl
 
   return (
     <span
-      className={`relative inline-flex ${dragOver ? "ring-2 ring-felt-gold rounded-full" : ""}`}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
+      data-pcp-btn-group={groupKey}
+      data-pcp-btn-key={storeKey}
+      className={`relative inline-flex ${dragging ? "opacity-60" : ""}`}
       style={{ order }}
     >
       <button onClick={onClick} disabled={disabled} style={btnStyle} className={className}>
@@ -103,10 +103,10 @@ export default function EditableButton({ groupKey, id, children, className, onCl
       {isEditMode && (
         <>
           <button
-            draggable
-            onDragStart={handleDragStart}
-            title="Glisser sur un autre bouton du même groupe pour échanger leur place"
+            onPointerDown={handlePointerDown}
+            title="Maintenir, glisser sur un autre bouton du même groupe, relâcher pour échanger leur place"
             onClick={(e) => e.stopPropagation()}
+            style={{ touchAction: "none" }}
             className="absolute -top-2 -left-2 w-4 h-4 rounded-full bg-felt-bg border border-felt-gold/50 text-felt-gold text-[9px] flex items-center justify-center cursor-move z-10"
           >
             ⠿
