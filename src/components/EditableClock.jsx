@@ -77,6 +77,10 @@ const FONT_FAMILY = {
   titanone: "'Titan One', cursive",
   michroma: "'Michroma', sans-serif",
   audiowide: "'Audiowide', sans-serif",
+  aldrich: "'Aldrich', sans-serif",
+  zendots: "'Zen Dots', cursive",
+  chewy: "'Chewy', cursive",
+  baloo2: "'Baloo 2', cursive",
 };
 const BUTTON_SIZE = { sm: "px-2 py-1 text-xs", md: "px-3 py-1.5 text-sm", lg: "px-5 py-3 text-lg" };
 const H_ALIGN = { left: "justify-start", center: "justify-center", right: "justify-end" };
@@ -96,7 +100,7 @@ function hexToRgba(hex, alpha = 1) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-const SNAP_THRESHOLD = 1.5;
+const SNAP_THRESHOLD = 0.5;
 
 // Accroche une valeur sur la cible la plus proche (bord d'un autre panneau
 // ou bord du canevas 0/50/100) si elle est à moins de SNAP_THRESHOLD %.
@@ -943,12 +947,28 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
         <Panel id="blinds" layout={panels.blinds} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Blinds" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
           <PanelBody style={panels.blinds.style} title={panels.blinds.style.customTitle || "Blinds"}>
             {currentLevel && !currentLevel.isBreak ? (
-              <div className={panels.blinds.style.blindsLayout === "row" ? "flex items-center justify-center gap-3" : "flex flex-col items-center"}>
-                <div style={textStyle(panels.blinds.style)}>{currentLevel.smallBlind}</div>
-                <div className={panels.blinds.style.blindsLayout === "row" ? "w-px h-6 bg-felt-cream/20" : "w-3/4 h-px bg-felt-cream/20 my-1"} />
-                <div style={textStyle(panels.blinds.style)}>{currentLevel.bigBlind}</div>
-                {currentLevel.ante > 0 && <div className="text-felt-gold text-xs mt-1">ante {currentLevel.ante}</div>}
-              </div>
+              panels.blinds.style.blindsLayout === "row" ? (
+                <div className="flex items-center justify-center gap-3">
+                  <div style={textStyle(panels.blinds.style)}>{currentLevel.smallBlind}</div>
+                  <div className="w-px h-6 bg-felt-cream/20" />
+                  <div className="flex flex-col items-center">
+                    <div style={textStyle(panels.blinds.style)}>{currentLevel.bigBlind}</div>
+                    {currentLevel.ante > 0 && (
+                      <>
+                        <div className="text-felt-cream/30 uppercase tracking-wide text-[9px] mt-1">Ante</div>
+                        <div className="text-felt-gold text-xs">{currentLevel.ante}</div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center">
+                  <div style={textStyle(panels.blinds.style)}>{currentLevel.smallBlind}</div>
+                  <div className="w-3/4 h-px bg-felt-cream/20 my-1" />
+                  <div style={textStyle(panels.blinds.style)}>{currentLevel.bigBlind}</div>
+                  {currentLevel.ante > 0 && <div className="text-felt-gold text-xs mt-1">({currentLevel.ante})</div>}
+                </div>
+              )
             ) : (
               <div className="text-felt-cream/50 text-sm text-center">Pause</div>
             )}
@@ -1012,12 +1032,16 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
                   <div style={textStyle(panels.next.style)}>{nextLevel.smallBlind}</div>
                   <div className="w-3/4 h-px bg-felt-cream/20 my-1" />
                   <div style={textStyle(panels.next.style)}>{nextLevel.bigBlind}</div>
-                  {nextLevel.ante > 0 && <div className="text-felt-gold text-xs mt-1">ante {nextLevel.ante}</div>}
+                  {nextLevel.ante > 0 && <div className="text-felt-gold text-xs mt-1">({nextLevel.ante})</div>}
                 </div>
               ) : (
-                <div style={textStyle(panels.next.style)}>
-                  {nextLevel.smallBlind}/{nextLevel.bigBlind}
-                  {nextLevel.ante ? ` (ante ${nextLevel.ante})` : ""}
+                <div className="flex items-center justify-center" style={{ gap: `${panels.next.style.itemGap ?? 8}px` }}>
+                  <span className="text-felt-cream/40 text-sm">{levelIndex + 2}</span>
+                  <span style={textStyle(panels.next.style)}>
+                    {nextLevel.smallBlind}/{nextLevel.bigBlind}
+                  </span>
+                  {nextLevel.ante > 0 && <span className="text-felt-cream/50 text-sm">({nextLevel.ante})</span>}
+                  {nextLevel.durationMinutes && <span className="text-felt-cream/40 text-xs">{nextLevel.durationMinutes} min</span>}
                 </div>
               )
             ) : (
@@ -1583,6 +1607,17 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
           </select>
         </label>
       )}
+      {defaultTitle === "Prochaine blind" && style.blindsLayout !== "stack" && (
+        <label className="flex items-center justify-between mb-2">
+          Espace entre les données (px)
+          <input
+            type="number"
+            value={style.itemGap ?? 8}
+            onChange={(e) => onChange({ itemGap: Number(e.target.value) })}
+            className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream"
+          />
+        </label>
+      )}
       <label className="flex items-center justify-between mb-2">
         Position du titre
         <select
@@ -1616,6 +1651,10 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
           <option value="titanone">Titan One (bombée, façon sticker)</option>
           <option value="michroma">Michroma (technique/sci-fi)</option>
           <option value="audiowide">Audiowide (large, futuriste)</option>
+          <option value="aldrich">Aldrich (technique, monospace)</option>
+          <option value="zendots">Zen Dots (pointillé arrondi)</option>
+          <option value="chewy">Chewy (rond enfantin)</option>
+          <option value="baloo2">Baloo 2 (rond épais)</option>
         </select>
       </label>
       <label className="flex items-center justify-between mb-2">
@@ -1658,6 +1697,10 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
           <option value="titanone">Titan One (bombée, façon sticker)</option>
           <option value="michroma">Michroma (technique/sci-fi)</option>
           <option value="audiowide">Audiowide (large, futuriste)</option>
+          <option value="aldrich">Aldrich (technique, monospace)</option>
+          <option value="zendots">Zen Dots (pointillé arrondi)</option>
+          <option value="chewy">Chewy (rond enfantin)</option>
+          <option value="baloo2">Baloo 2 (rond épais)</option>
         </select>
       </label>
       <div className="border-t border-felt-cream/10 my-2 pt-2 text-felt-cream/50">Fond du panneau</div>
