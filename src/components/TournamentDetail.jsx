@@ -247,10 +247,15 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   async function handlePasteImport(text) {
     // Une ligne par joueur (copié/collé depuis BlindValet ou ailleurs, tant
     // qu'aucun export de fichier n'est disponible, ex: en cours de tournoi).
+    // Le copié-collé d'un écran BlindValet inclut aussi les initiales des
+    // avatars (ex: "F", "MR") et les stacks isolés (ex: "25000") comme des
+    // lignes séparées — on les filtre pour ne garder que de vrais noms.
     const names = text
       .split("\n")
       .map((l) => l.replace(/^[\d.)\-•\s]+/, "").trim()) // retire numéros de liste, tirets, puces
-      .filter(Boolean);
+      .filter(Boolean)
+      .filter((l) => !/^\d+$/.test(l)) // stack isolé, ex: "25000"
+      .filter((l) => !/^[A-ZÀ-Ý]{1,3}$/.test(l)); // initiales d'avatar, ex: "F", "MR"
     if (names.length === 0) return;
     setImporting(true);
     setError(null);
@@ -934,14 +939,19 @@ export default function TournamentDetail({ tournamentId, onBack }) {
 
 function PasteImportModal({ importing, onClose, onSubmit }) {
   const [text, setText] = useState("");
-  const count = text.split("\n").map((l) => l.trim()).filter(Boolean).length;
+  const count = text
+    .split("\n")
+    .map((l) => l.replace(/^[\d.)\-•\s]+/, "").trim())
+    .filter(Boolean)
+    .filter((l) => !/^\d+$/.test(l))
+    .filter((l) => !/^[A-ZÀ-Ý]{1,3}$/.test(l)).length;
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-5 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
         <div className="font-display text-base mb-1">Coller une liste de joueurs</div>
         <div className="text-xs text-felt-cream/50 mb-3">
           Un nom par ligne (ex: copié depuis l'écran des joueurs de BlindValet ou toute autre source). Les numéros de
-          liste ou puces sont ignorés automatiquement.
+          liste, puces, stacks isolés (ex: 25000) et initiales d'avatar (ex: F, MR) sont ignorés automatiquement.
         </div>
         <textarea
           value={text}
