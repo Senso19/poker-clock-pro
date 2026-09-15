@@ -330,20 +330,23 @@ export default function TournamentsGrid({ onOpen }) {
           <option value="name">Nom A-Z</option>
         </select>
         <div className="flex items-center gap-1 bg-felt-panel border border-felt-cream/10 rounded-lg p-1">
-          <button
+          <EditableButton
+            groupKey="tournaments-view-toggle"
+            id="grid"
             onClick={() => setView("grid")}
-            title="Vue grille"
             className={`w-8 h-8 rounded flex items-center justify-center ${view === "grid" ? "bg-felt-gold text-felt-bg" : "text-felt-cream/50 hover:text-white"}`}
           >
             ▦
-          </button>
-          <button
+          </EditableButton>
+          <EditableButton
+            groupKey="tournaments-view-toggle"
+            id="list"
+            defaultOrder={1}
             onClick={() => setView("list")}
-            title="Vue liste"
             className={`w-8 h-8 rounded flex items-center justify-center ${view === "list" ? "bg-felt-gold text-felt-bg" : "text-felt-cream/50 hover:text-white"}`}
           >
             ☰
-          </button>
+          </EditableButton>
         </div>
       </div>
 

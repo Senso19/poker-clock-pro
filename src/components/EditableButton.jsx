@@ -82,9 +82,11 @@ export default function EditableButton({ groupKey, id, children, className, onCl
 
   const label = style.label || children;
   const btnStyle = {
-    backgroundColor: style.bgColor || undefined,
+    backgroundColor: style.transparent ? "transparent" : style.bgColor || undefined,
     color: style.textColor || undefined,
-    borderColor: style.bgColor || undefined,
+    borderColor: style.transparent ? style.borderColor || "transparent" : style.borderColor || style.bgColor || undefined,
+    borderWidth: style.borderColor || style.transparent ? "1px" : undefined,
+    borderStyle: style.borderColor || style.transparent ? "solid" : undefined,
   };
 
   const livePos = dragPos || (hasFreePosition ? { x: style.posX, y: style.posY } : null);
@@ -144,13 +146,31 @@ export default function EditableButton({ groupKey, id, children, className, onCl
               Texte
               <input type="color" value={style.textColor || "#14181C"} onChange={(e) => update({ textColor: e.target.value })} className="w-8 h-6 bg-transparent cursor-pointer" />
             </label>
+            <label className="flex items-center justify-between mb-2">
+              <span>Fond transparent</span>
+              <input type="checkbox" checked={!!style.transparent} onChange={(e) => update({ transparent: e.target.checked })} />
+            </label>
+            <label className="flex items-center justify-between mb-2">
+              Couleur du contour
+              <input
+                type="color"
+                value={style.borderColor || "#C9A15A"}
+                onChange={(e) => update({ borderColor: e.target.value })}
+                className="w-8 h-6 bg-transparent cursor-pointer"
+              />
+            </label>
+            {style.borderColor && (
+              <button onClick={() => update({ borderColor: null })} className="w-full text-left text-felt-cream/40 hover:text-felt-cream mb-1">
+                Retirer la couleur de contour
+              </button>
+            )}
             {hasFreePosition && (
               <button onClick={() => update({ posX: null, posY: null })} className="w-full text-left text-felt-cream/40 hover:text-felt-cream mb-1">
                 Remettre à la position d'origine
               </button>
             )}
             <button
-              onClick={() => update({ label: null, bgColor: null, textColor: null, posX: null, posY: null })}
+              onClick={() => update({ label: null, bgColor: null, textColor: null, borderColor: null, transparent: null, posX: null, posY: null })}
               className="w-full text-left text-felt-cream/40 hover:text-felt-cream"
             >
               Réinitialiser ce bouton

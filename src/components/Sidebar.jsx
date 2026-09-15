@@ -405,7 +405,7 @@ export default function Sidebar({ tab, setTab }) {
           >
             19PokerClub
           </div>
-          {clubCode && <div className="text-[11px] text-felt-cream/40">Since 2014</div>}
+          {clubCode && <div className="text-[11px] text-felt-cream/40 italic">Since 2014</div>}
         </div>
         {manage && (
           <button
