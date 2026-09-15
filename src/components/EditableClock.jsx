@@ -947,7 +947,10 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
                 : `NIVEAU ${levelIndex + 1}`
             }
           >
-            <div className="leading-none tabular-nums" style={textStyle(panels.timer.style)}>
+            <div
+              className="leading-none tabular-nums"
+              style={{ ...textStyle(panels.timer.style), textAlign: panels.timer.style.centerTime ? "center" : textStyle(panels.timer.style).textAlign, width: "100%" }}
+            >
               {formatTime(secondsLeft)}
             </div>
           </PanelBody>
@@ -1749,6 +1752,10 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
           <label className="flex items-center justify-between mb-2">
             Afficher le minuteur vers la pause (☕)
             <input type="checkbox" checked={style.showNextBreak !== false} onChange={(e) => onChange({ showNextBreak: e.target.checked })} />
+          </label>
+          <label className="flex items-center justify-between mb-2">
+            Centrer le temps (sans toucher au titre)
+            <input type="checkbox" checked={!!style.centerTime} onChange={(e) => onChange({ centerTime: e.target.checked })} />
           </label>
         </>
       )}
