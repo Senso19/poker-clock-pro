@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase.js";
 import { useTheme } from "../context/ThemeContext.jsx";
 import { useEditMode } from "../context/EditModeContext.jsx";
@@ -37,8 +37,29 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
   }, [open]);
 
   const [dragging, setDragging] = useState(false);
+  const [dragPos, setDragPos] = useState(null);
+  const [resizing, setResizing] = useState(false);
+  const [resizeLive, setResizeLive] = useState(null);
+  const dragPosRef = useRef(null);
+  const resizeRef = useRef(null);
+  const wrapperRef = useRef(null);
+
+  // Le positionnement libre (%) se calcule par rapport au parent direct du
+  // tableau (ou au plus proche ancêtre marqué data-pcp-canvas). Pour que
+  // "position: absolute" s'aligne bien dessus, ce parent doit être
+  // lui-même positionné — on s'en assure automatiquement, sans que
+  // chaque page ait besoin d'y penser.
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+    const canvas = wrapper?.closest("[data-pcp-canvas]") || wrapper?.parentElement;
+    if (canvas && getComputedStyle(canvas).position === "static") {
+      canvas.style.position = "relative";
+    }
+  });
+
   const style = theme.panelStyles?.[panelKey] || {};
   const order = style.order ?? defaultOrder;
+  const hasFreePosition = style.posX != null && style.posY != null;
 
   async function persist(nextTheme) {
     const { data: existing } = await supabase.from("club_settings").select("id").limit(1).maybeSingle();
@@ -68,21 +89,85 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
     persist(nextTheme);
   }
 
-  // Déplacement au pointeur (souris + tactile) plutôt qu'en drag-and-drop
-  // HTML5 natif, qui ne fonctionne pas du tout sur écrans tactiles :
-  // on maintient la poignée ⠿, on glisse, et au relâchement on repère
-  // quel tableau se trouve sous le doigt/curseur pour échanger les places.
+  function clamp(v, min, max) {
+    return Math.max(min, Math.min(max, v));
+  }
+
+  // Déplacement LIBRE au pointeur (souris + tactile) : on maintient la
+  // poignée ⠿, on glisse n'importe où dans la zone (le plus proche
+  // ancêtre [data-pcp-canvas], ou sinon le parent direct du tableau), on
+  // relâche — le tableau se place exactement là (en %, donc adapté à
+  // toutes les tailles d'écran). Comme un simple clic sans glisser ne
+  // déplace rien (le mouvement doit dépasser un petit seuil), échanger
+  // avec un autre tableau en le déposant dessus reste possible : si on
+  // relâche pile sur un autre tableau, on échange leur place au lieu de
+  // se positionner en absolu par-dessus.
   function handlePointerDown(e) {
     e.preventDefault();
+    const wrapper = wrapperRef.current;
+    const canvas = wrapper?.closest("[data-pcp-canvas]") || wrapper?.parentElement;
+    if (!wrapper || !canvas) return;
+    const canvasRect = canvas.getBoundingClientRect();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    let moved = false;
     setDragging(true);
-    function onMove() {}
+
+    function onMove(ev) {
+      if (Math.abs(ev.clientX - startX) > 4 || Math.abs(ev.clientY - startY) > 4) moved = true;
+      const x = clamp(((ev.clientX - canvasRect.left) / canvasRect.width) * 100, 0, 100);
+      const y = clamp(((ev.clientY - canvasRect.top) / canvasRect.height) * 100, 0, 100);
+      dragPosRef.current = { x, y };
+      setDragPos({ x, y });
+    }
     function onUp(ev) {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       setDragging(false);
+      setDragPos(null);
+      if (!moved) {
+        dragPosRef.current = null;
+        return;
+      }
       const el = document.elementFromPoint(ev.clientX, ev.clientY);
       const targetEl = el?.closest("[data-pcp-panel-key]");
-      if (targetEl) swapWith(targetEl.getAttribute("data-pcp-panel-key"));
+      const targetKey = targetEl?.getAttribute("data-pcp-panel-key");
+      if (targetKey && targetKey !== panelKey && !style.posX) {
+        swapWith(targetKey);
+      } else if (dragPosRef.current) {
+        update({ posX: dragPosRef.current.x, posY: dragPosRef.current.y });
+      }
+      dragPosRef.current = null;
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }
+
+  // Redimensionnement : on maintient la poignée en bas à droite du
+  // tableau et on glisse pour changer sa largeur/hauteur en px.
+  function handleResizePointerDown(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+    const startRect = wrapper.getBoundingClientRect();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    setResizing(true);
+
+    function onMove(ev) {
+      const w = Math.max(120, Math.round(startRect.width + (ev.clientX - startX)));
+      const h = Math.max(60, Math.round(startRect.height + (ev.clientY - startY)));
+      resizeRef.current = { w, h };
+      setResizeLive({ w, h });
+    }
+    function onUp() {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      setResizing(false);
+      setResizeLive(null);
+      if (resizeRef.current) update({ width: `${resizeRef.current.w}px`, height: resizeRef.current.h });
+      resizeRef.current = null;
     }
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
@@ -90,8 +175,8 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
 
   const flexBasis = style.width ? `0 0 ${style.width}` : defaultWidth;
   const panelDomId = `pcp-${panelKey.replace(/[^a-zA-Z0-9_-]/g, "")}`;
-
   const forcedCssRules = [];
+
   if (style.titleSize) forcedCssRules.push(`#${panelDomId} .pcp-title{font-size:${style.titleSize}px !important;}`);
   if (style.titleColor) forcedCssRules.push(`#${panelDomId} .pcp-title{color:${style.titleColor} !important;}`);
   if (style.bodySize) forcedCssRules.push(`#${panelDomId} .pcp-body{font-size:${style.bodySize}px !important;}`);
@@ -109,17 +194,35 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
   if (style.rowHeight) forcedCssRules.push(`#${panelDomId} > *{min-height:${style.rowHeight}px !important;}`);
   if (style.zebra) forcedCssRules.push(`#${panelDomId} > *:nth-child(even){background-color:${style.zebraColor || "rgba(255,255,255,0.03)"} !important;}`);
 
+  const livePos = dragPos || (hasFreePosition ? { x: style.posX, y: style.posY } : null);
+  const liveSize = resizeLive || (style.height || style.width ? { w: style.width ? parseInt(style.width) : null, h: style.height || null } : null);
+  const outerStyle = livePos
+    ? {
+        position: "absolute",
+        left: `${livePos.x}%`,
+        top: `${livePos.y}%`,
+        transform: "translate(-50%, -50%)",
+        width: liveSize?.w ? `${liveSize.w}px` : style.width || 320,
+        height: liveSize?.h ? `${liveSize.h}px` : style.height || undefined,
+        zIndex: dragging || resizing ? 25 : 5,
+      }
+    : {
+        flex: flexBasis,
+        width: style.width || undefined,
+        maxWidth: style.width || undefined,
+        height: liveSize?.h ? `${liveSize.h}px` : style.height || undefined,
+        order,
+        minWidth: 0,
+      };
+
   return (
-    <div
-      className="relative"
-      style={{ flex: flexBasis, width: style.width || undefined, maxWidth: style.width || undefined, order, minWidth: 0 }}
-    >
+    <div ref={wrapperRef} className="relative" style={outerStyle}>
       {forcedCssRules.length > 0 && <style>{forcedCssRules.join("")}</style>}
       {isEditMode && (
         <div className="absolute top-3 right-3 z-20 flex gap-2">
           <button
             onPointerDown={handlePointerDown}
-            title="Maintenir, glisser sur un autre tableau, relâcher pour échanger leur place"
+            title="Maintenir, glisser où vous voulez (ou sur un autre tableau pour échanger leur place)"
             style={{ touchAction: "none" }}
             className="w-8 h-8 rounded-md bg-felt-bg border border-felt-gold/40 text-felt-gold flex items-center justify-center text-sm shadow cursor-move"
           >
@@ -137,7 +240,27 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
           </button>
         </div>
       )}
-      {open && <PanelStyleEditor style={style} onChange={update} onClose={() => setOpen(false)} />}
+      {isEditMode && (
+        <div
+          onPointerDown={handleResizePointerDown}
+          title="Glisser pour redimensionner"
+          style={{ touchAction: "none" }}
+          className="absolute bottom-1 right-1 z-20 w-5 h-5 cursor-nwse-resize opacity-60 hover:opacity-100"
+        >
+          <svg viewBox="0 0 16 16" className="w-full h-full text-felt-gold">
+            <path d="M14 2 L2 14 M14 8 L8 14 M14 14 L14 14" stroke="currentColor" strokeWidth="1.5" fill="none" />
+          </svg>
+        </div>
+      )}
+      {open && (
+        <PanelStyleEditor
+          style={style}
+          onChange={update}
+          onClose={() => setOpen(false)}
+          hasFreePosition={hasFreePosition}
+          onResetPosition={() => update({ posX: null, posY: null, width: null, height: null })}
+        />
+      )}
       <div
         id={panelDomId}
         data-pcp-panel-key={panelKey}
@@ -149,6 +272,8 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
           "--pcp-banner-height": style.bannerHeight ? `${style.bannerHeight}px` : undefined,
           gridTemplateColumns: style.cardWidth ? `repeat(auto-fill, minmax(${style.cardWidth}px, 1fr))` : undefined,
           gridAutoRows: style.cardHeight ? `${style.cardHeight}px` : undefined,
+          height: livePos ? "100%" : undefined,
+          overflow: livePos || style.height ? "auto" : undefined,
         }}
         className={`${dragging ? "opacity-60" : ""} ${className || ""}`}
       >
@@ -176,7 +301,7 @@ function SizeColorRow({ label, sizeValue, colorValue, onSizeChange, onColorChang
   );
 }
 
-function PanelStyleEditor({ style, onChange, onClose }) {
+function PanelStyleEditor({ style, onChange, onClose, hasFreePosition, onResetPosition }) {
   return (
     <div
       onPointerDown={(e) => e.stopPropagation()}
@@ -189,6 +314,14 @@ function PanelStyleEditor({ style, onChange, onClose }) {
           ✕
         </button>
       </div>
+      {hasFreePosition && (
+        <div className="mb-2 pb-2 border-b border-felt-cream/10">
+          <div className="text-felt-cream/50 mb-1">Position libre activée (glissée manuellement)</div>
+          <button onClick={onResetPosition} className="text-felt-gold/80 hover:text-felt-gold">
+            ↺ Revenir à la disposition normale
+          </button>
+        </div>
+      )}
       <label className="flex items-center justify-between mb-2">
         Largeur (ex : 50%, 400px)
         <input
@@ -196,6 +329,16 @@ function PanelStyleEditor({ style, onChange, onClose }) {
           value={style.width || ""}
           placeholder="auto"
           onChange={(e) => onChange({ width: e.target.value || null })}
+          className="w-24 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
+        />
+      </label>
+      <label className="flex items-center justify-between mb-2">
+        Hauteur (px)
+        <input
+          type="number"
+          value={style.height || ""}
+          placeholder="auto"
+          onChange={(e) => onChange({ height: Number(e.target.value) || null })}
           className="w-24 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
         />
       </label>
@@ -422,6 +565,9 @@ function PanelStyleEditor({ style, onChange, onClose }) {
         onClick={() =>
           onChange({
             width: null,
+            height: null,
+            posX: null,
+            posY: null,
             bgColor: null,
             textColor: null,
             cellBgColor: null,
