@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase.js";
 import { useTheme } from "../context/ThemeContext.jsx";
 import { fetchCurrentTournament } from "../lib/tournaments.js";
 import { saveClockState } from "../lib/clockState.js";
+import { playSound, SOUND_OPTIONS } from "../lib/sounds.js";
 import { fetchClubSettings, setLiveAnnouncement } from "../lib/auth.js";
 import { compressImageFile } from "../lib/imageUtils.js";
 import EditableButton from "./EditableButton.jsx";
@@ -405,8 +406,10 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
 
   function goToNextLevel() {
     const next = levelIndex + 1;
-    if (next < levels.length) setLevelIndex(next);
-    else setIsRunning(false);
+    if (next < levels.length) {
+      setLevelIndex(next);
+      playSound(panels.timer.style.levelEndSound);
+    } else setIsRunning(false);
   }
   function goToPrevLevel() {
     const prev = Math.max(0, levelIndex - 1);
@@ -1860,6 +1863,29 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
             Centrer le temps (sans toucher au titre)
             <input type="checkbox" checked={!!style.centerTime} onChange={(e) => onChange({ centerTime: e.target.checked })} />
           </label>
+          <label className="flex items-center justify-between mb-2">
+            Son de fin de niveau
+            <select
+              value={style.levelEndSound || "none"}
+              onChange={(e) => onChange({ levelEndSound: e.target.value })}
+              className="bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream"
+            >
+              {SOUND_OPTIONS.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          {style.levelEndSound && style.levelEndSound !== "none" && (
+            <button
+              type="button"
+              onClick={() => playSound(style.levelEndSound)}
+              className="w-full text-center text-felt-gold/70 hover:text-felt-gold text-xs mb-2"
+            >
+              🔊 Tester le son
+            </button>
+          )}
         </>
       )}
       {defaultTitle === "Prochaine blind" && style.blindsLayout !== "stack" && (
