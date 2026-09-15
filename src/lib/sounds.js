@@ -36,10 +36,21 @@ export const SOUND_OPTIONS = [
   { id: "gong", label: "Gong" },
   { id: "airhorn", label: "Corne de brume" },
   { id: "beep3", label: "3 bips" },
+  { id: "custom", label: "🎵 Fichier importé…" },
 ];
 
-export function playSound(id) {
+export function playSound(id, customUrl) {
   if (!id || id === "none") return;
+  if (id === "custom") {
+    if (!customUrl) return;
+    try {
+      const audio = new Audio(customUrl);
+      audio.play().catch(() => {});
+    } catch {
+      // pas bloquant
+    }
+    return;
+  }
   try {
     const ctx = getCtx();
     const t0 = ctx.currentTime;

@@ -397,7 +397,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
           goToNextLevel();
           return (levels[levelIndex + 1]?.durationMinutes || 20) * 60;
         }
-        if (s - 1 === 60) playSound(panels.timer.style.oneMinuteSound);
+        if (s - 1 === 60) playSound(panels.timer.style.oneMinuteSound, panels.timer.style.oneMinuteSoundUrl);
         return s - 1;
       });
     }, 1000);
@@ -409,7 +409,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
     const next = levelIndex + 1;
     if (next < levels.length) {
       setLevelIndex(next);
-      playSound(panels.timer.style.levelEndSound);
+      playSound(panels.timer.style.levelEndSound, panels.timer.style.levelEndSoundUrl);
     } else setIsRunning(false);
   }
   function goToPrevLevel() {
@@ -606,6 +606,25 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
     } catch (err) {
       console.error("handleTournamentBgImage failed:", err);
       setBgSaveError(err?.message || "Échec de l'envoi de l'image.");
+    }
+    e.target.value = "";
+  }
+
+  const [soundUploadError, setSoundUploadError] = useState(null);
+  async function handleSoundUpload(e, urlKey, selectKey) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSoundUploadError(null);
+    try {
+      const ext = file.name.split(".").pop() || "mp3";
+      const path = `clock-sounds/${Date.now()}-${Math.round(Math.random() * 1e6)}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from("pokerclock-media").upload(path, file, { contentType: file.type, upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage.from("pokerclock-media").getPublicUrl(path);
+      updateStyle("timer", { [selectKey]: "custom", [urlKey]: urlData.publicUrl });
+    } catch (err) {
+      console.error("handleSoundUpload failed:", err);
+      setSoundUploadError(err?.message || "Échec de l'envoi du son.");
     }
     e.target.value = "";
   }
@@ -1031,7 +1050,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
       ))}
 
       {!panels.timer.removed && (
-        <Panel id="timer" layout={panels.timer} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Horloge" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
+        <Panel id="timer" layout={panels.timer} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Horloge" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets} onUploadSound={handleSoundUpload}>
           <div className="flex items-center justify-between text-felt-cream/50 mb-2 px-1" style={{ fontSize: `${panels.timer.style.indicatorFontSize || 11}px` }}>
             {panels.timer.style.showElapsed !== false && <span>⏱ {formatTime(elapsedSeconds)}</span>}
             {panels.timer.style.showNextBreak !== false && <span>☕ {hasUpcomingBreak ? formatTime(breakInSeconds) : "--:--"}</span>}
@@ -1636,7 +1655,7 @@ function useDragResize(id, layout, editing, containerRef, onMove, onCommit, onRe
   };
 }
 
-function Panel({ id, layout, editing, containerRef, onMove, onCommit, onResize, onEdgeResize, onRemovePanel, defaultTitle, children, stylingId, setStylingId, onStyleChange, showButtonOptions, showCarouselOptions, onToggleCarouselIncluded, showSponsorOptions, showAvatarOptions, borderColor, snapTargets }) {
+function Panel({ id, layout, editing, containerRef, onMove, onCommit, onResize, onEdgeResize, onRemovePanel, defaultTitle, children, stylingId, setStylingId, onStyleChange, showButtonOptions, showCarouselOptions, onToggleCarouselIncluded, showSponsorOptions, showAvatarOptions, borderColor, snapTargets, onUploadSound }) {
   const isStyling = stylingId === id;
   const h = useDragResize(id, layout, editing, containerRef, onMove, onCommit, onResize, undefined, snapTargets);
   const noDefaultBg = layout.style.transparent || layout.style.bgColor;
@@ -1728,6 +1747,7 @@ function Panel({ id, layout, editing, containerRef, onMove, onCommit, onResize, 
           showAvatarOptions={showAvatarOptions}
           onChange={(patch) => onStyleChange(id, patch)}
           onClose={() => setStylingId(null)}
+          onUploadSound={onUploadSound}
         />
       )}
     </div>
@@ -1803,7 +1823,7 @@ function ImagePanel({ img, editing, containerRef, zIndex, onMove, onCommit, onRe
   );
 }
 
-function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOptions, onToggleCarouselIncluded, showSponsorOptions, showAvatarOptions, onChange, onClose }) {
+function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOptions, onToggleCarouselIncluded, showSponsorOptions, showAvatarOptions, onChange, onClose, onUploadSound }) {
   return (
     <div
       data-style-popover="1"
@@ -1878,10 +1898,19 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
               ))}
             </select>
           </label>
-          {style.oneMinuteSound && style.oneMinuteSound !== "none" && (
+          {style.oneMinuteSound === "custom" && onUploadSound && (
+            <label className="block mb-2 text-[11px] text-felt-cream/50">
+              {style.oneMinuteSoundUrl ? "✓ Fichier importé — " : ""}
+              <span className="cursor-pointer text-felt-gold/80 hover:text-felt-gold underline">
+                {style.oneMinuteSoundUrl ? "remplacer" : "choisir un fichier audio"}
+              </span>
+              <input type="file" accept="audio/*" className="hidden" onChange={(e) => onUploadSound(e, "oneMinuteSoundUrl", "oneMinuteSound")} />
+            </label>
+          )}
+          {style.oneMinuteSound && style.oneMinuteSound !== "none" && (style.oneMinuteSound !== "custom" || style.oneMinuteSoundUrl) && (
             <button
               type="button"
-              onClick={() => playSound(style.oneMinuteSound)}
+              onClick={() => playSound(style.oneMinuteSound, style.oneMinuteSoundUrl)}
               className="w-full text-center text-felt-gold/70 hover:text-felt-gold text-xs mb-2"
             >
               🔊 Tester le son
@@ -1901,10 +1930,19 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
               ))}
             </select>
           </label>
-          {style.levelEndSound && style.levelEndSound !== "none" && (
+          {style.levelEndSound === "custom" && onUploadSound && (
+            <label className="block mb-2 text-[11px] text-felt-cream/50">
+              {style.levelEndSoundUrl ? "✓ Fichier importé — " : ""}
+              <span className="cursor-pointer text-felt-gold/80 hover:text-felt-gold underline">
+                {style.levelEndSoundUrl ? "remplacer" : "choisir un fichier audio"}
+              </span>
+              <input type="file" accept="audio/*" className="hidden" onChange={(e) => onUploadSound(e, "levelEndSoundUrl", "levelEndSound")} />
+            </label>
+          )}
+          {style.levelEndSound && style.levelEndSound !== "none" && (style.levelEndSound !== "custom" || style.levelEndSoundUrl) && (
             <button
               type="button"
-              onClick={() => playSound(style.levelEndSound)}
+              onClick={() => playSound(style.levelEndSound, style.levelEndSoundUrl)}
               className="w-full text-center text-felt-gold/70 hover:text-felt-gold text-xs mb-2"
             >
               🔊 Tester le son
