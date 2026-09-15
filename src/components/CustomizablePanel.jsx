@@ -208,8 +208,8 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
       }
     : {
         flex: flexBasis,
-        width: style.width || (defaultMaxWidth ? "100%" : undefined),
-        maxWidth: style.width || defaultMaxWidth || undefined,
+        width: liveSize?.w ? `${liveSize.w}px` : style.width || (defaultMaxWidth ? "100%" : undefined),
+        maxWidth: liveSize?.w ? `${liveSize.w}px` : style.width || defaultMaxWidth || undefined,
         height: liveSize?.h ? `${liveSize.h}px` : style.height || undefined,
         order,
         minWidth: 0,
@@ -248,11 +248,11 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
       {isEditMode && (
         <div
           onPointerDown={handleResizePointerDown}
-          title="Glisser pour redimensionner"
-          style={{ touchAction: "none" }}
-          className="absolute bottom-1 right-1 z-20 w-5 h-5 cursor-nwse-resize opacity-60 hover:opacity-100"
+          title="Maintenir et glisser pour redimensionner (vers la droite = plus large, vers le bas = plus haut)"
+          style={{ touchAction: "none", userSelect: "none" }}
+          className="absolute bottom-0 right-0 z-20 w-8 h-8 cursor-nwse-resize flex items-end justify-end p-1 bg-felt-gold/10 hover:bg-felt-gold/25 rounded-tl-md"
         >
-          <svg viewBox="0 0 16 16" className="w-full h-full text-felt-gold">
+          <svg viewBox="0 0 16 16" className="w-4 h-4 text-felt-gold pointer-events-none">
             <path d="M14 2 L2 14 M14 8 L8 14 M14 14 L14 14" stroke="currentColor" strokeWidth="1.5" fill="none" />
           </svg>
         </div>
@@ -333,7 +333,13 @@ function PanelStyleEditor({ style, onChange, onClose, hasFreePosition, onResetPo
           type="text"
           value={style.width || ""}
           placeholder="auto"
-          onChange={(e) => onChange({ width: e.target.value || null })}
+          onChange={(e) => {
+            const raw = e.target.value.trim();
+            // Un nombre seul (ex: "1200") est une largeur CSS invalide et
+            // serait ignoré silencieusement — on ajoute "px" automatiquement.
+            const value = raw && /^\d+(\.\d+)?$/.test(raw) ? `${raw}px` : raw;
+            onChange({ width: value || null });
+          }}
           className="w-24 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
         />
       </label>
