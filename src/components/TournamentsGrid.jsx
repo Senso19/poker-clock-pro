@@ -426,7 +426,7 @@ function TournamentCard({ t, badge, count, already, manage, busy, menuOpen, onOp
       <div className="mt-auto flex items-center gap-2 pt-1">
         <button
           onClick={onOpen}
-          className="text-sm px-4 py-2 rounded-full font-display text-felt-cream/80 border border-felt-cream/20 hover:text-white hover:border-felt-cream/40"
+          className="pcp-btn text-sm px-4 py-2 rounded-full font-display text-felt-cream/80 border border-felt-cream/20 hover:text-white hover:border-felt-cream/40"
         >
           Ouvrir
         </button>
@@ -437,7 +437,7 @@ function TournamentCard({ t, badge, count, already, manage, busy, menuOpen, onOp
               e.stopPropagation();
               onToggleRegister();
             }}
-            className={`text-sm px-4 py-2 rounded-full font-display ${
+            className={`pcp-btn text-sm px-4 py-2 rounded-full font-display ${
               already
                 ? "bg-felt-bg text-white border border-felt-cream/30"
                 : "bg-felt-gold text-felt-bg hover:bg-felt-gold/90"
@@ -500,7 +500,7 @@ function TournamentRow({ t, badge, count, already, manage, busy, menuOpen, onOpe
         </div>
       )}
       <div className="flex items-center gap-2 shrink-0">
-        <button onClick={onOpen} className="text-sm px-3 py-1.5 rounded-lg font-display text-felt-cream/80 border border-felt-cream/15 hover:text-white hover:border-felt-cream/30">
+        <button onClick={onOpen} className="pcp-btn text-sm px-3 py-1.5 rounded-lg font-display text-felt-cream/80 border border-felt-cream/15 hover:text-white hover:border-felt-cream/30">
           Ouvrir
         </button>
         {t.registration_open && (
@@ -510,7 +510,7 @@ function TournamentRow({ t, badge, count, already, manage, busy, menuOpen, onOpe
               e.stopPropagation();
               onToggleRegister();
             }}
-            className={`text-sm px-3 py-1.5 rounded-lg font-display ${
+            className={`pcp-btn text-sm px-3 py-1.5 rounded-lg font-display ${
               already ? "bg-felt-bg text-felt-cream/60 border border-felt-cream/15" : "bg-felt-gold text-felt-bg hover:bg-felt-gold/90"
             }`}
           >

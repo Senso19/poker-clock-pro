@@ -97,6 +97,8 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
   if (style.valueColor) forcedCssRules.push(`#${panelDomId} .pcp-value{color:${style.valueColor} !important;}`);
   if (style.textAlign) forcedCssRules.push(`#${panelDomId} .pcp-title,#${panelDomId} .pcp-body{text-align:${style.textAlign} !important;}`);
   if (style.rowDirection) forcedCssRules.push(`#${panelDomId} .pcp-row{flex-direction:${style.rowDirection} !important;}`);
+  if (style.btnBgColor) forcedCssRules.push(`#${panelDomId} .pcp-btn{background-color:${style.btnBgColor} !important; border-color:${style.btnBgColor} !important;}`);
+  if (style.btnTextColor) forcedCssRules.push(`#${panelDomId} .pcp-btn{color:${style.btnTextColor} !important;}`);
 
   return (
     <div
@@ -313,6 +315,33 @@ function PanelStyleEditor({ style, onChange, onClose }) {
         S'applique aux lignes icône + chiffre/texte de ce tableau qui prennent en charge ce réglage (ex. compteur de
         joueurs, badges).
       </div>
+      <div className="border-t border-felt-cream/10 my-2 pt-2 text-felt-cream/50">Boutons des cartes</div>
+      <label className="flex items-center justify-between mb-2">
+        Fond des boutons
+        <input
+          type="color"
+          value={style.btnBgColor || "#C9A15A"}
+          onChange={(e) => onChange({ btnBgColor: e.target.value })}
+          className="w-8 h-6 bg-transparent cursor-pointer"
+        />
+      </label>
+      <label className="flex items-center justify-between mb-2">
+        Texte des boutons
+        <input
+          type="color"
+          value={style.btnTextColor || "#14181C"}
+          onChange={(e) => onChange({ btnTextColor: e.target.value })}
+          className="w-8 h-6 bg-transparent cursor-pointer"
+        />
+      </label>
+      {(style.btnBgColor || style.btnTextColor) && (
+        <button
+          onClick={() => onChange({ btnBgColor: null, btnTextColor: null })}
+          className="w-full text-left px-0 text-felt-cream/40 hover:text-felt-cream mb-2"
+        >
+          Réinitialiser les boutons
+        </button>
+      )}
       <button
         onClick={() =>
           onChange({
@@ -332,6 +361,8 @@ function PanelStyleEditor({ style, onChange, onClose }) {
             valueColor: null,
             textAlign: null,
             rowDirection: null,
+            btnBgColor: null,
+            btnTextColor: null,
             order: null,
           })
         }
