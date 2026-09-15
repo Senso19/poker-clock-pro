@@ -22,7 +22,7 @@ const BASE_STYLE = {
 const DEFAULT_PANELS = {
   timer: {
     x: 2, y: 2, w: 34, h: 30, removed: false,
-    style: { ...BASE_STYLE, fontSize: 60, align: "center", indicatorFontSize: 11 },
+    style: { ...BASE_STYLE, fontSize: 60, align: "center", indicatorFontSize: 11, oneMinuteSound: "beep3", levelEndSound: "alarm" },
   },
   controls: {
     x: 2, y: 33, w: 34, h: 9, removed: false,
@@ -397,6 +397,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
           goToNextLevel();
           return (levels[levelIndex + 1]?.durationMinutes || 20) * 60;
         }
+        if (s - 1 === 60) playSound(panels.timer.style.oneMinuteSound);
         return s - 1;
       });
     }, 1000);
@@ -1863,6 +1864,29 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
             Centrer le temps (sans toucher au titre)
             <input type="checkbox" checked={!!style.centerTime} onChange={(e) => onChange({ centerTime: e.target.checked })} />
           </label>
+          <label className="flex items-center justify-between mb-2">
+            Son à 1 minute restante
+            <select
+              value={style.oneMinuteSound || "none"}
+              onChange={(e) => onChange({ oneMinuteSound: e.target.value })}
+              className="bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream"
+            >
+              {SOUND_OPTIONS.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          {style.oneMinuteSound && style.oneMinuteSound !== "none" && (
+            <button
+              type="button"
+              onClick={() => playSound(style.oneMinuteSound)}
+              className="w-full text-center text-felt-gold/70 hover:text-felt-gold text-xs mb-2"
+            >
+              🔊 Tester le son
+            </button>
+          )}
           <label className="flex items-center justify-between mb-2">
             Son de fin de niveau
             <select
