@@ -1149,16 +1149,12 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
                 </div>
               ) : (
                 <div className="flex items-center justify-center" style={{ gap: `${panels.next.style.itemGap ?? 8}px` }}>
-                  <span style={{ color: panels.next.style.metaColor || undefined, fontSize: `${panels.next.style.metaFontSize || 14}px` }}>{levelIndex + 2}</span>
+                  <span style={textStyle(panels.next.style)}>{levelIndex + 2}</span>
                   <span style={textStyle(panels.next.style)}>
                     {nextLevel.smallBlind}/{nextLevel.bigBlind}
                   </span>
-                  {nextLevel.ante > 0 && (
-                    <span style={{ color: panels.next.style.metaColor || undefined, fontSize: `${panels.next.style.metaFontSize || 14}px` }}>({nextLevel.ante})</span>
-                  )}
-                  {nextLevel.durationMinutes && (
-                    <span style={{ color: panels.next.style.metaColor || undefined, fontSize: `${panels.next.style.metaFontSize || 14}px` }}>{nextLevel.durationMinutes} min</span>
-                  )}
+                  {nextLevel.ante > 0 && <span style={textStyle(panels.next.style)}>({nextLevel.ante})</span>}
+                  {nextLevel.durationMinutes && <span style={textStyle(panels.next.style)}>{nextLevel.durationMinutes} min</span>}
                 </div>
               )
             ) : (
@@ -1734,28 +1730,6 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
             className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream"
           />
         </label>
-      )}
-      {defaultTitle === "Prochaine blind" && style.blindsLayout !== "stack" && (
-        <>
-          <label className="flex items-center justify-between mb-2">
-            Taille niveau/ante/durée (px)
-            <input
-              type="number"
-              value={style.metaFontSize ?? 14}
-              onChange={(e) => onChange({ metaFontSize: Number(e.target.value) })}
-              className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream"
-            />
-          </label>
-          <label className="flex items-center justify-between mb-2">
-            Couleur niveau/ante/durée
-            <input
-              type="color"
-              value={style.metaColor || "#8A8F97"}
-              onChange={(e) => onChange({ metaColor: e.target.value })}
-              className="w-8 h-6 bg-transparent cursor-pointer"
-            />
-          </label>
-        </>
       )}
       <label className="flex items-center justify-between mb-2">
         Position du titre
