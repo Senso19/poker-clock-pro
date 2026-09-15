@@ -561,6 +561,10 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
     const next = images.map((im) => (im.id === id ? { ...im, fit: im.fit === "cover" ? "contain" : "cover" } : im));
     persist(panels, next);
   }
+  function toggleImageGrayscale(id) {
+    const next = images.map((im) => (im.id === id ? { ...im, grayscale: !im.grayscale } : im));
+    persist(panels, next);
+  }
   function removeImage(id) {
     persist(panels, images.filter((im) => im.id !== id));
   }
@@ -664,7 +668,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   const bg = tournamentBg || theme.background;
   const clockBgStyle =
     bg?.type === "image"
-      ? { backgroundImage: `url(${bg.value})`, backgroundSize: "cover", backgroundPosition: "center" }
+      ? { backgroundImage: `url(${bg.value})`, backgroundSize: "cover", backgroundPosition: "center", filter: bg.grayscale ? "grayscale(1)" : undefined }
       : { backgroundColor: bg?.baseColor || bg?.value || "#14181C" };
   const stripeBars = bg?.bars || [];
   const bgTintStyle =
@@ -787,6 +791,14 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
 
                     {tournamentBg?.type === "image" && (
                       <div className="border-t border-felt-cream/10 mt-2 pt-2">
+                        <label className="flex items-center justify-between mb-2">
+                          Image en noir et blanc
+                          <input
+                            type="checkbox"
+                            checked={!!tournamentBg.grayscale}
+                            onChange={(e) => saveTournamentBg({ ...tournamentBg, grayscale: e.target.checked })}
+                          />
+                        </label>
                         <div className="text-felt-cream/50 mb-1">Teinte sur l'image</div>
                         <div className="flex items-center gap-2 mb-1.5">
                           <input
@@ -928,7 +940,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
 
 
       {backImages.map((im) => (
-        <ImagePanel key={im.id} img={im} editing={editing} containerRef={containerRef} zIndex={1} onMove={moveImage} onCommit={commitImages} onResize={resizeImage} onToggleLayer={toggleImageLayer} onToggleFit={toggleImageFit} onRemove={removeImage} />
+        <ImagePanel key={im.id} img={im} editing={editing} containerRef={containerRef} zIndex={1} onMove={moveImage} onCommit={commitImages} onResize={resizeImage} onToggleLayer={toggleImageLayer} onToggleFit={toggleImageFit} onToggleGrayscale={toggleImageGrayscale} onRemove={removeImage} />
       ))}
 
       {!panels.timer.removed && (
@@ -1261,7 +1273,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
       )}
 
       {frontImages.map((im) => (
-        <ImagePanel key={im.id} img={im} editing={editing} containerRef={containerRef} zIndex={20} onMove={moveImage} onCommit={commitImages} onResize={resizeImage} onToggleLayer={toggleImageLayer} onToggleFit={toggleImageFit} onRemove={removeImage} />
+        <ImagePanel key={im.id} img={im} editing={editing} containerRef={containerRef} zIndex={20} onMove={moveImage} onCommit={commitImages} onResize={resizeImage} onToggleLayer={toggleImageLayer} onToggleFit={toggleImageFit} onToggleGrayscale={toggleImageGrayscale} onRemove={removeImage} />
       ))}
 
       <style>{`@keyframes pcp-fade { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }`}</style>
@@ -1635,7 +1647,7 @@ function Panel({ id, layout, editing, containerRef, onMove, onCommit, onResize, 
   );
 }
 
-function ImagePanel({ img, editing, containerRef, zIndex, onMove, onCommit, onResize, onToggleLayer, onToggleFit, onRemove }) {
+function ImagePanel({ img, editing, containerRef, zIndex, onMove, onCommit, onResize, onToggleLayer, onToggleFit, onToggleGrayscale, onRemove }) {
   const h = useDragResize(img.id, img, editing, containerRef, onMove, onCommit, onResize, (e) => e.target.closest("[data-image-toolbar]"));
   const fit = img.fit === "cover" ? "cover" : "contain";
 
@@ -1655,6 +1667,7 @@ function ImagePanel({ img, editing, containerRef, zIndex, onMove, onCommit, onRe
           backgroundSize: fit,
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
+          filter: img.grayscale ? "grayscale(1)" : undefined,
         }}
       />
       {editing && (
@@ -1672,6 +1685,13 @@ function ImagePanel({ img, editing, containerRef, zIndex, onMove, onCommit, onRe
             className="text-[10px] px-2 py-0.5 rounded bg-felt-bg/90 text-felt-cream border border-felt-gold/40"
           >
             {fit === "cover" ? "⛶ Remplir" : "⬚ Ajuster"}
+          </button>
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => onToggleGrayscale(img.id)}
+            className={`text-[10px] px-2 py-0.5 rounded border ${img.grayscale ? "bg-felt-gold text-felt-bg border-felt-gold" : "bg-felt-bg/90 text-felt-cream border-felt-gold/40"}`}
+          >
+            N&B
           </button>
           <button
             onPointerDown={(e) => e.stopPropagation()}
