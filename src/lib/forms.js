@@ -8,8 +8,6 @@ import { computeSeatAssignment } from "./seating.js";
  * (inscrit le joueur au tournoi lié, lui attribue table+siège).
  */
 
-const MAX_PER_TABLE = 9;
-
 export function defaultTheme() {
   return {
     bgColor: "#14181C",

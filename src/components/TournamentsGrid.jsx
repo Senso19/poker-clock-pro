@@ -12,8 +12,6 @@ import CustomizablePanel from "./CustomizablePanel.jsx";
 import EditableButton from "./EditableButton.jsx";
 import { useConfirm } from "../context/ConfirmContext.jsx";
 
-const MAX_PER_TABLE = 9;
-
 /**
  * TournamentsGrid — page d'accueil : grille de tous les tournois, façon
  * BlindValet (bandeau "Actifs aujourd'hui", puis "Tous les tournois" avec
