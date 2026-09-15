@@ -400,6 +400,7 @@ function TournamentCard({ t, badge, count, already, manage, busy, menuOpen, onOp
   return (
     <div
       onClick={onOpen}
+      data-pcp-card
       className="relative bg-felt-panel border border-felt-cream/10 rounded-xl p-4 flex flex-col hover:border-felt-cream/20 transition-colors cursor-pointer"
     >
       <div className="pcp-title font-display text-base leading-tight mb-1 truncate">{t.name}</div>
@@ -486,6 +487,7 @@ function TournamentRow({ t, badge, count, already, manage, busy, menuOpen, onOpe
   return (
     <div
       onClick={onOpen}
+      data-pcp-card
       className="relative flex flex-wrap items-center gap-4 bg-felt-panel border border-felt-cream/10 rounded-lg px-4 py-3 hover:border-felt-cream/20 transition-colors cursor-pointer"
     >
       <div className="min-w-0 flex-1">
