@@ -656,10 +656,11 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   function PanelBody({ style, title, children }) {
     const dir = TITLE_FLEX_DIRECTION[style.titlePosition] || "flex-col";
     const isRow = style.titlePosition === "left" || style.titlePosition === "right";
+    const gap = style.titleGap ?? (isRow ? 8 : 4);
     return (
-      <div className={`flex ${dir} ${isRow ? "items-center gap-2" : ""} w-full h-full`}>
+      <div className={`flex ${dir} ${isRow ? "items-center" : ""} w-full h-full`} style={{ gap: `${gap}px` }}>
         {style.showTitle && (
-          <div className={`text-felt-cream/30 uppercase tracking-wide ${isRow ? "shrink-0" : "mb-1"}`} style={titleStyle(style)}>
+          <div className={`text-felt-cream/30 uppercase tracking-wide ${isRow ? "shrink-0" : ""}`} style={titleStyle(style)}>
             {title}
           </div>
         )}
@@ -1884,6 +1885,16 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
           <option value="left">Gauche</option>
           <option value="right">Droite</option>
         </select>
+      </label>
+      <label className="flex items-center justify-between mb-2">
+        Espace titre / contenu (px)
+        <input
+          type="number"
+          value={style.titleGap ?? ""}
+          placeholder="auto"
+          onChange={(e) => onChange({ titleGap: e.target.value === "" ? null : Number(e.target.value) })}
+          className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
+        />
       </label>
       <label className="flex items-center justify-between mb-2">
         Couleur du titre
