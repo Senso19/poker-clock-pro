@@ -12,6 +12,7 @@ import {
 } from "../lib/auth.js";
 import AvatarCropper from "./AvatarCropper.jsx";
 import CustomizablePanel from "./CustomizablePanel.jsx";
+import EditableButton from "./EditableButton.jsx";
 import { useConfirm } from "../context/ConfirmContext.jsx";
 
 /**
@@ -515,13 +516,16 @@ function EditAccountModal({ account, onClose, onSaved }) {
           <button onClick={onClose} className="flex-1 px-4 py-2 text-felt-cream/60 hover:text-felt-cream">
             Annuler
           </button>
-          <button
+          <EditableButton
+            groupKey="account-edit-modal"
+            id="save"
+            wrapperClassName="flex-1"
             onClick={handleSave}
             disabled={saving}
-            className="flex-1 px-4 py-2 bg-felt-gold text-felt-bg rounded-md font-display disabled:opacity-40"
+            className="w-full px-4 py-2 bg-felt-gold text-felt-bg rounded-md font-display disabled:opacity-40"
           >
             {saving ? "Sauvegarde…" : "Enregistrer"}
-          </button>
+          </EditableButton>
         </div>
       </div>
 

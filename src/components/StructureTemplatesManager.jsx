@@ -4,6 +4,7 @@ import { fetchClockTemplates, deleteClockTemplate, applyClockTemplateToTournamen
 import { fetchAllTournaments } from "../lib/tournaments.js";
 import { fetchFormTemplates, deleteFormTemplate } from "../lib/forms.js";
 import FormTemplatePreviewModal from "./FormTemplatePreviewModal.jsx";
+import EditableButton from "./EditableButton.jsx";
 import StructureEditor from "./StructureEditor.jsx";
 import ClockTemplateEditor from "./ClockTemplateEditor.jsx";
 import CustomizablePanel from "./CustomizablePanel.jsx";
@@ -191,12 +192,14 @@ export default function StructureTemplatesManager() {
 
       <div className="flex items-baseline justify-between mb-3">
         <div className="font-display text-lg">Modèles de structure</div>
-        <button
+        <EditableButton
+          groupKey="struct-templates-toolbar"
+          id="create"
           onClick={() => setEditingStruct({})}
           className="px-3 py-1.5 bg-felt-gold text-felt-bg rounded-md text-sm font-display"
         >
           + Nouveau modèle
-        </button>
+        </EditableButton>
       </div>
 
       {structTemplates.length === 0 ? (
@@ -258,12 +261,14 @@ export default function StructureTemplatesManager() {
 
       <div className="flex items-baseline justify-between mb-3">
         <div className="font-display text-lg">Modèles d'horloge</div>
-        <button
+        <EditableButton
+          groupKey="clock-templates-toolbar"
+          id="create"
           onClick={() => setEditingClock({})}
           className="px-3 py-1.5 bg-felt-gold text-felt-bg rounded-md text-sm font-display"
         >
           + Nouveau modèle
-        </button>
+        </EditableButton>
       </div>
 
       {clockTemplates.length === 0 ? (

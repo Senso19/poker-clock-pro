@@ -18,7 +18,7 @@ import { useEditMode } from "../context/EditModeContext.jsx";
  *
  * Persisté dans club_settings.theme.buttonStyles[groupKey.id].
  */
-export default function EditableButton({ groupKey, id, children, className, onClick, disabled, defaultOrder = 0 }) {
+export default function EditableButton({ groupKey, id, children, className, wrapperClassName, onClick, disabled, defaultOrder = 0 }) {
   const { theme, setTheme } = useTheme();
   const { isEditMode } = useEditMode();
   const [open, setOpen] = useState(false);
@@ -95,7 +95,7 @@ export default function EditableButton({ groupKey, id, children, className, onCl
     : { order };
 
   return (
-    <span ref={wrapperRef} className={`inline-flex ${!livePos ? "relative" : ""} ${dragPos ? "opacity-80" : ""}`} style={wrapperStyle}>
+    <span ref={wrapperRef} className={`inline-flex ${!livePos ? "relative" : ""} ${dragPos ? "opacity-80" : ""} ${!livePos ? wrapperClassName || "" : ""}`} style={wrapperStyle}>
       <span className="relative inline-flex">
         <button onClick={onClick} disabled={disabled} style={btnStyle} className={className}>
           {label}

@@ -13,6 +13,7 @@ import { canManageTournaments } from "../lib/auth.js";
 import ChampionshipDetailPage from "./ChampionshipDetailPage.jsx";
 import CustomizablePanel from "./CustomizablePanel.jsx";
 import { useConfirm } from "../context/ConfirmContext.jsx";
+import EditableButton from "./EditableButton.jsx";
 import { compressImageFile } from "../lib/imageUtils.js";
 
 const VARIABLES = [
@@ -177,12 +178,14 @@ export default function ChampionshipView() {
       <div className="flex items-baseline justify-between mb-6">
         <div className="text-xs font-display uppercase tracking-widest text-felt-cream/40">Championnats</div>
         {manage && (
-          <button
+          <EditableButton
+            groupKey="championships-toolbar"
+            id="create"
             onClick={() => setShowCreate(true)}
             className="px-4 py-2.5 bg-felt-gold text-felt-bg rounded-lg text-sm font-display hover:bg-felt-gold/90"
           >
             + Nouveau championnat
-          </button>
+          </EditableButton>
         )}
       </div>
 

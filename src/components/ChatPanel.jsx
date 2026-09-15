@@ -3,6 +3,7 @@ import { useAccount } from "../context/AccountContext.jsx";
 import { fetchMessages, sendMessage, deleteMessage } from "../lib/chat.js";
 import { fetchClubSettings } from "../lib/auth.js";
 import { useConfirm } from "../context/ConfirmContext.jsx";
+import EditableButton from "./EditableButton.jsx";
 
 const DEFAULT_MAX_LENGTH = 200;
 
@@ -148,13 +149,15 @@ export default function ChatPanel() {
             maxLength={maxLength}
             className="w-full bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-2 text-felt-cream placeholder:text-felt-cream/40"
           />
-          <button
+          <EditableButton
+            groupKey="chat-panel"
+            id="send"
             onClick={handleSend}
             disabled={sending || !text.trim() || blockedFor > 0}
             className="w-full px-4 py-2 bg-felt-gold text-felt-bg rounded-md font-display disabled:opacity-40 whitespace-nowrap"
           >
             {blockedFor > 0 ? `${blockedFor}s` : "Envoyer"}
-          </button>
+          </EditableButton>
         </div>
         <div className="flex items-center justify-between mt-1 text-[11px] text-felt-cream/30">
           <span>{blockedFor > 0 ? `Attends ${blockedFor}s avant de renvoyer un message` : ""}</span>
