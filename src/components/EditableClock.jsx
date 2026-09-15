@@ -54,6 +54,22 @@ const DEFAULT_PANELS = {
     x: 2, y: 2, w: 30, h: 8, removed: true,
     style: { ...BASE_STYLE, fontSize: 16, align: "left", showTitle: false, customTitle: "", text: "Votre texte ici" },
   },
+  avgstack: {
+    x: 78, y: 14, w: 20, h: 10, removed: true,
+    style: { ...BASE_STYLE, fontSize: 22, align: "center" },
+  },
+  playercount: {
+    x: 78, y: 26, w: 20, h: 10, removed: true,
+    style: { ...BASE_STYLE, fontSize: 24, align: "center" },
+  },
+  level: {
+    x: 2, y: 14, w: 16, h: 10, removed: true,
+    style: { ...BASE_STYLE, fontSize: 24, align: "center" },
+  },
+  prizepool: {
+    x: 2, y: 26, w: 22, h: 30, removed: true,
+    style: { ...BASE_STYLE, fontSize: 14, align: "center", payouts: [] },
+  },
 };
 
 const PANEL_LABELS = {
@@ -61,6 +77,7 @@ const PANEL_LABELS = {
   ranking: "Classement", structure: "Structure des blinds", eliminated: "Élimination",
   headsup: "Heads Up", carousel: "Carrousel", sponsors: "Sponsors", announcements: "Annonces",
   nextbreak: "Prochaine pause (compte à rebours)", customtext: "Texte libre",
+  avgstack: "Tapis moyen", playercount: "Joueurs (restant/total)", level: "Niveau", prizepool: "Prizepool (dotation)",
 };
 
 const FONT_FAMILY = {
@@ -1003,6 +1020,93 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
             />
           ) : (
             <div style={textStyle(panels.customtext.style)}>{panels.customtext.style.text || ""}</div>
+          )}
+        </Panel>
+      )}
+
+      {!panels.avgstack.removed && (
+        <Panel id="avgstack" layout={panels.avgstack} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Tapis moyen" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
+          <PanelBody style={panels.avgstack.style} title={panels.avgstack.style.customTitle || "Tapis moyen"}>
+            <div style={textStyle(panels.avgstack.style)}>
+              {avgStack.toLocaleString()} <span className="text-felt-gold" style={{ fontSize: `${panels.avgstack.style.fontSize * 0.5}px` }}>({avgStackBB} BB)</span>
+            </div>
+          </PanelBody>
+        </Panel>
+      )}
+
+      {!panels.playercount.removed && (
+        <Panel id="playercount" layout={panels.playercount} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Joueurs (restant/total)" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
+          <PanelBody style={panels.playercount.style} title={panels.playercount.style.customTitle || "Joueurs"}>
+            <div style={textStyle(panels.playercount.style)}>
+              {stillIn.length}/{registrations.length}
+            </div>
+          </PanelBody>
+        </Panel>
+      )}
+
+      {!panels.level.removed && (
+        <Panel id="level" layout={panels.level} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Niveau" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
+          <PanelBody style={panels.level.style} title={panels.level.style.customTitle || "Niveau"}>
+            <div style={textStyle(panels.level.style)}>
+              {currentLevel?.isBreak ? currentLevel.breakLabel || "PAUSE" : levelIndex + 1}
+            </div>
+          </PanelBody>
+        </Panel>
+      )}
+
+      {!panels.prizepool.removed && (
+        <Panel id="prizepool" layout={panels.prizepool} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Prizepool" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
+          {panels.prizepool.style.showTitle && (
+            <div className="text-felt-cream/30 uppercase tracking-wide mb-1 text-center" style={titleStyle(panels.prizepool.style)}>
+              {panels.prizepool.style.customTitle || "Prizepool"}
+            </div>
+          )}
+          <div className="overflow-y-auto" style={{ maxHeight: "100%" }}>
+            {(panels.prizepool.style.payouts || []).map((p, i) => (
+              <div key={i} className="flex items-center gap-2 mb-1" style={textStyle({ ...panels.prizepool.style, fontSize: panels.prizepool.style.fontSize * 0.8 })}>
+                {editing ? (
+                  <>
+                    <input
+                      value={p.position}
+                      onChange={(e) => {
+                        const payouts = panels.prizepool.style.payouts.map((r, j) => (j === i ? { ...r, position: e.target.value } : r));
+                        updateStyle("prizepool", { payouts });
+                      }}
+                      placeholder="1er"
+                      className="w-14 bg-transparent border-b border-dashed border-felt-cream/30 outline-none"
+                    />
+                    <input
+                      value={p.amount}
+                      onChange={(e) => {
+                        const payouts = panels.prizepool.style.payouts.map((r, j) => (j === i ? { ...r, amount: e.target.value } : r));
+                        updateStyle("prizepool", { payouts });
+                      }}
+                      placeholder="500€"
+                      className="flex-1 bg-transparent border-b border-dashed border-felt-cream/30 outline-none"
+                    />
+                    <button
+                      onClick={() => updateStyle("prizepool", { payouts: panels.prizepool.style.payouts.filter((_, j) => j !== i) })}
+                      className="text-felt-alert/70 hover:text-felt-alert text-xs"
+                    >
+                      ✕
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-felt-cream/50">{p.position}</span>
+                    <span className="flex-1 text-right text-felt-gold">{p.amount}</span>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+          {editing && (
+            <button
+              onClick={() => updateStyle("prizepool", { payouts: [...(panels.prizepool.style.payouts || []), { position: "", amount: "" }] })}
+              className="w-full text-center text-felt-gold/70 hover:text-felt-gold text-xs mt-1"
+            >
+              + Ajouter une position
+            </button>
           )}
         </Panel>
       )}
