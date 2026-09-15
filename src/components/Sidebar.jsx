@@ -229,7 +229,7 @@ export default function Sidebar({ tab, setTab }) {
     return <div className="border-t border-felt-gold/10 mx-5 my-3" />;
   }
 
-  function NavList({ onNavigate }) {
+  function renderNavList(onNavigate) {
     const visibleOrder = order.filter(isVisible);
     return (
       <nav className="flex-1 overflow-y-auto py-3 flex flex-col min-h-0">
@@ -405,7 +405,7 @@ export default function Sidebar({ tab, setTab }) {
           >
             19PokerClub
           </div>
-          {clubCode && <div className="text-[11px] text-felt-cream/40">ID · {clubCode}</div>}
+          {clubCode && <div className="text-[11px] text-felt-cream/40">Since 2014</div>}
         </div>
         {manage && (
           <button
@@ -561,7 +561,7 @@ export default function Sidebar({ tab, setTab }) {
             ✕
           </button>
         </div>
-        <NavList onNavigate={handleNav} />
+        {renderNavList(handleNav)}
         <ProfileFooter onNavigate={() => setMobileOpen(false)} />
       </div>
 
@@ -573,7 +573,7 @@ export default function Sidebar({ tab, setTab }) {
         >
           <div style={{ width }} className="h-full flex flex-col">
             <ClubHeader />
-            <NavList onNavigate={(key) => setTab(key)} />
+            {renderNavList((key) => setTab(key))}
             <ProfileFooter />
           </div>
         </div>

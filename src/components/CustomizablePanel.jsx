@@ -96,6 +96,7 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
   if (style.valueSize) forcedCssRules.push(`#${panelDomId} .pcp-value{font-size:${style.valueSize}px !important;}`);
   if (style.valueColor) forcedCssRules.push(`#${panelDomId} .pcp-value{color:${style.valueColor} !important;}`);
   if (style.textAlign) forcedCssRules.push(`#${panelDomId} .pcp-title,#${panelDomId} .pcp-body{text-align:${style.textAlign} !important;}`);
+  if (style.rowDirection) forcedCssRules.push(`#${panelDomId} .pcp-row{flex-direction:${style.rowDirection} !important;}`);
 
   return (
     <div
@@ -294,6 +295,24 @@ function PanelStyleEditor({ style, onChange, onClose }) {
           <option value="right">Droite</option>
         </select>
       </label>
+      <label className="flex items-center justify-between mb-2">
+        Disposition icône / texte
+        <select
+          value={style.rowDirection || ""}
+          onChange={(e) => onChange({ rowDirection: e.target.value || null })}
+          className="bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream"
+        >
+          <option value="">Par défaut</option>
+          <option value="row">Icône puis texte</option>
+          <option value="row-reverse">Texte puis icône</option>
+          <option value="column">Icône au-dessus</option>
+          <option value="column-reverse">Texte au-dessus</option>
+        </select>
+      </label>
+      <div className="text-[10px] text-felt-cream/40 mb-2 -mt-1">
+        S'applique aux lignes icône + chiffre/texte de ce tableau qui prennent en charge ce réglage (ex. compteur de
+        joueurs, badges).
+      </div>
       <button
         onClick={() =>
           onChange({
@@ -312,6 +331,7 @@ function PanelStyleEditor({ style, onChange, onClose }) {
             valueSize: null,
             valueColor: null,
             textAlign: null,
+            rowDirection: null,
             order: null,
           })
         }

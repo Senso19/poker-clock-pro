@@ -413,7 +413,7 @@ function TournamentCard({ t, badge, count, already, manage, busy, menuOpen, onOp
           {badge.label}
         </span>
       </div>
-      <div className="pcp-value flex items-center justify-center gap-2 text-xl font-display py-3 mb-3">
+      <div className="pcp-value pcp-row flex items-center justify-center gap-2 text-xl font-display py-3 mb-3">
         <span className="text-base opacity-70">👥</span>
         <span>{count}</span>
       </div>

@@ -329,9 +329,11 @@ export default function LayoutSettings() {
       </div>
 
       <div className="mb-6 bg-felt-panel border border-felt-cream/10 rounded-md px-4 py-3">
-        <div className="font-medium mb-1">Couleur de fond des tableaux</div>
+        <div className="font-medium mb-1">Couleur de fond des cartes</div>
         <div className="text-xs text-felt-cream/50 mb-3">
-          S'applique aux cartes des onglets Structure des blinds et Joueurs (paramètres et tableau).
+          S'applique par défaut à toutes les cartes/tableaux personnalisables du site (tournois, championnats,
+          registres, membres, etc.), sauf si une couleur différente a été choisie pour un tableau en particulier via
+          son propre bouton 🎨.
         </div>
         <div className="flex items-center gap-3">
           <input
