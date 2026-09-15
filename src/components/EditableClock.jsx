@@ -53,7 +53,14 @@ const PANEL_LABELS = {
   headsup: "Heads Up", carousel: "Carrousel", sponsors: "Sponsors", announcements: "Annonces",
 };
 
-const FONT_FAMILY = { display: "'Oswald', sans-serif", body: "'Inter', sans-serif", mono: "monospace" };
+const FONT_FAMILY = {
+  display: "'Oswald', sans-serif",
+  body: "'Inter', sans-serif",
+  mono: "monospace",
+  poster: "'Luckiest Guy', cursive",
+  anton: "'Anton', sans-serif",
+  bungee: "'Bungee', sans-serif",
+};
 const BUTTON_SIZE = { sm: "px-2 py-1 text-xs", md: "px-3 py-1.5 text-sm", lg: "px-5 py-3 text-lg" };
 const H_ALIGN = { left: "justify-start", center: "justify-center", right: "justify-end" };
 const V_ALIGN = { top: "flex-start", center: "center", bottom: "flex-end" };
@@ -565,7 +572,17 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   const clockBgStyle =
     bg?.type === "image"
       ? { backgroundImage: `url(${bg.value})`, backgroundSize: "cover", backgroundPosition: "center" }
+      : bg?.type === "stripes"
+      ? {
+          backgroundImage: `repeating-linear-gradient(90deg, ${bg.colorA || "#0A0C0F"} 0, ${bg.colorA || "#0A0C0F"} ${bg.width || 40}px, ${
+            bg.colorB || "#1B2027"
+          } ${bg.width || 40}px, ${bg.colorB || "#1B2027"} ${(bg.width || 40) * 2}px)`,
+        }
       : { backgroundColor: bg?.value || "#14181C" };
+  const bgTintStyle =
+    bg?.type === "image" && bg.tint?.color
+      ? { backgroundColor: bg.tint.color, opacity: bg.tint.opacity ?? 0.5, mixBlendMode: "color" }
+      : null;
 
   async function saveTournamentBg(next) {
     setTournamentBg(next);
@@ -579,6 +596,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
 
   return (
     <div ref={containerRef} className="relative w-full h-full overflow-hidden" style={clockBgStyle}>
+      {bgTintStyle && <div className="absolute inset-0 pointer-events-none" style={bgTintStyle} />}
       {!isFullscreen && (
         <div
           className="absolute top-2 right-2 z-40 flex flex-wrap justify-end items-center gap-1 max-w-[95%]"
@@ -632,7 +650,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
                   🎨 Fond
                 </button>
                 {showBgPicker && (
-                  <div className="absolute top-9 right-0 bg-felt-bg border border-felt-gold/40 rounded-md p-3 w-52 text-xs text-felt-cream shadow-lg z-50">
+                  <div className="absolute top-9 right-0 bg-felt-bg border border-felt-gold/40 rounded-md p-3 w-60 text-xs text-felt-cream shadow-lg z-50 max-h-[70vh] overflow-y-auto">
                     <div className="mb-2 text-felt-cream/50">Fond de l'horloge (ce tournoi uniquement)</div>
                     <input
                       type="color"
@@ -647,10 +665,99 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
                       🖼 Utiliser une image
                     </button>
                     <input ref={tournamentBgFileRef} type="file" accept="image/*" onChange={handleTournamentBgImage} className="hidden" />
+
+                    {tournamentBg?.type === "image" && (
+                      <div className="border-t border-felt-cream/10 mt-2 pt-2">
+                        <div className="text-felt-cream/50 mb-1">Teinte sur l'image</div>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <input
+                            type="color"
+                            value={tournamentBg.tint?.color || "#1E6FEB"}
+                            onChange={(e) =>
+                              saveTournamentBg({ ...tournamentBg, tint: { ...(tournamentBg.tint || {}), color: e.target.value, opacity: tournamentBg.tint?.opacity ?? 0.5 } })
+                            }
+                            className="w-8 h-6 bg-transparent cursor-pointer"
+                          />
+                          <input
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.05"
+                            value={tournamentBg.tint?.opacity ?? 0.5}
+                            onChange={(e) =>
+                              saveTournamentBg({ ...tournamentBg, tint: { color: tournamentBg.tint?.color || "#1E6FEB", opacity: Number(e.target.value) } })
+                            }
+                            className="flex-1"
+                          />
+                        </div>
+                        {tournamentBg.tint && (
+                          <button
+                            onClick={() => saveTournamentBg({ ...tournamentBg, tint: null })}
+                            className="w-full text-left px-2 py-1 rounded hover:bg-felt-panel text-felt-cream/50"
+                          >
+                            Retirer la teinte
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="border-t border-felt-cream/10 mt-2 pt-2">
+                      <div className="text-felt-cream/50 mb-1.5">Rayures verticales</div>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <input
+                          type="color"
+                          value={tournamentBg?.type === "stripes" ? tournamentBg.colorA || "#0A0C0F" : "#0A0C0F"}
+                          onChange={(e) =>
+                            saveTournamentBg({
+                              type: "stripes",
+                              colorA: e.target.value,
+                              colorB: tournamentBg?.type === "stripes" ? tournamentBg.colorB : "#1B2027",
+                              width: tournamentBg?.type === "stripes" ? tournamentBg.width : 40,
+                            })
+                          }
+                          className="w-8 h-6 bg-transparent cursor-pointer"
+                        />
+                        <input
+                          type="color"
+                          value={tournamentBg?.type === "stripes" ? tournamentBg.colorB || "#1B2027" : "#1B2027"}
+                          onChange={(e) =>
+                            saveTournamentBg({
+                              type: "stripes",
+                              colorA: tournamentBg?.type === "stripes" ? tournamentBg.colorA : "#0A0C0F",
+                              colorB: e.target.value,
+                              width: tournamentBg?.type === "stripes" ? tournamentBg.width : 40,
+                            })
+                          }
+                          className="w-8 h-6 bg-transparent cursor-pointer"
+                        />
+                        <input
+                          type="number"
+                          value={tournamentBg?.type === "stripes" ? tournamentBg.width || 40 : 40}
+                          onChange={(e) =>
+                            saveTournamentBg({
+                              type: "stripes",
+                              colorA: tournamentBg?.type === "stripes" ? tournamentBg.colorA : "#0A0C0F",
+                              colorB: tournamentBg?.type === "stripes" ? tournamentBg.colorB : "#1B2027",
+                              width: Number(e.target.value) || 40,
+                            })
+                          }
+                          className="w-14 bg-felt-panel border border-felt-cream/10 rounded px-1 py-1 text-felt-cream"
+                        />
+                      </div>
+                      {tournamentBg?.type !== "stripes" && (
+                        <button
+                          onClick={() => saveTournamentBg({ type: "stripes", colorA: "#0A0C0F", colorB: "#1B2027", width: 40 })}
+                          className="w-full text-left px-2 py-1.5 rounded hover:bg-felt-panel text-felt-cream/80"
+                        >
+                          ▥ Appliquer les rayures
+                        </button>
+                      )}
+                    </div>
+
                     {tournamentBg && (
                       <button
                         onClick={() => saveTournamentBg(null)}
-                        className="w-full text-left px-2 py-1.5 rounded hover:bg-felt-panel text-felt-cream/60"
+                        className="w-full text-left px-2 py-1.5 rounded hover:bg-felt-panel text-felt-cream/60 mt-2 border-t border-felt-cream/10 pt-2"
                       >
                         ↺ Revenir au fond du club
                       </button>
@@ -1349,6 +1456,9 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
           <option value="display">Titre</option>
           <option value="body">Texte</option>
           <option value="mono">Mono</option>
+          <option value="poster">Poster (bold arrondi)</option>
+          <option value="anton">Affiche condensée</option>
+          <option value="bungee">Bungee (rétro)</option>
         </select>
       </label>
       <div className="border-t border-felt-cream/10 my-2 pt-2 text-felt-cream/50">Fond du panneau</div>
