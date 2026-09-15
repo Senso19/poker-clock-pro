@@ -431,6 +431,21 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
     setIsRunning(next);
     persistNow(levelIndex, secondsLeft, next);
   }
+
+  // Raccourci clavier : Entrée bascule lecture/pause de l'horloge (sauf
+  // pendant la saisie dans un champ texte, ou en mode réorganisation).
+  useEffect(() => {
+    function onKeyDown(e) {
+      if (e.key !== "Enter") return;
+      if (editing) return;
+      const tag = document.activeElement?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || document.activeElement?.isContentEditable) return;
+      e.preventDefault();
+      toggleRunning();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isRunning, levelIndex, secondsLeft, editing]);
   function handleProgressClick(e) {
     if (editing) return;
     const rect = e.currentTarget.getBoundingClientRect();
@@ -919,8 +934,8 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
       {!panels.timer.removed && (
         <Panel id="timer" layout={panels.timer} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Horloge" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
           <div className="flex items-center justify-between text-felt-cream/50 mb-2 px-1" style={{ fontSize: `${panels.timer.style.indicatorFontSize || 11}px` }}>
-            <span>⏱ {formatTime(elapsedSeconds)}</span>
-            <span>☕ {hasUpcomingBreak ? formatTime(breakInSeconds) : "--:--"}</span>
+            {panels.timer.style.showElapsed !== false && <span>⏱ {formatTime(elapsedSeconds)}</span>}
+            {panels.timer.style.showNextBreak !== false && <span>☕ {hasUpcomingBreak ? formatTime(breakInSeconds) : "--:--"}</span>}
           </div>
           <PanelBody
             style={panels.timer.style}
@@ -1021,6 +1036,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
           )}
           {editing ? (
             <input
+              onPointerDown={(e) => e.stopPropagation()}
               value={panels.customtext.style.text || ""}
               onChange={(e) => updateStyle("customtext", { text: e.target.value })}
               placeholder="Votre texte ici"
@@ -1076,6 +1092,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
                 {editing ? (
                   <>
                     <input
+                      onPointerDown={(e) => e.stopPropagation()}
                       value={p.position}
                       onChange={(e) => {
                         const payouts = panels.prizepool.style.payouts.map((r, j) => (j === i ? { ...r, position: e.target.value } : r));
@@ -1085,6 +1102,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
                       className="w-14 bg-transparent border-b border-dashed border-felt-cream/30 outline-none"
                     />
                     <input
+                      onPointerDown={(e) => e.stopPropagation()}
                       value={p.amount}
                       onChange={(e) => {
                         const payouts = panels.prizepool.style.payouts.map((r, j) => (j === i ? { ...r, amount: e.target.value } : r));
@@ -1094,6 +1112,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
                       className="flex-1 bg-transparent border-b border-dashed border-felt-cream/30 outline-none"
                     />
                     <button
+                      onPointerDown={(e) => e.stopPropagation()}
                       onClick={() => updateStyle("prizepool", { payouts: panels.prizepool.style.payouts.filter((_, j) => j !== i) })}
                       className="text-felt-alert/70 hover:text-felt-alert text-xs"
                     >
@@ -1111,6 +1130,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
           </div>
           {editing && (
             <button
+              onPointerDown={(e) => e.stopPropagation()}
               onClick={() => updateStyle("prizepool", { payouts: [...(panels.prizepool.style.payouts || []), { position: "", amount: "" }] })}
               className="w-full text-center text-felt-gold/70 hover:text-felt-gold text-xs mt-1"
             >
@@ -1719,6 +1739,18 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
             <option value="row">SB à côté de BB</option>
           </select>
         </label>
+      )}
+      {defaultTitle === "Horloge" && (
+        <>
+          <label className="flex items-center justify-between mb-2">
+            Afficher le temps total de jeu (⏱)
+            <input type="checkbox" checked={style.showElapsed !== false} onChange={(e) => onChange({ showElapsed: e.target.checked })} />
+          </label>
+          <label className="flex items-center justify-between mb-2">
+            Afficher le minuteur vers la pause (☕)
+            <input type="checkbox" checked={style.showNextBreak !== false} onChange={(e) => onChange({ showNextBreak: e.target.checked })} />
+          </label>
+        </>
       )}
       {defaultTitle === "Prochaine blind" && style.blindsLayout !== "stack" && (
         <label className="flex items-center justify-between mb-2">
