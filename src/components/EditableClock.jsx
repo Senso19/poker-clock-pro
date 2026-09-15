@@ -4,6 +4,7 @@ import { useTheme } from "../context/ThemeContext.jsx";
 import { fetchCurrentTournament } from "../lib/tournaments.js";
 import { saveClockState } from "../lib/clockState.js";
 import { playSound, SOUND_OPTIONS } from "../lib/sounds.js";
+import { formatTime } from "../lib/format.js";
 import { fetchClubSettings, setLiveAnnouncement } from "../lib/auth.js";
 import { compressImageFile } from "../lib/imageUtils.js";
 import EditableButton from "./EditableButton.jsx";
@@ -464,12 +465,6 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
     const newSecondsLeft = Math.round(total * (1 - fraction));
     setSecondsLeft(newSecondsLeft);
     persistNow(levelIndex, newSecondsLeft, isRunning);
-  }
-  function formatTime(s) {
-    const total = Math.max(0, Math.floor(s || 0));
-    const m = Math.floor(total / 60);
-    const sec = total % 60;
-    return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
   }
 
   let elapsedSeconds = 0;

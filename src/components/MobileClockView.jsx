@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase.js";
 import { fetchCurrentTournament } from "../lib/tournaments.js";
 import { saveClockState } from "../lib/clockState.js";
 import { canControlClock } from "../lib/auth.js";
+import { formatTime } from "../lib/format.js";
 import { useAccount } from "../context/AccountContext.jsx";
 
 // Avance le niveau/temps restant d'un nombre de secondes écoulées, comme
@@ -28,12 +29,6 @@ function advanceForElapsed(levelIndex, secondsLeft, elapsedSeconds, levels) {
   return { levelIndex: idx, secondsLeft: left };
 }
 
-function formatTime(s) {
-  const total = Math.max(0, Math.floor(s || 0));
-  const m = Math.floor(total / 60);
-  const sec = total % 60;
-  return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
-}
 
 /**
  * MobileClockView — écran d'horloge simplifié pour téléphone : une seule
