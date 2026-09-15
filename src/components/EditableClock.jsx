@@ -233,6 +233,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   const [sponsorIdx, setSponsorIdx] = useState(0);
   const [announcement, setAnnouncement] = useState("");
   const [tournamentBg, setTournamentBg] = useState(null);
+  const [bgSaveError, setBgSaveError] = useState(null);
   const [showBgPicker, setShowBgPicker] = useState(false);
   const tournamentLayoutAppliedRef = useRef(false);
 
@@ -580,7 +581,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   async function handleTournamentBgImage(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const dataUrl = await compressImageFile(file, { maxSize: 1600 });
+    const dataUrl = await compressImageFile(file, { maxSize: 1280, quality: 0.75 });
     saveTournamentBg({ ...tournamentBg, type: "image", value: dataUrl });
     e.target.value = "";
   }
@@ -678,11 +679,17 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
 
   async function saveTournamentBg(next) {
     setTournamentBg(next);
+    setBgSaveError(null);
     if (!tournamentId) return;
     try {
-      await supabase.from("tournaments").update({ clock_background: next }).eq("id", tournamentId);
-    } catch {
-      // pas bloquant pour l'affichage
+      const { error } = await supabase.from("tournaments").update({ clock_background: next }).eq("id", tournamentId);
+      if (error) {
+        console.error("saveTournamentBg failed:", error);
+        setBgSaveError(error.message || "Échec de l'enregistrement du fond.");
+      }
+    } catch (err) {
+      console.error("saveTournamentBg failed:", err);
+      setBgSaveError(err?.message || "Échec de l'enregistrement du fond.");
     }
   }
 
@@ -775,6 +782,11 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
                 {showBgPicker && (
                   <div className="absolute top-9 right-0 bg-felt-bg border border-felt-gold/40 rounded-md p-3 w-60 text-xs text-felt-cream shadow-lg z-50 max-h-[70vh] overflow-y-auto">
                     <div className="mb-2 text-felt-cream/50">Fond de l'horloge (ce tournoi uniquement)</div>
+                    {bgSaveError && (
+                      <div className="mb-2 text-felt-alert text-[11px] bg-felt-alert/10 border border-felt-alert/30 rounded px-2 py-1">
+                        ⚠ {bgSaveError}
+                      </div>
+                    )}
                     <input
                       type="color"
                       value={tournamentBg?.type === "color" || !tournamentBg?.type ? tournamentBg?.value || "#14181C" : "#14181C"}
