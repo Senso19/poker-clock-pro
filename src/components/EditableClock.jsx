@@ -956,7 +956,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
         </Panel>
       )}
 
-
+      {!panels.players.removed && (
         <Panel id="players" layout={panels.players} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Joueurs" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
           {panels.players.style.showTitle && <div className="text-felt-cream/30 uppercase tracking-wide mb-1" style={titleStyle(panels.players.style)}>{panels.players.style.customTitle || "Joueurs"}</div>}
           <div style={textStyle(panels.players.style)}>

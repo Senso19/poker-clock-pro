@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "../lib/supabase.js";
+import { setRolePermissionsOverride } from "../lib/auth.js";
 
 const defaultTheme = {
   background: { type: "color", value: "#14181C" },
@@ -26,6 +27,10 @@ export function ThemeProvider({ children }) {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    setRolePermissionsOverride(theme.rolePermissions);
+  }, [theme.rolePermissions]);
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme }}>{children}</ThemeContext.Provider>

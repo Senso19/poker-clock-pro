@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Pencil, Trash2, Merge, Search, UserPlus, Mail, Download, Copy, Lock } from "lucide-react";
+import { Pencil, Trash2, Merge, Search, UserPlus, Mail, Download, Copy, Lock, LockOpen } from "lucide-react";
 import {
   fetchAllAccounts,
   updateAccountRole,
@@ -9,7 +9,11 @@ import {
   mergeAccounts,
   fetchClubSettings,
   ROLE_LABELS,
+  PERMISSION_LABELS,
+  DEFAULT_ROLE_PERMISSIONS,
 } from "../lib/auth.js";
+import { supabase } from "../lib/supabase.js";
+import { useTheme } from "../context/ThemeContext.jsx";
 import AvatarCropper from "./AvatarCropper.jsx";
 import CustomizablePanel from "./CustomizablePanel.jsx";
 import EditableButton from "./EditableButton.jsx";
@@ -203,6 +207,8 @@ export default function AccountsAdmin() {
         ))}
         {filtered.length === 0 && <div className="text-sm text-felt-cream/50 py-6">Aucun membre ne correspond.</div>}
       </CustomizablePanel>
+
+      <RolePermissionsMatrix />
       </div>
 
       {editingAccount && (
@@ -555,5 +561,93 @@ function Field({ label, value, onChange, placeholder, type = "text" }) {
         className="w-full mt-1 bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-2 text-felt-cream placeholder:text-felt-cream/30"
       />
     </label>
+  );
+}
+
+/**
+ * RolePermissionsMatrix — tableau des droits par rôle, modifiable à
+ * volonté par l'administrateur (cases à cocher), avec un cadenas en bout
+ * de ligne pour figer un rôle (empêcher toute modification accidentelle
+ * de ses droits). Stocké dans club_settings.theme.rolePermissions /
+ * rolePermissionsLocked, et lu par les fonctions can*() de lib/auth.js
+ * partout dans l'app.
+ */
+function RolePermissionsMatrix() {
+  const { theme, setTheme } = useTheme();
+  const perms = { ...DEFAULT_ROLE_PERMISSIONS, ...(theme.rolePermissions || {}) };
+  const locked = theme.rolePermissionsLocked || {};
+  const roles = Object.keys(ROLE_LABELS).filter((r) => r !== "admin");
+  const permKeys = Object.keys(PERMISSION_LABELS);
+
+  async function persist(next) {
+    setTheme(next);
+    const { data: existing } = await supabase.from("club_settings").select("id").limit(1).maybeSingle();
+    const payload = { club_name: "19PokerClub", theme: next };
+    if (existing) await supabase.from("club_settings").update(payload).eq("id", existing.id);
+    else await supabase.from("club_settings").insert(payload);
+  }
+
+  function toggle(role, key) {
+    if (locked[role]) return;
+    const nextPerms = { ...perms, [role]: { ...perms[role], [key]: !perms[role]?.[key] } };
+    persist({ ...theme, rolePermissions: nextPerms });
+  }
+
+  function toggleLock(role) {
+    const nextLocked = { ...locked, [role]: !locked[role] };
+    persist({ ...theme, rolePermissionsLocked: nextLocked });
+  }
+
+  return (
+    <div className="mt-8 bg-felt-panel border border-felt-cream/10 rounded-md p-4">
+      <div className="font-display text-base mb-1">Droits par rôle</div>
+      <div className="text-xs text-felt-cream/50 mb-4">
+        Modifiable uniquement par l'administrateur. « Invité » a les mêmes droits que « Joueur » par défaut. Le rôle
+        Administrateur a toujours tous les droits (non modifiable). Cliquez le cadenas pour figer un rôle et éviter
+        toute modification accidentelle.
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-felt-cream/40 text-xs">
+              <th className="py-1.5 pr-3 font-normal">Rôle</th>
+              {permKeys.map((k) => (
+                <th key={k} className="py-1.5 px-2 font-normal text-center">
+                  {PERMISSION_LABELS[k]}
+                </th>
+              ))}
+              <th className="py-1.5 pl-2 font-normal text-center">Figer</th>
+            </tr>
+          </thead>
+          <tbody>
+            {roles.map((role) => (
+              <tr key={role} className="border-t border-felt-cream/5">
+                <td className="py-2 pr-3 text-felt-cream/80">{ROLE_LABELS[role]}</td>
+                {permKeys.map((k) => (
+                  <td key={k} className="py-2 px-2 text-center">
+                    <input
+                      type="checkbox"
+                      checked={!!perms[role]?.[k]}
+                      disabled={!!locked[role]}
+                      onChange={() => toggle(role, k)}
+                      className="cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+                    />
+                  </td>
+                ))}
+                <td className="py-2 pl-2 text-center">
+                  <button
+                    onClick={() => toggleLock(role)}
+                    title={locked[role] ? "Déverrouiller ce rôle" : "Figer ce rôle"}
+                    className={locked[role] ? "text-felt-gold" : "text-felt-cream/30 hover:text-felt-cream/60"}
+                  >
+                    {locked[role] ? <Lock size={15} /> : <LockOpen size={15} />}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }

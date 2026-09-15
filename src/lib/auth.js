@@ -304,25 +304,62 @@ export const ROLE_LABELS = {
   floor: "Floor",
   table_captain: "Chef de table",
   player: "Joueur",
+  invite: "Invité",
 };
 
+// Droits par défaut (comportement d'origine, avant que l'admin ne
+// personnalise la matrice). "invite" a les mêmes droits que "player".
+const DEFAULT_ROLE_PERMISSIONS = {
+  admin: { manageTournaments: true, manageAccounts: true, controlClock: true, eliminateAnyone: true },
+  tournament_director: { manageTournaments: true, manageAccounts: false, controlClock: true, eliminateAnyone: true },
+  floor: { manageTournaments: false, manageAccounts: false, controlClock: true, eliminateAnyone: true },
+  table_captain: { manageTournaments: false, manageAccounts: false, controlClock: false, eliminateAnyone: false },
+  player: { manageTournaments: false, manageAccounts: false, controlClock: false, eliminateAnyone: false },
+  invite: { manageTournaments: false, manageAccounts: false, controlClock: false, eliminateAnyone: false },
+};
+
+export const PERMISSION_LABELS = {
+  manageTournaments: "Gérer les tournois",
+  manageAccounts: "Gérer les membres et les droits",
+  controlClock: "Contrôler l'horloge",
+  eliminateAnyone: "Éliminer n'importe quel joueur",
+};
+
+// Rempli de façon réactive par ThemeContext à chaque chargement du thème du
+// club, pour que les fonctions can*() ci-dessous reflètent la matrice
+// éditée par l'admin sans avoir à modifier chacun de leurs appels.
+let rolePermissionsOverride = null;
+export function setRolePermissionsOverride(perms) {
+  rolePermissionsOverride = perms || null;
+}
+
+function hasPermission(role, key) {
+  const overridden = rolePermissionsOverride?.[role]?.[key];
+  if (overridden != null) return overridden;
+  return DEFAULT_ROLE_PERMISSIONS[role]?.[key] ?? false;
+}
+
 export function canManageTournaments(role) {
-  return role === "admin" || role === "tournament_director";
+  return hasPermission(role, "manageTournaments");
 }
 
 // Gestion des comptes (rôles, mots de passe, suppression) : réservée à
-// l'administrateur, même le Tournament Director n'y a pas accès.
+// l'administrateur, même le Tournament Director n'y a pas accès. Non
+// personnalisable via la matrice (verrouillé) pour éviter qu'un rôle se
+// retire lui-même l'accès à cette page.
 export function canManageAccounts(role) {
   return role === "admin";
 }
 
 export function canControlClock(role) {
-  return role === "admin" || role === "tournament_director" || role === "floor";
+  return hasPermission(role, "controlClock");
 }
 
 export function canEliminateAnyone(role) {
-  return role === "admin" || role === "tournament_director" || role === "floor";
+  return hasPermission(role, "eliminateAnyone");
 }
+
+export { DEFAULT_ROLE_PERMISSIONS };
 
 // Fusionne un compte "doublon" (mergeId) dans le compte à conserver
 // (keepId) : toutes ses inscriptions, ses messages de chat et son rôle de
