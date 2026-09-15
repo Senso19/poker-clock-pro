@@ -106,6 +106,7 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
   if (style.spaceHeight2) forcedCssRules.push(`#${panelDomId} .pcp-space-2{height:${style.spaceHeight2}px !important; display:block !important;}`);
   if (style.dividerColor) forcedCssRules.push(`#${panelDomId} > * + *{border-top-color:${style.dividerColor} !important;}`);
   if (style.rowWidth) forcedCssRules.push(`#${panelDomId} > *{max-width:${style.rowWidth}px !important; margin-left:auto !important; margin-right:auto !important;}`);
+  if (style.rowHeight) forcedCssRules.push(`#${panelDomId} > *{min-height:${style.rowHeight}px !important;}`);
   if (style.zebra) forcedCssRules.push(`#${panelDomId} > *:nth-child(even){background-color:${style.zebraColor || "rgba(255,255,255,0.03)"} !important;}`);
 
   return (
@@ -393,6 +394,16 @@ function PanelStyleEditor({ style, onChange, onClose }) {
         />
       </label>
       <label className="flex items-center justify-between mb-2">
+        Hauteur des lignes (px)
+        <input
+          type="number"
+          value={style.rowHeight || ""}
+          placeholder="auto"
+          onChange={(e) => onChange({ rowHeight: Number(e.target.value) || null })}
+          className="w-20 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
+        />
+      </label>
+      <label className="flex items-center justify-between mb-2">
         Lignes alternées
         <input type="checkbox" checked={!!style.zebra} onChange={(e) => onChange({ zebra: e.target.checked })} />
       </label>
@@ -432,6 +443,7 @@ function PanelStyleEditor({ style, onChange, onClose }) {
             spaceHeight2: null,
             dividerColor: null,
             rowWidth: null,
+            rowHeight: null,
             zebra: null,
             zebraColor: null,
             order: null,
