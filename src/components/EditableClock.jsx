@@ -892,7 +892,16 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
             <span>⏱ {formatTime(elapsedSeconds)}</span>
             <span>☕ {hasUpcomingBreak ? formatTime(breakInSeconds) : "--:--"}</span>
           </div>
-          <PanelBody style={panels.timer.style} title={panels.timer.style.customTitle || (currentLevel?.isBreak ? currentLevel.breakLabel || "PAUSE" : `NIVEAU ${levelIndex + 1}`)}>
+          <PanelBody
+            style={panels.timer.style}
+            title={
+              currentLevel?.isBreak
+                ? currentLevel.breakLabel || "PAUSE"
+                : panels.timer.style.customTitle
+                ? panels.timer.style.customTitle.replace(/\{n\}/g, levelIndex + 1)
+                : `NIVEAU ${levelIndex + 1}`
+            }
+          >
             <div className="leading-none tabular-nums" style={textStyle(panels.timer.style)}>
               {formatTime(secondsLeft)}
             </div>
@@ -1538,6 +1547,12 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
           placeholder={defaultTitle}
           className="w-full mt-1 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
         />
+        {defaultTitle === "Horloge" && (
+          <div className="text-[10px] text-felt-cream/40 mt-1">
+            Utilisez <code className="text-felt-gold/70">{"{n}"}</code> pour le numéro de niveau (ex: « LEVEL {"{n}"} »
+            → LEVEL 1, LEVEL 2...). Sans ça, le texte reste figé et ne suit pas le niveau.
+          </div>
+        )}
       </label>
       <label className="flex items-center justify-between mb-2">
         Taille du titre (px)
