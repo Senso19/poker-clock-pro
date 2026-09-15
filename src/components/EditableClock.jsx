@@ -667,10 +667,17 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   const currentCarouselType = eligible.length > 0 ? eligible[carouselIdx % eligible.length] : null;
 
   const bg = tournamentBg || theme.background;
-  const clockBgStyle =
+  const clockBgStyle = bg?.type === "image" ? { backgroundColor: "#14181C" } : { backgroundColor: bg?.baseColor || bg?.value || "#14181C" };
+  const bgImageLayerStyle =
     bg?.type === "image"
-      ? { backgroundImage: `url(${bg.value})`, backgroundSize: "cover", backgroundPosition: "center", filter: bg.grayscale ? "grayscale(1)" : undefined }
-      : { backgroundColor: bg?.baseColor || bg?.value || "#14181C" };
+      ? {
+          backgroundImage: `url(${bg.value})`,
+          backgroundSize: "cover",
+          backgroundPosition: `${bg.posX ?? 50}% ${bg.posY ?? 50}%`,
+          transform: `scale(${1 + (bg.zoom || 0) / 100})`,
+          filter: bg.grayscale ? "grayscale(1)" : undefined,
+        }
+      : null;
   const stripeBars = bg?.bars || [];
   const bgTintStyle =
     bg?.type === "image" && bg.tint?.color
@@ -715,6 +722,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
 
   return (
     <div ref={containerRef} className="relative w-full h-full overflow-hidden" style={clockBgStyle}>
+      {bgImageLayerStyle && <div className="absolute inset-0 pointer-events-none" style={bgImageLayerStyle} />}
       {bgTintStyle && <div className="absolute inset-0 pointer-events-none" style={bgTintStyle} />}
       {stripeBars.map((bar, i) => (
         <div
@@ -803,6 +811,48 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
 
                     {tournamentBg?.type === "image" && (
                       <div className="border-t border-felt-cream/10 mt-2 pt-2">
+                        <div className="text-felt-cream/50 mb-1">Ajuster l'image</div>
+                        <label className="flex items-center gap-2 mb-1.5">
+                          <span className="text-felt-cream/50 shrink-0 w-16">Zoom</span>
+                          <input
+                            type="range"
+                            min="0"
+                            max="150"
+                            value={tournamentBg.zoom || 0}
+                            onChange={(e) => saveTournamentBg({ ...tournamentBg, zoom: Number(e.target.value) })}
+                            className="flex-1"
+                          />
+                        </label>
+                        <label className="flex items-center gap-2 mb-1.5">
+                          <span className="text-felt-cream/50 shrink-0 w-16">Position X</span>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={tournamentBg.posX ?? 50}
+                            onChange={(e) => saveTournamentBg({ ...tournamentBg, posX: Number(e.target.value) })}
+                            className="flex-1"
+                          />
+                        </label>
+                        <label className="flex items-center gap-2 mb-2">
+                          <span className="text-felt-cream/50 shrink-0 w-16">Position Y</span>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={tournamentBg.posY ?? 50}
+                            onChange={(e) => saveTournamentBg({ ...tournamentBg, posY: Number(e.target.value) })}
+                            className="flex-1"
+                          />
+                        </label>
+                        {(tournamentBg.zoom || tournamentBg.posX != null || tournamentBg.posY != null) && (
+                          <button
+                            onClick={() => saveTournamentBg({ ...tournamentBg, zoom: 0, posX: 50, posY: 50 })}
+                            className="text-felt-cream/40 hover:text-felt-cream text-[11px] mb-2"
+                          >
+                            ↺ Réinitialiser le cadrage
+                          </button>
+                        )}
                         <label className="flex items-center justify-between mb-2">
                           Image en noir et blanc
                           <input
