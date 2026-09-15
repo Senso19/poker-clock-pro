@@ -70,6 +70,10 @@ const FONT_FAMILY = {
   poster: "'Luckiest Guy', cursive",
   anton: "'Anton', sans-serif",
   bungee: "'Bungee', sans-serif",
+  righteous: "'Righteous', cursive",
+  orbitron: "'Orbitron', sans-serif",
+  blackops: "'Black Ops One', cursive",
+  fjalla: "'Fjalla One', sans-serif",
 };
 const BUTTON_SIZE = { sm: "px-2 py-1 text-xs", md: "px-3 py-1.5 text-sm", lg: "px-5 py-3 text-lg" };
 const H_ALIGN = { left: "justify-start", center: "justify-center", right: "justify-end" };
@@ -1562,6 +1566,10 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
           <option value="poster">Poster (bold arrondi)</option>
           <option value="anton">Affiche condensée</option>
           <option value="bungee">Bungee (rétro)</option>
+          <option value="righteous">Righteous (rond, façon écran digital)</option>
+          <option value="orbitron">Orbitron (futuriste/digital)</option>
+          <option value="blackops">Black Ops (pochoir)</option>
+          <option value="fjalla">Fjalla (condensée nette)</option>
         </select>
       </label>
       <label className="flex items-center justify-between mb-2">
@@ -1597,6 +1605,10 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
           <option value="poster">Poster (bold arrondi)</option>
           <option value="anton">Affiche condensée</option>
           <option value="bungee">Bungee (rétro)</option>
+          <option value="righteous">Righteous (rond, façon écran digital)</option>
+          <option value="orbitron">Orbitron (futuriste/digital)</option>
+          <option value="blackops">Black Ops (pochoir)</option>
+          <option value="fjalla">Fjalla (condensée nette)</option>
         </select>
       </label>
       <div className="border-t border-felt-cream/10 my-2 pt-2 text-felt-cream/50">Fond du panneau</div>
