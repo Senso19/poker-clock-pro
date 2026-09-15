@@ -191,7 +191,7 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
   if (style.spaceHeight2) forcedCssRules.push(`#${panelDomId} .pcp-space-2{height:${style.spaceHeight2}px !important; display:block !important;}`);
   if (style.dividerColor) forcedCssRules.push(`#${panelDomId} > * + *{border-top-color:${style.dividerColor} !important;}`);
   if (style.rowWidth) forcedCssRules.push(`#${panelDomId} > *{max-width:${style.rowWidth}px !important; margin-left:auto !important; margin-right:auto !important;}`);
-  if (style.rowHeight) forcedCssRules.push(`#${panelDomId} > *{min-height:${style.rowHeight}px !important;}`);
+  if (style.rowHeight) forcedCssRules.push(`#${panelDomId} > *{height:${style.rowHeight}px !important; min-height:0 !important; max-height:${style.rowHeight}px !important; overflow:hidden !important;}`);
   if (style.zebra) forcedCssRules.push(`#${panelDomId} > *:nth-child(even){background-color:${style.zebraColor || "rgba(255,255,255,0.03)"} !important;}`);
 
   const livePos = dragPos || (hasFreePosition ? { x: style.posX, y: style.posY } : null);
