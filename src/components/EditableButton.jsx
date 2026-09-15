@@ -87,6 +87,8 @@ export default function EditableButton({ groupKey, id, children, className, wrap
     borderColor: style.transparent ? style.borderColor || "transparent" : style.borderColor || style.bgColor || undefined,
     borderWidth: style.borderColor || style.transparent ? "1px" : undefined,
     borderStyle: style.borderColor || style.transparent ? "solid" : undefined,
+    fontSize: style.fontSize ? `${style.fontSize}px` : undefined,
+    padding: style.padding != null ? `${style.padding}px ${Math.round(style.padding * 1.6)}px` : undefined,
   };
 
   const livePos = dragPos || (hasFreePosition ? { x: style.posX, y: style.posY } : null);
@@ -164,13 +166,45 @@ export default function EditableButton({ groupKey, id, children, className, wrap
                 Retirer la couleur de contour
               </button>
             )}
+            <label className="flex items-center justify-between mb-2">
+              Taille du texte (px)
+              <input
+                type="number"
+                value={style.fontSize || ""}
+                placeholder="auto"
+                onChange={(e) => update({ fontSize: Number(e.target.value) || null })}
+                className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
+              />
+            </label>
+            <label className="flex items-center justify-between mb-2">
+              Taille du bouton (rembourrage, px)
+              <input
+                type="number"
+                value={style.padding ?? ""}
+                placeholder="auto"
+                onChange={(e) => update({ padding: e.target.value === "" ? null : Number(e.target.value) })}
+                className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
+              />
+            </label>
             {hasFreePosition && (
               <button onClick={() => update({ posX: null, posY: null })} className="w-full text-left text-felt-cream/40 hover:text-felt-cream mb-1">
                 Remettre à la position d'origine
               </button>
             )}
             <button
-              onClick={() => update({ label: null, bgColor: null, textColor: null, borderColor: null, transparent: null, posX: null, posY: null })}
+              onClick={() =>
+                update({
+                  label: null,
+                  bgColor: null,
+                  textColor: null,
+                  borderColor: null,
+                  transparent: null,
+                  fontSize: null,
+                  padding: null,
+                  posX: null,
+                  posY: null,
+                })
+              }
               className="w-full text-left text-felt-cream/40 hover:text-felt-cream"
             >
               Réinitialiser ce bouton
