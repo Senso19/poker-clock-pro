@@ -20,7 +20,12 @@ export function AccountProvider({ children }) {
       return;
     }
     try {
-      const acc = await fetchAccountById(id);
+      // Filet de sécurité : si la requête réseau reste bloquée (coupure,
+      // connexion lente, souci ponctuel côté serveur), on n'attend pas
+      // indéfiniment — on bascule sur l'écran de connexion après 10s au
+      // lieu de rester coincé sur "Chargement…" pour toujours.
+      const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 10000));
+      const acc = await Promise.race([fetchAccountById(id), timeout]);
       setAccount(acc);
     } catch {
       setAccount(null);
