@@ -943,9 +943,9 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
         <Panel id="blinds" layout={panels.blinds} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Blinds" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
           <PanelBody style={panels.blinds.style} title={panels.blinds.style.customTitle || "Blinds"}>
             {currentLevel && !currentLevel.isBreak ? (
-              <div className="flex flex-col items-center">
+              <div className={panels.blinds.style.blindsLayout === "row" ? "flex items-center justify-center gap-3" : "flex flex-col items-center"}>
                 <div style={textStyle(panels.blinds.style)}>{currentLevel.smallBlind}</div>
-                <div className="w-3/4 h-px bg-felt-cream/20 my-1" />
+                <div className={panels.blinds.style.blindsLayout === "row" ? "w-px h-6 bg-felt-cream/20" : "w-3/4 h-px bg-felt-cream/20 my-1"} />
                 <div style={textStyle(panels.blinds.style)}>{currentLevel.bigBlind}</div>
                 {currentLevel.ante > 0 && <div className="text-felt-gold text-xs mt-1">ante {currentLevel.ante}</div>}
               </div>
@@ -1005,9 +1005,21 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
         <Panel id="next" layout={panels.next} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Prochaine blind" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
           <PanelBody style={panels.next.style} title={panels.next.style.customTitle || "Prochaine blind"}>
             {nextLevel ? (
-              <div style={textStyle(panels.next.style)}>
-                {nextLevel.isBreak ? nextLevel.breakLabel || "Pause" : `${nextLevel.smallBlind}/${nextLevel.bigBlind}${nextLevel.ante ? ` (ante ${nextLevel.ante})` : ""}`}
-              </div>
+              nextLevel.isBreak ? (
+                <div style={textStyle(panels.next.style)}>{nextLevel.breakLabel || "Pause"}</div>
+              ) : panels.next.style.blindsLayout === "stack" ? (
+                <div className="flex flex-col items-center">
+                  <div style={textStyle(panels.next.style)}>{nextLevel.smallBlind}</div>
+                  <div className="w-3/4 h-px bg-felt-cream/20 my-1" />
+                  <div style={textStyle(panels.next.style)}>{nextLevel.bigBlind}</div>
+                  {nextLevel.ante > 0 && <div className="text-felt-gold text-xs mt-1">ante {nextLevel.ante}</div>}
+                </div>
+              ) : (
+                <div style={textStyle(panels.next.style)}>
+                  {nextLevel.smallBlind}/{nextLevel.bigBlind}
+                  {nextLevel.ante ? ` (ante ${nextLevel.ante})` : ""}
+                </div>
+              )
             ) : (
               <div className="text-felt-cream/40 text-sm">Dernier niveau</div>
             )}
@@ -1558,6 +1570,19 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
         Taille du titre (px)
         <input type="number" value={style.titleFontSize || 10} onChange={(e) => onChange({ titleFontSize: Number(e.target.value) || 8 })} className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-1 py-0.5 text-felt-cream" />
       </label>
+      {(defaultTitle === "Blinds" || defaultTitle === "Prochaine blind") && (
+        <label className="flex items-center justify-between mb-2">
+          Disposition des blinds
+          <select
+            value={style.blindsLayout || (defaultTitle === "Blinds" ? "stack" : "row")}
+            onChange={(e) => onChange({ blindsLayout: e.target.value })}
+            className="bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream"
+          >
+            <option value="stack">SB au-dessus de BB</option>
+            <option value="row">SB à côté de BB</option>
+          </select>
+        </label>
+      )}
       <label className="flex items-center justify-between mb-2">
         Position du titre
         <select
