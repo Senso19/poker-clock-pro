@@ -5,6 +5,7 @@ import { fetchCurrentTournament } from "../lib/tournaments.js";
 import { saveClockState } from "../lib/clockState.js";
 import { fetchClubSettings, setLiveAnnouncement } from "../lib/auth.js";
 import { compressImageFile } from "../lib/imageUtils.js";
+import EditableButton from "./EditableButton.jsx";
 
 /**
  * EditableClock — tableau de bord de tournoi façon BlindValet. Panneaux en %
@@ -768,7 +769,9 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
             </>
           )}
           {canEdit && (
-            <button
+            <EditableButton
+              groupKey="clock-toolbar"
+              id="reorganize"
               onClick={() => {
                 setEditing((v) => !v);
                 setStylingId(null);
@@ -777,7 +780,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
               className={`text-xs px-3 py-1.5 rounded-md font-display ${editing ? "bg-felt-gold text-felt-bg" : "bg-felt-panel border border-felt-cream/10 text-felt-cream/60"}`}
             >
               {editing ? "✓ Terminer la réorganisation" : "✥ Réorganiser l'affichage"}
-            </button>
+            </EditableButton>
           )}
           {templateMode && onSaveLayout && (
             <button
@@ -788,9 +791,15 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
             </button>
           )}
           {!templateMode && (
-            <button onClick={toggleFullscreen} className="text-xs px-3 py-1.5 rounded-md font-display bg-felt-panel border border-felt-cream/10 text-felt-cream/60">
+            <EditableButton
+              groupKey="clock-toolbar"
+              id="fullscreen"
+              defaultOrder={1}
+              onClick={toggleFullscreen}
+              className="text-xs px-3 py-1.5 rounded-md font-display bg-felt-panel border border-felt-cream/10 text-felt-cream/60"
+            >
               ⛶ Plein écran
-            </button>
+            </EditableButton>
           )}
         </div>
       )}

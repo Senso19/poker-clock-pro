@@ -9,6 +9,7 @@ import { fetchStructureTemplates, saveLevels, saveStructureConfig } from "../lib
 import { fetchClockTemplates, applyClockTemplateToTournament } from "../lib/clockTemplates.js";
 import { logEvent } from "../lib/events.js";
 import CustomizablePanel from "./CustomizablePanel.jsx";
+import EditableButton from "./EditableButton.jsx";
 import { useConfirm } from "../context/ConfirmContext.jsx";
 
 const MAX_PER_TABLE = 9;
@@ -246,12 +247,14 @@ export default function TournamentsGrid({ onOpen }) {
     <div className="p-4 sm:p-6 font-body text-white h-full overflow-y-auto">
       <div className="flex items-center justify-end gap-3 mb-6">
         {manage && (
-          <button
+          <EditableButton
+            groupKey="tournaments-toolbar"
+            id="create-tournament"
             onClick={() => setShowCreateForm((s) => !s)}
             className="flex items-center gap-2 px-4 py-2.5 bg-felt-gold text-felt-bg rounded-lg font-display text-sm hover:bg-felt-gold/90"
           >
             🏆 Créer un tournoi
-          </button>
+          </EditableButton>
         )}
       </div>
 
@@ -424,14 +427,19 @@ function TournamentCard({ t, badge, count, already, manage, busy, menuOpen, onOp
         </div>
       )}
       <div className="mt-auto flex items-center gap-2 pt-1">
-        <button
+        <EditableButton
+          groupKey="tournament-card-grid"
+          id="open"
           onClick={onOpen}
           className="pcp-btn text-sm px-4 py-2 rounded-full font-display text-felt-cream/80 border border-felt-cream/20 hover:text-white hover:border-felt-cream/40"
         >
           Ouvrir
-        </button>
+        </EditableButton>
         {t.registration_open && (
-          <button
+          <EditableButton
+            groupKey="tournament-card-grid"
+            id="register"
+            defaultOrder={1}
             disabled={busy}
             onClick={(e) => {
               e.stopPropagation();
@@ -444,7 +452,7 @@ function TournamentCard({ t, badge, count, already, manage, busy, menuOpen, onOp
             }`}
           >
             {already ? "Désinscription" : "S'inscrire"}
-          </button>
+          </EditableButton>
         )}
         {manage && (
           <div className="relative ml-auto">
@@ -500,11 +508,19 @@ function TournamentRow({ t, badge, count, already, manage, busy, menuOpen, onOpe
         </div>
       )}
       <div className="flex items-center gap-2 shrink-0">
-        <button onClick={onOpen} className="pcp-btn text-sm px-3 py-1.5 rounded-lg font-display text-felt-cream/80 border border-felt-cream/15 hover:text-white hover:border-felt-cream/30">
+        <EditableButton
+          groupKey="tournament-card-row"
+          id="open"
+          onClick={onOpen}
+          className="pcp-btn text-sm px-3 py-1.5 rounded-lg font-display text-felt-cream/80 border border-felt-cream/15 hover:text-white hover:border-felt-cream/30"
+        >
           Ouvrir
-        </button>
+        </EditableButton>
         {t.registration_open && (
-          <button
+          <EditableButton
+            groupKey="tournament-card-row"
+            id="register"
+            defaultOrder={1}
             disabled={busy}
             onClick={(e) => {
               e.stopPropagation();
@@ -515,7 +531,7 @@ function TournamentRow({ t, badge, count, already, manage, busy, menuOpen, onOpe
             }`}
           >
             {already ? "Désinscription" : "S'inscrire"}
-          </button>
+          </EditableButton>
         )}
         {manage && (
           <div className="relative">
