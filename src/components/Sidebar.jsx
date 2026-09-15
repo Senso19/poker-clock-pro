@@ -585,7 +585,11 @@ export default function Sidebar({ tab, setTab }) {
           role="button"
           tabIndex={0}
           title={collapsed ? "Déployer le menu (glisser pour redimensionner)" : "Réduire le menu (glisser pour redimensionner)"}
-          style={{ touchAction: "none" }}
+          style={{
+            touchAction: "none",
+            width: theme.sidebarDividerWidth ? `${theme.sidebarDividerWidth}px` : undefined,
+            backgroundColor: theme.sidebarDividerColor || undefined,
+          }}
           className="h-full w-3 shrink-0 bg-felt-gold/20 hover:bg-felt-gold/40 flex items-center justify-center text-felt-cream/60 hover:text-felt-cream cursor-col-resize select-none"
         >
           <span className="text-[10px] pointer-events-none">{collapsed ? "›" : "‹"}</span>

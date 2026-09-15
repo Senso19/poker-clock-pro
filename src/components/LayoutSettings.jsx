@@ -131,6 +131,18 @@ export default function LayoutSettings() {
     await persist(next);
   }
 
+  async function updateSidebarDividerWidth(value) {
+    const next = { ...theme, sidebarDividerWidth: Number(value) || null };
+    setTheme(next);
+    await persist(next);
+  }
+
+  async function updateSidebarDividerColor(value) {
+    const next = { ...theme, sidebarDividerColor: value };
+    setTheme(next);
+    await persist(next);
+  }
+
   async function persist(next) {
     setSaving(true);
     setError(null);
@@ -344,6 +356,43 @@ export default function LayoutSettings() {
           />
           {theme.panelBgColor && (
             <button onClick={() => updatePanelBgColor(null)} className="text-xs text-felt-cream/40 hover:text-felt-cream">
+              Réinitialiser
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="mb-6 bg-felt-panel border border-felt-cream/10 rounded-md px-4 py-3">
+        <div className="font-medium mb-1">Barre de séparation (menu / contenu)</div>
+        <div className="text-xs text-felt-cream/50 mb-3">
+          La fine barre verticale entre le menu de gauche et l'écran principal, qui sert à réduire ou redimensionner
+          le menu.
+        </div>
+        <label className="flex items-center justify-between mb-3">
+          Largeur (px)
+          <input
+            type="number"
+            value={theme.sidebarDividerWidth || ""}
+            placeholder="12"
+            onChange={(e) => updateSidebarDividerWidth(e.target.value)}
+            className="w-20 bg-felt-bg border border-felt-cream/10 rounded px-2 py-1 text-felt-cream placeholder:text-felt-cream/30"
+          />
+        </label>
+        <div className="flex items-center gap-3">
+          <input
+            type="color"
+            value={theme.sidebarDividerColor || "#C9A15A"}
+            onChange={(e) => updateSidebarDividerColor(e.target.value)}
+            className="w-10 h-10 rounded-md border-2 border-felt-cream/10 bg-transparent cursor-pointer"
+          />
+          {(theme.sidebarDividerColor || theme.sidebarDividerWidth) && (
+            <button
+              onClick={() => {
+                updateSidebarDividerColor(null);
+                updateSidebarDividerWidth(null);
+              }}
+              className="text-xs text-felt-cream/40 hover:text-felt-cream"
+            >
               Réinitialiser
             </button>
           )}
