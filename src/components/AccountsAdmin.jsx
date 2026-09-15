@@ -101,6 +101,7 @@ export default function AccountsAdmin() {
 
   return (
     <div className="p-4 sm:p-6 font-body text-white h-full overflow-y-auto">
+      <div className="max-w-3xl mx-auto">
       <div className="text-xs font-display uppercase tracking-widest text-felt-cream/40 mb-6">Membres</div>
 
       <div className="flex flex-wrap items-center gap-3 mb-6">
@@ -201,6 +202,7 @@ export default function AccountsAdmin() {
         ))}
         {filtered.length === 0 && <div className="text-sm text-felt-cream/50 py-6">Aucun membre ne correspond.</div>}
       </CustomizablePanel>
+      </div>
 
       {editingAccount && (
         <EditAccountModal

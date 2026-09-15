@@ -104,6 +104,9 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
   if (style.btnTextColor) forcedCssRules.push(`#${panelDomId} .pcp-btn{color:${style.btnTextColor} !important;}`);
   if (style.spaceHeight) forcedCssRules.push(`#${panelDomId} .pcp-space{height:${style.spaceHeight}px !important; display:block !important;}`);
   if (style.spaceHeight2) forcedCssRules.push(`#${panelDomId} .pcp-space-2{height:${style.spaceHeight2}px !important; display:block !important;}`);
+  if (style.dividerColor) forcedCssRules.push(`#${panelDomId} > * + *{border-top-color:${style.dividerColor} !important;}`);
+  if (style.rowWidth) forcedCssRules.push(`#${panelDomId} > *{max-width:${style.rowWidth}px !important; margin-left:auto !important; margin-right:auto !important;}`);
+  if (style.zebra) forcedCssRules.push(`#${panelDomId} > *:nth-child(even){background-color:${style.zebraColor || "rgba(255,255,255,0.03)"} !important;}`);
 
   return (
     <div
@@ -369,6 +372,41 @@ function PanelStyleEditor({ style, onChange, onClose }) {
       <div className="text-[10px] text-felt-cream/40 mb-2 -mt-1">
         S'applique aux emplacements d'espacement disponibles dans ce type de carte (là où le curseur le permet).
       </div>
+      <div className="border-t border-felt-cream/10 my-2 pt-2 text-felt-cream/50">Lignes de liste</div>
+      <label className="flex items-center justify-between mb-2">
+        Couleur du trait de séparation
+        <input
+          type="color"
+          value={style.dividerColor || "#EDEAE3"}
+          onChange={(e) => onChange({ dividerColor: e.target.value })}
+          className="w-8 h-6 bg-transparent cursor-pointer"
+        />
+      </label>
+      <label className="flex items-center justify-between mb-2">
+        Largeur des lignes (px)
+        <input
+          type="number"
+          value={style.rowWidth || ""}
+          placeholder="auto"
+          onChange={(e) => onChange({ rowWidth: Number(e.target.value) || null })}
+          className="w-20 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
+        />
+      </label>
+      <label className="flex items-center justify-between mb-2">
+        Lignes alternées
+        <input type="checkbox" checked={!!style.zebra} onChange={(e) => onChange({ zebra: e.target.checked })} />
+      </label>
+      {style.zebra && (
+        <label className="flex items-center justify-between mb-2">
+          Couleur des lignes alternées
+          <input
+            type="color"
+            value={style.zebraColor || "#FFFFFF"}
+            onChange={(e) => onChange({ zebraColor: e.target.value })}
+            className="w-8 h-6 bg-transparent cursor-pointer"
+          />
+        </label>
+      )}
       <button
         onClick={() =>
           onChange({
@@ -392,6 +430,10 @@ function PanelStyleEditor({ style, onChange, onClose }) {
             btnTextColor: null,
             spaceHeight: null,
             spaceHeight2: null,
+            dividerColor: null,
+            rowWidth: null,
+            zebra: null,
+            zebraColor: null,
             order: null,
           })
         }
