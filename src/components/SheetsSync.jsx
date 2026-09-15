@@ -20,11 +20,20 @@ export function importPlayersFromFile(file) {
         const wb = XLSX.read(e.target.result, { type: "binary" });
         const sheet = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(sheet);
-        const players = rows.map((r) => ({
-          fullName: r["Nom"] || r["Name"] || "",
-          email: r["Email"] || "",
-          phone: r["Téléphone"] || r["Phone"] || "",
-        }));
+        const players = rows.map((r) => {
+          // Reconnaît plusieurs formats d'export (dont BlindValet: souvent
+          // "Player" ou "Name", parfois prénom/nom séparés).
+          const first = r["Prénom"] || r["Prenom"] || r["First Name"] || r["FirstName"] || "";
+          const last = r["Nom"] || r["Name"] || r["Last Name"] || r["LastName"] || "";
+          const fullName =
+            r["Nom complet"] || r["Full Name"] || r["Player"] || r["Player Name"] || r["Pseudo"] || r["Joueur"] ||
+            (first && last ? `${first} ${last}` : first || last || "");
+          return {
+            fullName: String(fullName || "").trim(),
+            email: r["Email"] || r["E-mail"] || "",
+            phone: r["Téléphone"] || r["Telephone"] || r["Phone"] || r["Mobile"] || "",
+          };
+        });
         resolve(players);
       } catch (err) {
         reject(err);
