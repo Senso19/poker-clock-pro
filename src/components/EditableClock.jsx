@@ -583,17 +583,9 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
     bg?.type === "image"
       ? { backgroundImage: `url(${bg.value})`, backgroundSize: "cover", backgroundPosition: "center" }
       : bg?.type === "stripes"
-      ? {
-          backgroundImage: `repeating-linear-gradient(90deg, ${hexToRgba(bg.colorA || "#0A0C0F", bg.opacity ?? 1)} 0, ${hexToRgba(
-            bg.colorA || "#0A0C0F",
-            bg.opacity ?? 1
-          )} ${bg.width || 40}px, ${hexToRgba(bg.colorB || "#1B2027", bg.opacity ?? 1)} ${bg.width || 40}px, ${hexToRgba(
-            bg.colorB || "#1B2027",
-            bg.opacity ?? 1
-          )} ${(bg.width || 40) * 2}px)`,
-          backgroundPositionX: `${bg.offsetX || 0}px`,
-        }
+      ? { backgroundColor: bg.baseColor || "#14181C" }
       : { backgroundColor: bg?.value || "#14181C" };
+  const stripeBars = bg?.type === "stripes" ? bg.bars || [] : [];
   const bgTintStyle =
     bg?.type === "image" && bg.tint?.color
       ? { backgroundColor: bg.tint.color, opacity: bg.tint.opacity ?? 0.5, mixBlendMode: "color" }
@@ -609,17 +601,40 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
     }
   }
 
-  function updateStripe(patch) {
-    const base =
-      tournamentBg?.type === "stripes"
-        ? tournamentBg
-        : { type: "stripes", colorA: "#0A0C0F", colorB: "#1B2027", width: 40, opacity: 1, offsetX: 0 };
-    saveTournamentBg({ ...base, ...patch });
+  function addStripeBar() {
+    const base = tournamentBg?.type === "stripes" ? tournamentBg : { type: "stripes", baseColor: "#14181C", bars: [] };
+    const colors = ["#C9A15A", "#1E6FEB", "#D85A30", "#639922"];
+    const nextColor = colors[(base.bars?.length || 0) % colors.length];
+    const bars = [...(base.bars || []), { color: nextColor, opacity: 1, width: 40, x: 10 + (base.bars?.length || 0) * 15 }];
+    saveTournamentBg({ ...base, bars });
+  }
+
+  function updateStripeBar(index, patch) {
+    if (tournamentBg?.type !== "stripes") return;
+    const bars = tournamentBg.bars.map((b, i) => (i === index ? { ...b, ...patch } : b));
+    saveTournamentBg({ ...tournamentBg, bars });
+  }
+
+  function removeStripeBar(index) {
+    if (tournamentBg?.type !== "stripes") return;
+    const bars = tournamentBg.bars.filter((_, i) => i !== index);
+    saveTournamentBg({ ...tournamentBg, bars });
   }
 
   return (
     <div ref={containerRef} className="relative w-full h-full overflow-hidden" style={clockBgStyle}>
       {bgTintStyle && <div className="absolute inset-0 pointer-events-none" style={bgTintStyle} />}
+      {stripeBars.map((bar, i) => (
+        <div
+          key={i}
+          className="absolute inset-y-0 pointer-events-none"
+          style={{
+            left: `${bar.x ?? 0}%`,
+            width: `${bar.width ?? 40}px`,
+            backgroundColor: hexToRgba(bar.color || "#C9A15A", bar.opacity ?? 1),
+          }}
+        />
+      ))}
       {!isFullscreen && (
         <div
           className="absolute top-2 right-2 z-40 flex flex-wrap justify-end items-center gap-1 max-w-[95%]"
@@ -725,59 +740,60 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
                     )}
 
                     <div className="border-t border-felt-cream/10 mt-2 pt-2">
-                      <div className="text-felt-cream/50 mb-1.5">Rayures verticales</div>
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <input
-                          type="color"
-                          value={tournamentBg?.type === "stripes" ? tournamentBg.colorA || "#0A0C0F" : "#0A0C0F"}
-                          onChange={(e) => updateStripe({ colorA: e.target.value })}
-                          className="w-8 h-6 bg-transparent cursor-pointer"
-                        />
-                        <input
-                          type="color"
-                          value={tournamentBg?.type === "stripes" ? tournamentBg.colorB || "#1B2027" : "#1B2027"}
-                          onChange={(e) => updateStripe({ colorB: e.target.value })}
-                          className="w-8 h-6 bg-transparent cursor-pointer"
-                        />
-                        <input
-                          type="number"
-                          title="Taille horizontale des rayures (px)"
-                          value={tournamentBg?.type === "stripes" ? tournamentBg.width || 40 : 40}
-                          onChange={(e) => updateStripe({ width: Number(e.target.value) || 40 })}
-                          className="w-14 bg-felt-panel border border-felt-cream/10 rounded px-1 py-1 text-felt-cream"
-                        />
-                      </div>
-                      <label className="flex items-center gap-2 mb-1.5">
-                        <span className="text-felt-cream/50 shrink-0 w-24">Transparence</span>
-                        <input
-                          type="range"
-                          min="0"
-                          max="1"
-                          step="0.05"
-                          value={tournamentBg?.type === "stripes" ? tournamentBg.opacity ?? 1 : 1}
-                          onChange={(e) => updateStripe({ opacity: Number(e.target.value) })}
-                          className="flex-1"
-                        />
-                      </label>
-                      <label className="flex items-center gap-2 mb-1.5">
-                        <span className="text-felt-cream/50 shrink-0 w-24">Déplacer (px)</span>
-                        <input
-                          type="range"
-                          min="0"
-                          max={((tournamentBg?.type === "stripes" ? tournamentBg.width : 40) || 40) * 2}
-                          value={tournamentBg?.type === "stripes" ? tournamentBg.offsetX || 0 : 0}
-                          onChange={(e) => updateStripe({ offsetX: Number(e.target.value) })}
-                          className="flex-1"
-                        />
-                      </label>
-                      {tournamentBg?.type !== "stripes" && (
-                        <button
-                          onClick={() => saveTournamentBg({ type: "stripes", colorA: "#0A0C0F", colorB: "#1B2027", width: 40, opacity: 1, offsetX: 0 })}
-                          className="w-full text-left px-2 py-1.5 rounded hover:bg-felt-panel text-felt-cream/80"
-                        >
-                          ▥ Appliquer les rayures
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-felt-cream/50">Bandes de couleur</span>
+                        <button onClick={addStripeBar} className="text-felt-gold/80 hover:text-felt-gold">
+                          + Ajouter une bande
                         </button>
-                      )}
+                      </div>
+                      {stripeBars.length === 0 && <div className="text-felt-cream/30 text-[11px] mb-1">Aucune bande pour l'instant.</div>}
+                      <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                        {stripeBars.map((bar, i) => (
+                          <div key={i} className="bg-felt-panel/60 border border-felt-cream/10 rounded p-2">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <input
+                                type="color"
+                                value={bar.color || "#C9A15A"}
+                                onChange={(e) => updateStripeBar(i, { color: e.target.value })}
+                                className="w-7 h-6 bg-transparent cursor-pointer shrink-0"
+                              />
+                              <input
+                                type="number"
+                                title="Taille horizontale (px)"
+                                value={bar.width ?? 40}
+                                onChange={(e) => updateStripeBar(i, { width: Number(e.target.value) || 1 })}
+                                className="w-14 bg-felt-bg border border-felt-cream/10 rounded px-1 py-1 text-felt-cream"
+                              />
+                              <button onClick={() => removeStripeBar(i)} className="ml-auto text-felt-alert/70 hover:text-felt-alert shrink-0">
+                                ✕
+                              </button>
+                            </div>
+                            <label className="flex items-center gap-2 mb-1">
+                              <span className="text-felt-cream/40 shrink-0 w-16">Transparence</span>
+                              <input
+                                type="range"
+                                min="0"
+                                max="1"
+                                step="0.05"
+                                value={bar.opacity ?? 1}
+                                onChange={(e) => updateStripeBar(i, { opacity: Number(e.target.value) })}
+                                className="flex-1"
+                              />
+                            </label>
+                            <label className="flex items-center gap-2">
+                              <span className="text-felt-cream/40 shrink-0 w-16">Position</span>
+                              <input
+                                type="range"
+                                min="0"
+                                max="100"
+                                value={bar.x ?? 0}
+                                onChange={(e) => updateStripeBar(i, { x: Number(e.target.value) })}
+                                className="flex-1"
+                              />
+                            </label>
+                          </div>
+                        ))}
+                      </div>
                     </div>
 
                     {tournamentBg && (
