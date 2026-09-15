@@ -599,7 +599,7 @@ function RolePermissionsMatrix() {
   }
 
   return (
-    <div className="mt-8 bg-felt-panel border border-felt-cream/10 rounded-md p-4">
+    <div className="mt-8 bg-felt-panel border border-felt-cream/10 rounded-md p-4 max-w-2xl mx-auto">
       <div className="font-display text-base mb-1">Droits par rôle</div>
       <div className="text-xs text-felt-cream/50 mb-4">
         Modifiable uniquement par l'administrateur. « Invité » a les mêmes droits que « Joueur » par défaut. Le rôle

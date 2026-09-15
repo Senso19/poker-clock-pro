@@ -151,6 +151,7 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
     const wrapper = wrapperRef.current;
     if (!wrapper) return;
     const startRect = wrapper.getBoundingClientRect();
+    const containerWidth = wrapper.parentElement?.getBoundingClientRect().width || startRect.width;
     const startX = e.clientX;
     const startY = e.clientY;
     setResizing(true);
@@ -166,7 +167,12 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
       window.removeEventListener("pointerup", onUp);
       setResizing(false);
       setResizeLive(null);
-      if (resizeRef.current) update({ width: `${resizeRef.current.w}px`, height: resizeRef.current.h });
+      if (resizeRef.current) {
+        // Largeur enregistrée en % du conteneur (pas en px) pour s'adapter
+        // automatiquement à tout écran, plus petit ou plus grand.
+        const widthPercent = Math.max(10, Math.min(100, Math.round((resizeRef.current.w / containerWidth) * 1000) / 10));
+        update({ width: `${widthPercent}%`, height: resizeRef.current.h });
+      }
       resizeRef.current = null;
     }
     window.addEventListener("pointermove", onMove);
@@ -195,22 +201,25 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
   if (style.zebra) forcedCssRules.push(`#${panelDomId} > *:nth-child(even){background-color:${style.zebraColor || "rgba(255,255,255,0.03)"} !important;}`);
 
   const livePos = dragPos || (hasFreePosition ? { x: style.posX, y: style.posY } : null);
-  const liveSize = resizeLive || (style.height || style.width ? { w: style.width ? parseInt(style.width) : null, h: style.height || null } : null);
+  // resizeLive: uniquement pendant un glisser actif de la poignée, toujours
+  // en px pour l'aperçu en direct. En dehors d'un glisser, on respecte
+  // l'unité enregistrée (px OU %) sans la réécrire.
+  const liveHeight = resizeLive?.h ?? (style.height || null);
   const outerStyle = livePos
     ? {
         position: "absolute",
         left: `${livePos.x}%`,
         top: `${livePos.y}%`,
         transform: "translate(-50%, -50%)",
-        width: liveSize?.w ? `${liveSize.w}px` : style.width || 320,
-        height: liveSize?.h ? `${liveSize.h}px` : style.height || undefined,
+        width: resizeLive?.w ? `${resizeLive.w}px` : style.width || 320,
+        height: liveHeight ? `${liveHeight}px` : undefined,
         zIndex: dragging || resizing ? 25 : 5,
       }
     : {
         flex: flexBasis,
-        width: liveSize?.w ? `${liveSize.w}px` : style.width || (defaultMaxWidth ? "100%" : undefined),
-        maxWidth: liveSize?.w ? `${liveSize.w}px` : style.width || defaultMaxWidth || undefined,
-        height: liveSize?.h ? `${liveSize.h}px` : style.height || undefined,
+        width: resizeLive?.w ? `${resizeLive.w}px` : style.width || (defaultMaxWidth ? "100%" : undefined),
+        maxWidth: resizeLive?.w ? `${resizeLive.w}px` : style.width || defaultMaxWidth || undefined,
+        height: liveHeight ? `${liveHeight}px` : undefined,
         order,
         minWidth: 0,
         // Quand une largeur explicite est réglée (ou qu'une largeur par
