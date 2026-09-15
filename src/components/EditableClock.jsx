@@ -232,7 +232,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   const [eliminations, setEliminations] = useState([]);
   const [sponsorIdx, setSponsorIdx] = useState(0);
   const [announcement, setAnnouncement] = useState("");
-  const [tournamentBg, setTournamentBg] = useState(null);
+  const [tournamentBg, setTournamentBg] = useState(effectiveDesignOnly ? initialLayout?.background || null : null);
   const [bgSaveError, setBgSaveError] = useState(null);
   const [showBgPicker, setShowBgPicker] = useState(false);
   const tournamentLayoutAppliedRef = useRef(false);
@@ -1000,7 +1000,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
           )}
           {templateMode && onSaveLayout && (
             <button
-              onClick={() => onSaveLayout(panels, images)}
+              onClick={() => onSaveLayout(panels, images, tournamentBg)}
               className="text-xs px-3 py-1.5 rounded-md font-display bg-felt-gold text-felt-bg"
             >
               💾 Enregistrer le modèle

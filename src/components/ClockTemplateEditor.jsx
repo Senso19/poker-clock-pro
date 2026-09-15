@@ -16,7 +16,7 @@ export default function ClockTemplateEditor({ template, onClose, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
-  async function handleSaveLayout(panels, images) {
+  async function handleSaveLayout(panels, images, background) {
     if (!name.trim()) {
       setError("Merci de donner un nom au modèle.");
       return;
@@ -24,7 +24,7 @@ export default function ClockTemplateEditor({ template, onClose, onSaved }) {
     setSaving(true);
     setError(null);
     try {
-      const layout = { ...panels, images };
+      const layout = { ...panels, images, background };
       if (template) await updateClockTemplate(template.id, name.trim(), layout);
       else await createClockTemplate(name.trim(), layout);
       onSaved();

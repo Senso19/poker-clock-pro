@@ -38,6 +38,7 @@ export async function deleteClockTemplate(id) {
 export async function applyClockTemplateAsActive(layout) {
   const { data: existing } = await supabase.from("club_settings").select("id, theme").limit(1).maybeSingle();
   const nextTheme = { ...(existing?.theme || {}), layout };
+  if (layout?.background) nextTheme.background = layout.background;
   const payload = { club_name: "19PokerClub", theme: nextTheme };
   const { error } = existing
     ? await supabase.from("club_settings").update(payload).eq("id", existing.id)
@@ -45,10 +46,12 @@ export async function applyClockTemplateAsActive(layout) {
   if (error) throw error;
 }
 
-// Applique un modèle d'horloge à UN tournoi précis (tournaments.clock_layout),
-// sans toucher à la disposition par défaut du club. C'est la disposition
-// que EditableClock utilise en priorité pour ce tournoi.
+// Applique un modèle d'horloge à UN tournoi précis (tournaments.clock_layout
+// et clock_background), sans toucher à la disposition par défaut du club.
+// C'est la disposition que EditableClock utilise en priorité pour ce tournoi.
 export async function applyClockTemplateToTournament(tournamentId, layout) {
-  const { error } = await supabase.from("tournaments").update({ clock_layout: layout }).eq("id", tournamentId);
+  const payload = { clock_layout: layout };
+  if (layout?.background) payload.clock_background = layout.background;
+  const { error } = await supabase.from("tournaments").update(payload).eq("id", tournamentId);
   if (error) throw error;
 }
