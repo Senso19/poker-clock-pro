@@ -102,10 +102,10 @@ export default function EditableButton({ groupKey, id, children, className, wrap
   return (
     <span
       ref={wrapperRef}
-      className={`inline-flex ${!livePos ? "relative" : ""} ${dragPos ? "opacity-80" : ""} ${!livePos ? wrapperClassName || "" : ""}`}
+      className={`${wrapperClassName?.includes("w-full") ? "flex" : "inline-flex"} ${!livePos ? "relative" : ""} ${dragPos ? "opacity-80" : ""} ${!livePos ? wrapperClassName || "" : ""}`}
       style={wrapperStyle}
     >
-      <span className="relative inline-flex">
+      <span className={`relative ${wrapperClassName?.includes("w-full") ? "flex w-full" : "inline-flex"}`}>
         <button onClick={onClick} disabled={disabled} style={btnStyle} className={className}>
           {label}
         </button>
