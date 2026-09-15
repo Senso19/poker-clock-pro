@@ -435,18 +435,23 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
 
   // Raccourci clavier : Entrée bascule lecture/pause de l'horloge (sauf
   // pendant la saisie dans un champ texte, ou en mode réorganisation).
+  // Refs pour éviter de réabonner l'écouteur à chaque tick de l'horloge.
+  const toggleRunningRef = useRef(toggleRunning);
+  toggleRunningRef.current = toggleRunning;
+  const editingRef = useRef(editing);
+  editingRef.current = editing;
   useEffect(() => {
     function onKeyDown(e) {
       if (e.key !== "Enter") return;
-      if (editing) return;
+      if (editingRef.current) return;
       const tag = document.activeElement?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || document.activeElement?.isContentEditable) return;
       e.preventDefault();
-      toggleRunning();
+      toggleRunningRef.current();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isRunning, levelIndex, secondsLeft, editing]);
+  }, []);
   function handleProgressClick(e) {
     if (editing) return;
     const rect = e.currentTarget.getBoundingClientRect();
