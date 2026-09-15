@@ -46,12 +46,21 @@ const DEFAULT_PANELS = {
     x: 50, y: 74, w: 48, h: 24, removed: true,
     style: { ...BASE_STYLE, fontSize: 18, font: "body", align: "center" },
   },
+  nextbreak: {
+    x: 78, y: 2, w: 20, h: 10, removed: true,
+    style: { ...BASE_STYLE, fontSize: 22, align: "center", customTitle: "Prochaine pause" },
+  },
+  customtext: {
+    x: 2, y: 2, w: 30, h: 8, removed: true,
+    style: { ...BASE_STYLE, fontSize: 16, align: "left", showTitle: false, customTitle: "", text: "Votre texte ici" },
+  },
 };
 
 const PANEL_LABELS = {
   timer: "Horloge", controls: "Contrôles", blinds: "Blinds", players: "Joueurs", next: "Prochaine blind",
   ranking: "Classement", structure: "Structure des blinds", eliminated: "Élimination",
   headsup: "Heads Up", carousel: "Carrousel", sponsors: "Sponsors", announcements: "Annonces",
+  nextbreak: "Prochaine pause (compte à rebours)", customtext: "Texte libre",
 };
 
 const FONT_FAMILY = {
@@ -913,7 +922,41 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
         </Panel>
       )}
 
-      {!panels.players.removed && (
+      {!panels.nextbreak.removed && (
+        <Panel id="nextbreak" layout={panels.nextbreak} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Prochaine pause" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
+          {panels.nextbreak.style.showTitle && (
+            <div className="text-felt-cream/30 uppercase tracking-wide mb-1" style={titleStyle(panels.nextbreak.style)}>
+              {panels.nextbreak.style.customTitle || "Prochaine pause"}
+            </div>
+          )}
+          <div className="tabular-nums" style={textStyle(panels.nextbreak.style)}>
+            {hasUpcomingBreak ? formatTime(breakInSeconds) : "--:--"}
+          </div>
+        </Panel>
+      )}
+
+      {!panels.customtext.removed && (
+        <Panel id="customtext" layout={panels.customtext} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Texte libre" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
+          {panels.customtext.style.showTitle && (
+            <div className="text-felt-cream/30 uppercase tracking-wide mb-1" style={titleStyle(panels.customtext.style)}>
+              {panels.customtext.style.customTitle}
+            </div>
+          )}
+          {editing ? (
+            <input
+              value={panels.customtext.style.text || ""}
+              onChange={(e) => updateStyle("customtext", { text: e.target.value })}
+              placeholder="Votre texte ici"
+              className="w-full bg-transparent border-b border-dashed border-felt-cream/30 outline-none"
+              style={textStyle(panels.customtext.style)}
+            />
+          ) : (
+            <div style={textStyle(panels.customtext.style)}>{panels.customtext.style.text || ""}</div>
+          )}
+        </Panel>
+      )}
+
+
         <Panel id="players" layout={panels.players} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Joueurs" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
           {panels.players.style.showTitle && <div className="text-felt-cream/30 uppercase tracking-wide mb-1" style={titleStyle(panels.players.style)}>{panels.players.style.customTitle || "Joueurs"}</div>}
           <div style={textStyle(panels.players.style)}>
