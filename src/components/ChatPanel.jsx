@@ -152,6 +152,7 @@ export default function ChatPanel() {
           <EditableButton
             groupKey="chat-panel"
             id="send"
+            wrapperClassName="w-full"
             onClick={handleSend}
             disabled={sending || !text.trim() || blockedFor > 0}
             className="w-full px-4 py-2 bg-felt-gold text-felt-bg rounded-md font-display disabled:opacity-40 whitespace-nowrap"
