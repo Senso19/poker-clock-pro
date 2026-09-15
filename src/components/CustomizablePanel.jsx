@@ -99,6 +99,7 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
   if (style.rowDirection) forcedCssRules.push(`#${panelDomId} .pcp-row{flex-direction:${style.rowDirection} !important;}`);
   if (style.btnBgColor) forcedCssRules.push(`#${panelDomId} .pcp-btn{background-color:${style.btnBgColor} !important; border-color:${style.btnBgColor} !important;}`);
   if (style.btnTextColor) forcedCssRules.push(`#${panelDomId} .pcp-btn{color:${style.btnTextColor} !important;}`);
+  if (style.spaceHeight) forcedCssRules.push(`#${panelDomId} .pcp-space{height:${style.spaceHeight}px !important; display:block !important;}`);
 
   return (
     <div
@@ -342,6 +343,20 @@ function PanelStyleEditor({ style, onChange, onClose }) {
           Réinitialiser les boutons
         </button>
       )}
+      <div className="border-t border-felt-cream/10 my-2 pt-2 text-felt-cream/50">Espacement</div>
+      <label className="flex items-center justify-between mb-2">
+        Espace ajouté dans les cartes (px)
+        <input
+          type="number"
+          value={style.spaceHeight || ""}
+          placeholder="0"
+          onChange={(e) => onChange({ spaceHeight: Number(e.target.value) || null })}
+          className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
+        />
+      </label>
+      <div className="text-[10px] text-felt-cream/40 mb-2 -mt-1">
+        S'applique aux emplacements d'espacement disponibles dans ce type de carte (là où le curseur le permet).
+      </div>
       <button
         onClick={() =>
           onChange({
@@ -363,6 +378,7 @@ function PanelStyleEditor({ style, onChange, onClose }) {
             rowDirection: null,
             btnBgColor: null,
             btnTextColor: null,
+            spaceHeight: null,
             order: null,
           })
         }

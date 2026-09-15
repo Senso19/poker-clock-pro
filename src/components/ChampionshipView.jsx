@@ -250,6 +250,7 @@ function ActiveChampionshipCard({ s, selected, onClick, manage, onBannerChange }
           <span className="pcp-body text-xs px-2.5 py-1 rounded bg-felt-bg text-felt-cream/50">{s.playerCount} joueurs</span>
           <span className="pcp-body text-xs px-2.5 py-1 rounded bg-felt-bg text-felt-cream/50">{s.stageCount} tournois</span>
         </div>
+        <div className="pcp-space" />
         {s.leader ? (
           <div className="pcp-row flex items-center gap-3 bg-felt-bg rounded-lg px-3 py-3 mb-4">
             <MiniAvatar name={s.leader.name} size={40} />
