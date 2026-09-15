@@ -534,7 +534,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
     const file = e.target.files?.[0];
     if (!file) return;
     const dataUrl = await compressImageFile(file, { maxSize: 1600 });
-    saveTournamentBg({ type: "image", value: dataUrl });
+    saveTournamentBg({ ...tournamentBg, type: "image", value: dataUrl });
     e.target.value = "";
   }
 
@@ -566,7 +566,29 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
     return { color: style.color, fontSize: `${style.fontSize}px`, textAlign: style.align, fontFamily: FONT_FAMILY[style.font] || FONT_FAMILY.display };
   }
   function titleStyle(style) {
-    return { fontSize: `${style.titleFontSize || 10}px`, textAlign: style.align };
+    return {
+      fontSize: `${style.titleFontSize || 10}px`,
+      textAlign: style.titlePosition === "left" || style.titlePosition === "right" ? "left" : style.align,
+      color: style.titleColor || undefined,
+      fontFamily: FONT_FAMILY[style.titleFont] || FONT_FAMILY.display,
+    };
+  }
+  // Enveloppe titre + contenu d'un panneau, pour pouvoir positionner le
+  // titre en haut/bas/gauche/droite (au lieu de systématiquement au-dessus).
+  const TITLE_FLEX_DIRECTION = { top: "flex-col", bottom: "flex-col-reverse", left: "flex-row", right: "flex-row-reverse" };
+  function PanelBody({ style, title, children }) {
+    const dir = TITLE_FLEX_DIRECTION[style.titlePosition] || "flex-col";
+    const isRow = style.titlePosition === "left" || style.titlePosition === "right";
+    return (
+      <div className={`flex ${dir} ${isRow ? "items-center gap-2" : ""} w-full h-full`}>
+        {style.showTitle && (
+          <div className={`text-felt-cream/30 uppercase tracking-wide ${isRow ? "shrink-0" : "mb-1"}`} style={titleStyle(style)}>
+            {title}
+          </div>
+        )}
+        <div className={isRow ? "flex-1 min-w-0" : "w-full"}>{children}</div>
+      </div>
+    );
   }
 
   const backImages = images.filter((im) => im.layer !== "front");
@@ -591,10 +613,8 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   const clockBgStyle =
     bg?.type === "image"
       ? { backgroundImage: `url(${bg.value})`, backgroundSize: "cover", backgroundPosition: "center" }
-      : bg?.type === "stripes"
-      ? { backgroundColor: bg.baseColor || "#14181C" }
-      : { backgroundColor: bg?.value || "#14181C" };
-  const stripeBars = bg?.type === "stripes" ? bg.bars || [] : [];
+      : { backgroundColor: bg?.baseColor || bg?.value || "#14181C" };
+  const stripeBars = bg?.bars || [];
   const bgTintStyle =
     bg?.type === "image" && bg.tint?.color
       ? { backgroundColor: bg.tint.color, opacity: bg.tint.opacity ?? 0.5, mixBlendMode: "color" }
@@ -611,7 +631,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   }
 
   function addStripeBar() {
-    const base = tournamentBg?.type === "stripes" ? tournamentBg : { type: "stripes", baseColor: "#14181C", bars: [] };
+    const base = tournamentBg || { type: "color", value: "#14181C", bars: [] };
     const colors = ["#C9A15A", "#1E6FEB", "#D85A30", "#639922"];
     const nextColor = colors[(base.bars?.length || 0) % colors.length];
     const bars = [...(base.bars || []), { color: nextColor, opacity: 1, width: 40, x: 10 + (base.bars?.length || 0) * 15 }];
@@ -619,13 +639,13 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   }
 
   function updateStripeBar(index, patch) {
-    if (tournamentBg?.type !== "stripes") return;
+    if (!tournamentBg?.bars) return;
     const bars = tournamentBg.bars.map((b, i) => (i === index ? { ...b, ...patch } : b));
     saveTournamentBg({ ...tournamentBg, bars });
   }
 
   function removeStripeBar(index) {
-    if (tournamentBg?.type !== "stripes") return;
+    if (!tournamentBg?.bars) return;
     const bars = tournamentBg.bars.filter((_, i) => i !== index);
     saveTournamentBg({ ...tournamentBg, bars });
   }
@@ -701,8 +721,8 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
                     <div className="mb-2 text-felt-cream/50">Fond de l'horloge (ce tournoi uniquement)</div>
                     <input
                       type="color"
-                      value={tournamentBg?.type === "color" ? tournamentBg.value : "#14181C"}
-                      onChange={(e) => saveTournamentBg({ type: "color", value: e.target.value })}
+                      value={tournamentBg?.type === "color" || !tournamentBg?.type ? tournamentBg?.value || "#14181C" : "#14181C"}
+                      onChange={(e) => saveTournamentBg({ ...tournamentBg, type: "color", value: e.target.value })}
                       className="w-full h-8 bg-transparent cursor-pointer mb-2"
                     />
                     <button
@@ -865,14 +885,11 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
             <span>⏱ {formatTime(elapsedSeconds)}</span>
             <span>☕ {hasUpcomingBreak ? formatTime(breakInSeconds) : "--:--"}</span>
           </div>
-          {panels.timer.style.showTitle && (
-            <div className="text-felt-gold/80 font-display tracking-wide mb-1" style={titleStyle(panels.timer.style)}>
-              {panels.timer.style.customTitle || (currentLevel?.isBreak ? currentLevel.breakLabel || "PAUSE" : `NIVEAU ${levelIndex + 1}`)}
+          <PanelBody style={panels.timer.style} title={panels.timer.style.customTitle || (currentLevel?.isBreak ? currentLevel.breakLabel || "PAUSE" : `NIVEAU ${levelIndex + 1}`)}>
+            <div className="leading-none tabular-nums" style={textStyle(panels.timer.style)}>
+              {formatTime(secondsLeft)}
             </div>
-          )}
-          <div className="leading-none tabular-nums" style={textStyle(panels.timer.style)}>
-            {formatTime(secondsLeft)}
-          </div>
+          </PanelBody>
           <div
             onClick={handleProgressClick}
             title="Cliquer pour ajuster le temps restant"
@@ -908,30 +925,28 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
 
       {!panels.blinds.removed && (
         <Panel id="blinds" layout={panels.blinds} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Blinds" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
-          {panels.blinds.style.showTitle && <div className="text-felt-cream/30 uppercase tracking-wide mb-1" style={titleStyle(panels.blinds.style)}>{panels.blinds.style.customTitle || "Blinds"}</div>}
-          {currentLevel && !currentLevel.isBreak ? (
-            <div className="flex flex-col items-center">
-              <div style={textStyle(panels.blinds.style)}>{currentLevel.smallBlind}</div>
-              <div className="w-3/4 h-px bg-felt-cream/20 my-1" />
-              <div style={textStyle(panels.blinds.style)}>{currentLevel.bigBlind}</div>
-              {currentLevel.ante > 0 && <div className="text-felt-gold text-xs mt-1">ante {currentLevel.ante}</div>}
-            </div>
-          ) : (
-            <div className="text-felt-cream/50 text-sm text-center">Pause</div>
-          )}
+          <PanelBody style={panels.blinds.style} title={panels.blinds.style.customTitle || "Blinds"}>
+            {currentLevel && !currentLevel.isBreak ? (
+              <div className="flex flex-col items-center">
+                <div style={textStyle(panels.blinds.style)}>{currentLevel.smallBlind}</div>
+                <div className="w-3/4 h-px bg-felt-cream/20 my-1" />
+                <div style={textStyle(panels.blinds.style)}>{currentLevel.bigBlind}</div>
+                {currentLevel.ante > 0 && <div className="text-felt-gold text-xs mt-1">ante {currentLevel.ante}</div>}
+              </div>
+            ) : (
+              <div className="text-felt-cream/50 text-sm text-center">Pause</div>
+            )}
+          </PanelBody>
         </Panel>
       )}
 
       {!panels.nextbreak.removed && (
         <Panel id="nextbreak" layout={panels.nextbreak} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Prochaine pause" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
-          {panels.nextbreak.style.showTitle && (
-            <div className="text-felt-cream/30 uppercase tracking-wide mb-1" style={titleStyle(panels.nextbreak.style)}>
-              {panels.nextbreak.style.customTitle || "Prochaine pause"}
+          <PanelBody style={panels.nextbreak.style} title={panels.nextbreak.style.customTitle || "Prochaine pause"}>
+            <div className="tabular-nums" style={textStyle(panels.nextbreak.style)}>
+              {hasUpcomingBreak ? formatTime(breakInSeconds) : "--:--"}
             </div>
-          )}
-          <div className="tabular-nums" style={textStyle(panels.nextbreak.style)}>
-            {hasUpcomingBreak ? formatTime(breakInSeconds) : "--:--"}
-          </div>
+          </PanelBody>
         </Panel>
       )}
 
@@ -958,27 +973,29 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
 
       {!panels.players.removed && (
         <Panel id="players" layout={panels.players} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Joueurs" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
-          {panels.players.style.showTitle && <div className="text-felt-cream/30 uppercase tracking-wide mb-1" style={titleStyle(panels.players.style)}>{panels.players.style.customTitle || "Joueurs"}</div>}
-          <div style={textStyle(panels.players.style)}>
-            {stillIn.length}/{registrations.length}
-          </div>
-          <div className="text-felt-cream/40 mt-1" style={{ fontSize: `${panels.players.style.titleFontSize || 10}px`, textAlign: panels.players.style.align }}>TAPIS MOYEN</div>
-          <div style={{ ...textStyle(panels.players.style), fontSize: `${panels.players.style.fontSize * 0.75}px` }}>
-            {avgStack.toLocaleString()} <span className="text-felt-gold" style={{ fontSize: `${panels.players.style.fontSize * 0.4}px` }}>({avgStackBB} BB)</span>
-          </div>
+          <PanelBody style={panels.players.style} title={panels.players.style.customTitle || "Joueurs"}>
+            <div style={textStyle(panels.players.style)}>
+              {stillIn.length}/{registrations.length}
+            </div>
+            <div className="text-felt-cream/40 mt-1" style={{ fontSize: `${panels.players.style.titleFontSize || 10}px`, textAlign: panels.players.style.align }}>TAPIS MOYEN</div>
+            <div style={{ ...textStyle(panels.players.style), fontSize: `${panels.players.style.fontSize * 0.75}px` }}>
+              {avgStack.toLocaleString()} <span className="text-felt-gold" style={{ fontSize: `${panels.players.style.fontSize * 0.4}px` }}>({avgStackBB} BB)</span>
+            </div>
+          </PanelBody>
         </Panel>
       )}
 
       {!panels.next.removed && (
         <Panel id="next" layout={panels.next} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Prochaine blind" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
-          {panels.next.style.showTitle && <div className="text-felt-cream/30 uppercase tracking-wide mb-1" style={titleStyle(panels.next.style)}>{panels.next.style.customTitle || "Prochaine blind"}</div>}
-          {nextLevel ? (
-            <div style={textStyle(panels.next.style)}>
-              {nextLevel.isBreak ? nextLevel.breakLabel || "Pause" : `${nextLevel.smallBlind}/${nextLevel.bigBlind}${nextLevel.ante ? ` (ante ${nextLevel.ante})` : ""}`}
-            </div>
-          ) : (
-            <div className="text-felt-cream/40 text-sm">Dernier niveau</div>
-          )}
+          <PanelBody style={panels.next.style} title={panels.next.style.customTitle || "Prochaine blind"}>
+            {nextLevel ? (
+              <div style={textStyle(panels.next.style)}>
+                {nextLevel.isBreak ? nextLevel.breakLabel || "Pause" : `${nextLevel.smallBlind}/${nextLevel.bigBlind}${nextLevel.ante ? ` (ante ${nextLevel.ante})` : ""}`}
+              </div>
+            ) : (
+              <div className="text-felt-cream/40 text-sm">Dernier niveau</div>
+            )}
+          </PanelBody>
         </Panel>
       )}
 
@@ -1518,6 +1535,34 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
       <label className="flex items-center justify-between mb-2">
         Taille du titre (px)
         <input type="number" value={style.titleFontSize || 10} onChange={(e) => onChange({ titleFontSize: Number(e.target.value) || 8 })} className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-1 py-0.5 text-felt-cream" />
+      </label>
+      <label className="flex items-center justify-between mb-2">
+        Position du titre
+        <select
+          value={style.titlePosition || "top"}
+          onChange={(e) => onChange({ titlePosition: e.target.value })}
+          className="bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream"
+        >
+          <option value="top">Haut</option>
+          <option value="bottom">Bas</option>
+          <option value="left">Gauche</option>
+          <option value="right">Droite</option>
+        </select>
+      </label>
+      <label className="flex items-center justify-between mb-2">
+        Couleur du titre
+        <input type="color" value={style.titleColor || "#C9A15A"} onChange={(e) => onChange({ titleColor: e.target.value })} className="w-8 h-6 bg-transparent cursor-pointer" />
+      </label>
+      <label className="flex items-center justify-between mb-2">
+        Police du titre
+        <select value={style.titleFont || "display"} onChange={(e) => onChange({ titleFont: e.target.value })} className="bg-felt-panel border border-felt-cream/10 rounded px-1 py-0.5 text-felt-cream">
+          <option value="display">Titre</option>
+          <option value="body">Texte</option>
+          <option value="mono">Mono</option>
+          <option value="poster">Poster (bold arrondi)</option>
+          <option value="anton">Affiche condensée</option>
+          <option value="bungee">Bungee (rétro)</option>
+        </select>
       </label>
       <label className="flex items-center justify-between mb-2">
         Couleur du texte
