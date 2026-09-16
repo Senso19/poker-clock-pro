@@ -46,9 +46,11 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   const [stackDraft, setStackDraft] = useState("");
   const [movingReg, setMovingReg] = useState(null);
   const [shuffling, setShuffling] = useState(false);
-  const [balanceProposal, setBalanceProposal] = useState(null);
+  const [breakProposal, setBreakProposal] = useState(null);
+  const [rebalanceProposal, setRebalanceProposal] = useState(null);
   const [winnerAnnounce, setWinnerAnnounce] = useState(null);
-  const [showBalanceSuggestion, setShowBalanceSuggestion] = useState(false);
+  const [showBreakSuggestion, setShowBreakSuggestion] = useState(false);
+  const [showRebalanceSuggestion, setShowRebalanceSuggestion] = useState(false);
   const [balancing, setBalancing] = useState(false);
   const [captainAccounts, setCaptainAccounts] = useState([]);
   const [tableCaptains, setTableCaptains] = useState([]);
@@ -441,7 +443,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     return null;
   }
 
-  function computeBalanceMoves() {
+  function computeBreakMoves() {
     const perTable = tournament?.players_per_table || 9;
     const finalTableSize = tournament?.final_table_size || perTable;
     const { active, byTable } = groupActiveByTable();
@@ -449,88 +451,109 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     const usedTables = Object.keys(byTable).map(Number).sort((a, b) => a - b);
     if (usedTables.length === 0) return [];
     const targetCount = computeTargetTableCount(active.length, perTable, finalTableSize);
-    const occupied = new Set(active.map((r) => `${r.table_number}-${r.seat_number}`));
-    const moves = [];
+    if (usedTables.length <= targetCount) return [];
 
-    if (usedTables.length > targetCount) {
-      // Cas 1 : on privilégie toujours de casser la table au numéro le plus
-      // élevé (la table 1 est la dernière qu'on cassera), même si elle est
-      // complète — tant que les autres tables ont assez de sièges libres
-      // pour absorber tous ses joueurs. Sinon on essaie la suivante par
-      // ordre décroissant.
-      const descTables = [...usedTables].sort((a, b) => b - a);
-      let breakTable = null;
-      for (const t of descTables) {
-        const others = usedTables.filter((o) => o !== t);
-        const freeCapacity = others.reduce((sum, o) => sum + (perTable - byTable[o].length), 0);
-        if (byTable[t].length <= freeCapacity) {
-          breakTable = t;
-          break;
-        }
+    // On privilégie toujours de casser la table au numéro le plus élevé
+    // (la table 1 est la dernière qu'on cassera), même si elle est
+    // complète — tant que les autres tables ont assez de sièges libres
+    // pour absorber tous ses joueurs. Sinon on essaie la suivante par
+    // ordre décroissant.
+    const occupied = new Set(active.map((r) => `${r.table_number}-${r.seat_number}`));
+    const descTables = [...usedTables].sort((a, b) => b - a);
+    let breakTable = null;
+    for (const t of descTables) {
+      const others = usedTables.filter((o) => o !== t);
+      const freeCapacity = others.reduce((sum, o) => sum + (perTable - byTable[o].length), 0);
+      if (byTable[t].length <= freeCapacity) {
+        breakTable = t;
+        break;
       }
-      // Repli improbable : si aucune table ne rentre exactement (ne devrait
-      // pas arriver vu le calcul de targetCount), on prend la moins garnie.
-      if (breakTable == null) {
-        breakTable = usedTables.reduce((min, t) => (byTable[t].length < byTable[min].length ? t : min), usedTables[0]);
-      }
-      const destTables = usedTables.filter((t) => t !== breakTable);
-      const counts = {};
-      destTables.forEach((t) => (counts[t] = byTable[t].length));
-      byTable[breakTable].forEach((reg) => {
-        const dest = destTables.reduce((min, t) => (counts[t] < counts[min] ? t : min), destTables[0]);
-        occupied.delete(`${reg.table_number}-${reg.seat_number}`);
-        const seat = findFreeSeat(occupied, dest, perTable);
-        if (seat == null) return;
-        occupied.add(`${dest}-${seat}`);
-        counts[dest] += 1;
-        moves.push({ reg, fromTable: reg.table_number, fromSeat: reg.seat_number, toTable: dest, toSeat: seat });
-      });
-    } else {
-      // Cas 2 : en attendant qu'une table haute ait assez peu de joueurs
-      // pour être cassée, on réoptimise normalement l'écart entre la table
-      // la plus et la moins garnie — à écart égal, on prend en priorité un
-      // joueur de la table au numéro le plus élevé, pour l'aider à se vider
-      // plus vite.
-      const tablesState = usedTables.map((t) => ({ t, players: [...byTable[t]] }));
-      let guard = 0;
-      while (guard++ < 200) {
-        const maxT = tablesState.reduce((a, b) => {
-          if (b.players.length > a.players.length) return b;
-          if (b.players.length === a.players.length && b.t > a.t) return b;
-          return a;
-        });
-        const minT = tablesState.reduce((a, b) => (b.players.length < a.players.length ? b : a));
-        if (maxT.players.length - minT.players.length < 2) break;
-        const reg = maxT.players[maxT.players.length - 1];
-        occupied.delete(`${reg.table_number}-${reg.seat_number}`);
-        const seat = findFreeSeat(occupied, minT.t, perTable);
-        if (seat == null) break;
-        occupied.add(`${minT.t}-${seat}`);
-        moves.push({ reg, fromTable: reg.table_number, fromSeat: reg.seat_number, toTable: minT.t, toSeat: seat });
-        maxT.players.pop();
-        minT.players.push(reg);
-      }
+    }
+    if (breakTable == null) return [];
+
+    const moves = [];
+    const destTables = usedTables.filter((t) => t !== breakTable);
+    const counts = {};
+    destTables.forEach((t) => (counts[t] = byTable[t].length));
+    byTable[breakTable].forEach((reg) => {
+      const dest = destTables.reduce((min, t) => (counts[t] < counts[min] ? t : min), destTables[0]);
+      occupied.delete(`${reg.table_number}-${reg.seat_number}`);
+      const seat = findFreeSeat(occupied, dest, perTable);
+      if (seat == null) return;
+      occupied.add(`${dest}-${seat}`);
+      counts[dest] += 1;
+      moves.push({ reg, fromTable: reg.table_number, fromSeat: reg.seat_number, toTable: dest, toSeat: seat });
+    });
+    return moves;
+  }
+
+  function computeRebalanceMoves() {
+    const perTable = tournament?.players_per_table || 9;
+    const { active, byTable } = groupActiveByTable();
+    if (active.length === 0) return [];
+    const usedTables = Object.keys(byTable).map(Number);
+    if (usedTables.length === 0) return [];
+    const occupied = new Set(active.map((r) => `${r.table_number}-${r.seat_number}`));
+
+    // Réoptimise l'écart entre la table la plus et la moins garnie, un
+    // joueur à la fois. La table source est choisie AU HASARD parmi les
+    // tables actuellement au maximum de joueurs — jamais une table déjà
+    // sous ce maximum, pour ne jamais créer un nouveau déséquilibre à
+    // peine celui-ci corrigé.
+    const tablesState = usedTables.map((t) => ({ t, players: [...byTable[t]] }));
+    const moves = [];
+    let guard = 0;
+    while (guard++ < 200) {
+      const counts = tablesState.map((s) => s.players.length);
+      const max = Math.max(...counts);
+      const min = Math.min(...counts);
+      if (max - min < 2) break;
+      const maxTables = tablesState.filter((s) => s.players.length === max);
+      const maxT = maxTables[Math.floor(Math.random() * maxTables.length)];
+      const minT = tablesState.reduce((a, b) => (b.players.length < a.players.length ? b : a));
+      const reg = maxT.players[maxT.players.length - 1];
+      occupied.delete(`${reg.table_number}-${reg.seat_number}`);
+      const seat = findFreeSeat(occupied, minT.t, perTable);
+      if (seat == null) break;
+      occupied.add(`${minT.t}-${seat}`);
+      moves.push({ reg, fromTable: reg.table_number, fromSeat: reg.seat_number, toTable: minT.t, toSeat: seat });
+      maxT.players.pop();
+      minT.players.push(reg);
     }
     return moves;
   }
 
-  async function autoBalanceTables() {
-    if (!(await confirmAction("L'équilibrage des tables va être effectué. Continuer ?"))) return;
-    const moves = computeBalanceMoves();
+  async function autoBreakTable() {
+    if (!(await confirmAction("Casser la table la plus haute et répartir ses joueurs. Continuer ?"))) return;
+    const moves = computeBreakMoves();
     if (moves.length === 0) return;
-    setBalanceProposal(moves);
+    setBreakProposal(moves);
   }
 
-  // Dès que le rééquilibrage devient recommandé (transition, pas à chaque
-  // rendu), une fenêtre le propose spontanément plutôt que d'attendre que
-  // l'utilisateur clique lui-même sur le bouton.
-  const wasNeedingBalanceRef = useRef(false);
+  async function autoRebalanceTables() {
+    if (!(await confirmAction("Un joueur va être déplacé pour équilibrer les tables. Continuer ?"))) return;
+    const moves = computeRebalanceMoves();
+    if (moves.length === 0) return;
+    setRebalanceProposal(moves);
+  }
+
+  // Dès que "Casser une table" ou "Équilibrer les tables" devient possible
+  // (transition, pas à chaque rendu), une fenêtre le propose spontanément
+  // plutôt que d'attendre que l'utilisateur clique lui-même sur le bouton.
+  const wasNeedingBreakRef = useRef(false);
+  const wasNeedingRebalanceRef = useRef(false);
   useEffect(() => {
-    const needs = computeNeedsBalance();
-    if (needs && !wasNeedingBalanceRef.current && !balanceProposal && !showBalanceSuggestion) {
-      setShowBalanceSuggestion(true);
+    const needsBreak = computeBreakMoves().length > 0;
+    if (needsBreak && !wasNeedingBreakRef.current && !breakProposal && !showBreakSuggestion) {
+      setShowBreakSuggestion(true);
     }
-    wasNeedingBalanceRef.current = needs;
+    wasNeedingBreakRef.current = needsBreak;
+
+    const needsRebalance = computeRebalanceMoves().length > 0;
+    if (needsRebalance && !wasNeedingRebalanceRef.current && !rebalanceProposal && !showRebalanceSuggestion && !needsBreak) {
+      setShowRebalanceSuggestion(true);
+    }
+    wasNeedingRebalanceRef.current = needsRebalance;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [registrations, eliminations]);
 
@@ -574,9 +597,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [registrations, eliminations]);
 
-  async function applyBalanceProposal() {
-    const moves = balanceProposal;
-    if (!moves) return;
+  async function applyMoves(moves, kind, label) {
     setBalancing(true);
     setError(null);
     try {
@@ -586,7 +607,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
       await Promise.all(
         moves.map((m) => supabase.from("registrations").update({ table_number: m.toTable, seat_number: m.toSeat }).eq("id", m.reg.id))
       );
-      logEvent(tournamentId, "balance", "Équilibrage des tables", { before });
+      logEvent(tournamentId, kind, label, { before });
       moves.forEach((m) => {
         addAnnouncement(
           tournamentId,
@@ -599,23 +620,18 @@ export default function TournamentDetail({ tournamentId, onBack }) {
       setError(e.message);
     }
     setBalancing(false);
-    setBalanceProposal(null);
   }
 
-  // Calcule si un des deux cas d'équilibrage s'applique (table à casser,
-  // ou écart de 2+ entre la table la plus et la moins garnie) — pilote
-  // l'activation du bouton et la proposition automatique.
-  function computeNeedsBalance() {
-    const perTable = tournament?.players_per_table || 9;
-    const finalTableSize = tournament?.final_table_size || perTable;
-    const { active, byTable } = groupActiveByTable();
-    if (active.length === 0) return false;
-    const usedTables = Object.keys(byTable).map(Number);
-    if (usedTables.length === 0) return false;
-    const targetCount = computeTargetTableCount(active.length, perTable, finalTableSize);
-    if (usedTables.length > targetCount) return true;
-    const counts = usedTables.map((t) => byTable[t].length);
-    return Math.max(...counts) - Math.min(...counts) >= 2;
+  async function applyBreakProposal() {
+    if (!breakProposal) return;
+    await applyMoves(breakProposal, "balance", "Casser une table");
+    setBreakProposal(null);
+  }
+
+  async function applyRebalanceProposal() {
+    if (!rebalanceProposal) return;
+    await applyMoves(rebalanceProposal, "balance", "Équilibrer les tables");
+    setRebalanceProposal(null);
   }
 
   async function confirmElimination(reg, eliminatedByRegId) {
@@ -840,18 +856,32 @@ export default function TournamentDetail({ tournamentId, onBack }) {
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <button
-                onClick={autoBalanceTables}
-                disabled={balancing || !computeNeedsBalance()}
+                onClick={autoBreakTable}
+                disabled={balancing || computeBreakMoves().length === 0}
                 title={
-                  computeNeedsBalance()
-                    ? "Rééquilibrage recommandé : répartit les joueurs encore en jeu sur le nombre minimal de tables nécessaire"
+                  computeBreakMoves().length > 0
+                    ? "Casse la table au numéro le plus élevé et répartit ses joueurs sur les autres"
+                    : "Aucune table ne peut être cassée pour l'instant"
+                }
+                className={`text-sm flex items-center gap-1.5 disabled:opacity-40 ${
+                  computeBreakMoves().length > 0 ? "text-felt-gold hover:text-felt-gold/80 font-medium" : "text-felt-cream/40"
+                }`}
+              >
+                <span>💥</span> Casser une table
+              </button>
+              <button
+                onClick={autoRebalanceTables}
+                disabled={balancing || computeRebalanceMoves().length === 0}
+                title={
+                  computeRebalanceMoves().length > 0
+                    ? "Déplace un joueur pour réduire l'écart entre la table la plus et la moins garnie"
                     : "Les tables sont déjà équilibrées"
                 }
                 className={`text-sm flex items-center gap-1.5 disabled:opacity-40 ${
-                  computeNeedsBalance() ? "text-felt-gold hover:text-felt-gold/80 font-medium" : "text-felt-cream/40"
+                  computeRebalanceMoves().length > 0 ? "text-felt-gold hover:text-felt-gold/80 font-medium" : "text-felt-cream/40"
                 }`}
               >
-                <span>⚖</span> {balancing ? "Équilibrage…" : computeNeedsBalance() ? "Rééquilibrage recommandé" : "Équilibrer les tables"}
+                <span>⚖</span> {balancing ? "Équilibrage…" : "Équilibrer les tables"}
               </button>
               <button
                 onClick={shuffleSeats}
@@ -1161,23 +1191,23 @@ export default function TournamentDetail({ tournamentId, onBack }) {
           </div>
         </div>
       )}
-      {showBalanceSuggestion && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setShowBalanceSuggestion(false)}>
+      {showBreakSuggestion && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setShowBreakSuggestion(false)}>
           <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-            <div className="font-display text-base mb-2">⚖ Rééquilibrage recommandé</div>
+            <div className="font-display text-base mb-2">💥 Casser une table</div>
             <div className="text-sm text-felt-cream/60 mb-4">
-              La répartition des joueurs entre les tables n'est plus optimale. Voulez-vous équilibrer les tables
+              Il y a assez de sièges libres ailleurs pour casser la table la plus haute. Voulez-vous la casser
               maintenant ?
             </div>
             <div className="flex justify-end gap-2">
-              <button onClick={() => setShowBalanceSuggestion(false)} className="px-3 py-1.5 text-sm text-felt-cream/60 hover:text-felt-cream">
+              <button onClick={() => setShowBreakSuggestion(false)} className="px-3 py-1.5 text-sm text-felt-cream/60 hover:text-felt-cream">
                 Annuler
               </button>
               <button
                 onClick={() => {
-                  setShowBalanceSuggestion(false);
-                  const moves = computeBalanceMoves();
-                  if (moves.length > 0) setBalanceProposal(moves);
+                  setShowBreakSuggestion(false);
+                  const moves = computeBreakMoves();
+                  if (moves.length > 0) setBreakProposal(moves);
                 }}
                 className="px-4 py-1.5 text-sm bg-felt-gold text-felt-bg rounded-md font-display"
               >
@@ -1187,15 +1217,41 @@ export default function TournamentDetail({ tournamentId, onBack }) {
           </div>
         </div>
       )}
-      {balanceProposal && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setBalanceProposal(null)}>
+      {showRebalanceSuggestion && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setShowRebalanceSuggestion(false)}>
+          <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="font-display text-base mb-2">⚖ Équilibrage recommandé</div>
+            <div className="text-sm text-felt-cream/60 mb-4">
+              L'écart entre la table la plus et la moins garnie n'est plus optimal. Voulez-vous déplacer un joueur
+              maintenant ?
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowRebalanceSuggestion(false)} className="px-3 py-1.5 text-sm text-felt-cream/60 hover:text-felt-cream">
+                Annuler
+              </button>
+              <button
+                onClick={() => {
+                  setShowRebalanceSuggestion(false);
+                  const moves = computeRebalanceMoves();
+                  if (moves.length > 0) setRebalanceProposal(moves);
+                }}
+                className="px-4 py-1.5 text-sm bg-felt-gold text-felt-bg rounded-md font-display"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {breakProposal && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setBreakProposal(null)}>
           <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-5 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <div className="font-display text-base mb-1">Déplacements proposés</div>
+            <div className="font-display text-base mb-1">💥 Casser une table — déplacements proposés</div>
             <div className="text-xs text-felt-cream/50 mb-3">
-              {balanceProposal.length} joueur{balanceProposal.length > 1 ? "s" : ""} concerné{balanceProposal.length > 1 ? "s" : ""}.
+              {breakProposal.length} joueur{breakProposal.length > 1 ? "s" : ""} concerné{breakProposal.length > 1 ? "s" : ""}.
             </div>
             <div className="max-h-72 overflow-y-auto space-y-1 mb-4">
-              {balanceProposal.map((m) => (
+              {breakProposal.map((m) => (
                 <div key={m.reg.id} className="flex items-center justify-between text-sm bg-felt-bg/60 rounded px-3 py-2">
                   <span className="truncate">{m.reg.players?.full_name || m.reg.players?.pseudo}</span>
                   <span className="text-felt-cream/40 text-xs whitespace-nowrap ml-2">
@@ -1205,11 +1261,43 @@ export default function TournamentDetail({ tournamentId, onBack }) {
               ))}
             </div>
             <div className="flex justify-end gap-2">
-              <button onClick={() => setBalanceProposal(null)} className="px-3 py-1.5 text-sm text-felt-cream/60 hover:text-felt-cream">
+              <button onClick={() => setBreakProposal(null)} className="px-3 py-1.5 text-sm text-felt-cream/60 hover:text-felt-cream">
                 Annuler
               </button>
               <button
-                onClick={applyBalanceProposal}
+                onClick={applyBreakProposal}
+                disabled={balancing}
+                className="px-4 py-1.5 text-sm bg-felt-gold text-felt-bg rounded-md font-display disabled:opacity-40"
+              >
+                {balancing ? "Application…" : "OK"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {rebalanceProposal && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setRebalanceProposal(null)}>
+          <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-5 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <div className="font-display text-base mb-1">⚖ Équilibrage — déplacement proposé</div>
+            <div className="text-xs text-felt-cream/50 mb-3">
+              {rebalanceProposal.length} joueur{rebalanceProposal.length > 1 ? "s" : ""} concerné{rebalanceProposal.length > 1 ? "s" : ""}.
+            </div>
+            <div className="max-h-72 overflow-y-auto space-y-1 mb-4">
+              {rebalanceProposal.map((m) => (
+                <div key={m.reg.id} className="flex items-center justify-between text-sm bg-felt-bg/60 rounded px-3 py-2">
+                  <span className="truncate">{m.reg.players?.full_name || m.reg.players?.pseudo}</span>
+                  <span className="text-felt-cream/40 text-xs whitespace-nowrap ml-2">
+                    T{m.fromTable || "-"}/S{m.fromSeat || "-"} → T{m.toTable}/S{m.toSeat}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setRebalanceProposal(null)} className="px-3 py-1.5 text-sm text-felt-cream/60 hover:text-felt-cream">
+                Annuler
+              </button>
+              <button
+                onClick={applyRebalanceProposal}
                 disabled={balancing}
                 className="px-4 py-1.5 text-sm bg-felt-gold text-felt-bg rounded-md font-display disabled:opacity-40"
               >
