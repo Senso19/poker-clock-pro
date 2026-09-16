@@ -19,7 +19,7 @@ function initials(name) {
  * retour, titre, classement complet avec avatar/nom/nombre de tournois/
  * points, chaque ligne dépliable pour voir le détail par étape.
  */
-export default function ChampionshipDetailPage({ summary, manage, onBack, onDelete }) {
+export default function ChampionshipDetailPage({ summary, manage, onBack, onDelete, onTogglePublic }) {
   const [expandedId, setExpandedId] = useState(null);
   const { championship, standings } = summary;
 
@@ -34,6 +34,16 @@ export default function ChampionshipDetailPage({ summary, manage, onBack, onDele
           ←
         </button>
         <div className="pcp-title font-display text-2xl truncate flex-1">{championship.name}</div>
+        {manage && (
+          <label className="flex items-center gap-1.5 text-xs text-felt-cream/60 shrink-0 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={!!championship.public_view}
+              onChange={(e) => onTogglePublic?.(e.target.checked)}
+            />
+            Accès public
+          </label>
+        )}
         {manage && (
           <button onClick={onDelete} className="text-felt-alert/70 hover:text-felt-alert text-sm shrink-0">
             🗑 Supprimer

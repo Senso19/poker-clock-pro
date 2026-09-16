@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { supabase } from "../lib/supabase.js";
 import {
   fetchChampionships,
   createChampionship,
@@ -83,7 +84,10 @@ export default function ChampionshipView() {
   async function load() {
     setLoading(true);
     try {
-      const list = await fetchChampionships();
+      let list = await fetchChampionships();
+      // Visiteur non connecté : uniquement les championnats marqués "Accès
+      // public" — les autres restent réservés aux comptes connectés.
+      if (!account) list = list.filter((c) => c.public_view);
       if (list.length === 0) {
         setSummaries([]);
         if (manage) setShowCreate(true);
@@ -162,6 +166,17 @@ export default function ChampionshipView() {
     setSelectedId(selectedId === id ? null : id);
   }
 
+  async function handleTogglePublic(id, value) {
+    try {
+      await supabase.from("championships").update({ public_view: value }).eq("id", id);
+      setSummaries((list) =>
+        list.map((s) => (s.championship.id === id ? { ...s, championship: { ...s.championship, public_view: value } } : s))
+      );
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
   if (selected) {
     return (
       <ChampionshipDetailPage
@@ -169,6 +184,7 @@ export default function ChampionshipView() {
         manage={manage}
         onBack={() => setSelectedId(null)}
         onDelete={() => handleDelete(selected.championship.id)}
+        onTogglePublic={(value) => handleTogglePublic(selected.championship.id, value)}
       />
     );
   }

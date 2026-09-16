@@ -57,7 +57,9 @@ export default function TournamentsGrid({ onOpen }) {
     setLoading(true);
     try {
       const list = await fetchAllTournaments();
-      setTournaments(list);
+      // Visiteur non connecté : uniquement les tournois marqués "Accès
+      // public" — les autres restent réservés aux comptes connectés.
+      setTournaments(account ? list : list.filter((t) => t.public_view));
       setChampionships(await fetchChampionships());
       fetchStructureTemplates().then(setStructureTemplates).catch(() => {});
       fetchClockTemplates().then(setClockTemplates).catch(() => {});
