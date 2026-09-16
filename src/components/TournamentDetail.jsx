@@ -14,6 +14,7 @@ import ActionJournalModal from "./ActionJournalModal.jsx";
 import CustomizablePanel from "./CustomizablePanel.jsx";
 import { useConfirm } from "../context/ConfirmContext.jsx";
 import { logEvent } from "../lib/events.js";
+import { addAnnouncement } from "../lib/announcements.js";
 
 /**
  * TournamentDetail — gestion complète d'UN tournoi précis (admin/TD), façon
@@ -215,6 +216,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     try {
       const { table, seat } = await computeSeatAssignment(tournament);
       await supabase.from("registrations").update({ table_number: table, seat_number: seat }).eq("id", reg.id);
+      addAnnouncement(tournamentId, `${reg.players?.pseudo || reg.players?.full_name} placé Table ${table} Siège ${seat}`, "move");
       await loadRegistrations();
     } catch (e) {
       setError(e.message);
@@ -496,6 +498,46 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [registrations, eliminations]);
 
+  // Détection des seuils d'ante (moitié ante si <6 joueurs sur une table,
+  // maintien des antes en tête-à-tête) : dès que l'un devient éligible
+  // selon la config de structure du tournoi, on informe et on écrit dans
+  // le panneau Annonces — une seule fois par transition.
+  const anteAlertsRef = useRef({ halfTables: new Set(), headsUp: false });
+  const [anteAlert, setAnteAlert] = useState(null);
+  useEffect(() => {
+    const cfg = tournament?.structure_config;
+    if (!cfg) return;
+    const { byTable } = groupActiveByTable();
+    const usedTables = Object.keys(byTable).map(Number);
+
+    if (cfg.halfAnteIfFewPlayers) {
+      usedTables.forEach((t) => {
+        const isHalf = byTable[t].length < 6;
+        const already = anteAlertsRef.current.halfTables.has(t);
+        if (isHalf && !already) {
+          anteAlertsRef.current.halfTables.add(t);
+          setAnteAlert(`Table ${t} passe à moitié ante (moins de 6 joueurs).`);
+          addAnnouncement(tournamentId, `Table ${t} passe à moitié ante`, "ante");
+        } else if (!isHalf && already) {
+          anteAlertsRef.current.halfTables.delete(t);
+        }
+      });
+    }
+
+    if (cfg.keepAntesHeadsUp) {
+      const totalActive = usedTables.reduce((s, t) => s + byTable[t].length, 0);
+      const isHeadsUp = usedTables.length === 1 && totalActive === 2;
+      if (isHeadsUp && !anteAlertsRef.current.headsUp) {
+        anteAlertsRef.current.headsUp = true;
+        setAnteAlert("Tête-à-tête : les antes sont maintenues.");
+        addAnnouncement(tournamentId, "Tête-à-tête : les antes sont maintenues", "ante");
+      } else if (!isHeadsUp) {
+        anteAlertsRef.current.headsUp = false;
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [registrations, eliminations]);
+
   async function applyBalanceProposal() {
     const moves = balanceProposal;
     if (!moves) return;
@@ -509,6 +551,13 @@ export default function TournamentDetail({ tournamentId, onBack }) {
         moves.map((m) => supabase.from("registrations").update({ table_number: m.toTable, seat_number: m.toSeat }).eq("id", m.reg.id))
       );
       logEvent(tournamentId, "balance", "Équilibrage des tables", { before });
+      moves.forEach((m) => {
+        addAnnouncement(
+          tournamentId,
+          `${m.reg.players?.pseudo || m.reg.players?.full_name} déplacé Table ${m.toTable} Siège ${m.toSeat}`,
+          "move"
+        );
+      });
       await loadRegistrations();
     } catch (e) {
       setError(e.message);
@@ -549,6 +598,11 @@ export default function TournamentDetail({ tournamentId, onBack }) {
       .select()
       .single();
     logEvent(tournamentId, "elimination", reg.players?.full_name || "", { eliminationId: elim?.id, registrationId: reg.id });
+    addAnnouncement(
+      tournamentId,
+      `${reg.players?.pseudo || reg.players?.full_name} éliminé${position > 1 ? "" : ""} à la ${position}ᵉ place`,
+      "elimination"
+    );
     setEliminatingReg(null);
     setOpenMenuId(null);
     loadEliminations();
@@ -1022,6 +1076,20 @@ export default function TournamentDetail({ tournamentId, onBack }) {
             ticketId={`${tournament.id.slice(0, 8)}-${ticket.reg.id.slice(0, 8)}-${ticket.type}`}
           />
         </TicketModal>
+      )}
+      {anteAlert && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setAnteAlert(null)}>
+          <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="font-display text-base mb-2">🪙 Ante</div>
+            <div className="text-sm text-felt-cream/60 mb-4">{anteAlert}</div>
+            <div className="text-xs text-felt-cream/40 mb-4">Écrit automatiquement dans le panneau Annonces de l'horloge.</div>
+            <div className="flex justify-end">
+              <button onClick={() => setAnteAlert(null)} className="px-4 py-1.5 text-sm bg-felt-gold text-felt-bg rounded-md font-display">
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       {showBalanceSuggestion && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setShowBalanceSuggestion(false)}>

@@ -154,7 +154,11 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
 
   async function handleSave() {
     setError(null);
-    const cleanLevels = levels.map(({ isNew, ...l }) => l);
+    const cleanLevels = levels.map(({ isNew, ...l }) => {
+      if (l.isBreak) return l;
+      const ante = config.antesEnabled ? Number(config.anteType === "sb" ? l.smallBlind : l.bigBlind) || 0 : 0;
+      return { ...l, ante };
+    });
     if (mode === "template") {
       if (!name.trim()) {
         setError("Merci de donner un nom au modèle.");
@@ -188,7 +192,12 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
     const templateName = prompt("Nom du modèle (ex : Turbo, Deepstack, Standard...)");
     if (!templateName?.trim()) return;
     try {
-      const t = await saveStructureTemplate(templateName.trim(), levels.map(({ isNew, ...l }) => l), config);
+      const cleanLevels = levels.map(({ isNew, ...l }) => {
+        if (l.isBreak) return l;
+        const ante = config.antesEnabled ? Number(config.anteType === "sb" ? l.smallBlind : l.bigBlind) || 0 : 0;
+        return { ...l, ante };
+      });
+      const t = await saveStructureTemplate(templateName.trim(), cleanLevels, config);
       setTemplates((prev) => [t, ...prev]);
     } catch (e) {
       setError(e.message);
@@ -393,7 +402,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                     <th className="text-left py-3 pr-3 text-sm">Temps</th>
                     <th className="text-right py-3 pr-3 text-sm">SB</th>
                     <th className="text-right py-3 pr-3 text-sm">BB</th>
-                    <th className="text-right py-3 pr-3 text-sm">Ante BB</th>
+                    {config.antesEnabled && <th className="text-right py-3 pr-3 text-sm">Ante</th>}
                     <th className="w-28"></th>
                   </tr>
                 </thead>
@@ -466,15 +475,11 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                                 className="w-24 border border-felt-cream/10 rounded px-2 py-1.5 text-sm text-right font-medium"
                               />
                             </td>
-                            <td className="py-4 pr-3 text-right">
-                              <input
-                                type="number"
-                                value={level.ante}
-                                onChange={(e) => updateLevel(i, "ante", e.target.value)}
-                                style={{ backgroundColor: "var(--pcp-cell-bg, #1B2027)", color: "var(--pcp-cell-text, #EDEAE3)" }}
-                                className="w-24 border border-felt-cream/10 rounded px-2 py-1.5 text-sm text-right"
-                              />
-                            </td>
+                            {config.antesEnabled && (
+                              <td className="py-4 pr-3 text-right text-felt-cream/60">
+                                {config.anteType === "sb" ? level.smallBlind : level.bigBlind}
+                              </td>
+                            )}
                           </>
                         )}
                         <td className="py-4 pl-2 pr-4 rounded-r-md">

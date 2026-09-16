@@ -4,8 +4,8 @@ import { useTheme } from "../context/ThemeContext.jsx";
 import { fetchCurrentTournament } from "../lib/tournaments.js";
 import { saveClockState } from "../lib/clockState.js";
 import { playSound, SOUND_OPTIONS } from "../lib/sounds.js";
+import { addAnnouncement, fetchRecentAnnouncements } from "../lib/announcements.js";
 import { formatTime, clamp } from "../lib/format.js";
-import { fetchClubSettings, setLiveAnnouncement } from "../lib/auth.js";
 import { compressImageFile, uploadImageToStorage } from "../lib/imageUtils.js";
 import EditableButton from "./EditableButton.jsx";
 
@@ -313,25 +313,22 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   }, [panels.sponsors?.style?.intervalSeconds]);
 
   useEffect(() => {
+    if (!tournamentId) return;
     function loadAnnouncement() {
-      fetchClubSettings()
-        .then((s) => setAnnouncement(s?.live_announcement || ""))
+      fetchRecentAnnouncements(tournamentId, 1)
+        .then((list) => setAnnouncement(list[0]?.text || ""))
         .catch(() => {});
     }
     loadAnnouncement();
     const t = setInterval(loadAnnouncement, 5000);
     return () => clearInterval(t);
-  }, []);
+  }, [tournamentId]);
 
   async function handleEditAnnouncement() {
     const next = prompt("Message à afficher sur le panneau Annonces :", announcement);
-    if (next === null) return;
+    if (next === null || !next.trim()) return;
     setAnnouncement(next);
-    try {
-      await setLiveAnnouncement(next);
-    } catch {
-      // silencieux
-    }
+    addAnnouncement(tournamentId, next, "manual");
   }
 
   async function fetchRegsAndElims(tId) {
@@ -478,6 +475,30 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
     breakInSeconds += (levels[i].durationMinutes || 20) * 60;
   }
   if (currentLevel?.isBreak) hasUpcomingBreak = false;
+
+  const isLastLevel = levelIndex === levels.length - 1;
+  const announcedBreakRef = useRef(false);
+  const announcedDayEndRef = useRef(false);
+  useEffect(() => {
+    if (!tournamentId) return;
+    if (hasUpcomingBreak && breakInSeconds <= 60 && breakInSeconds > 0) {
+      if (!announcedBreakRef.current) {
+        announcedBreakRef.current = true;
+        addAnnouncement(tournamentId, "Pause dans moins d'1 minute", "break");
+      }
+    } else {
+      announcedBreakRef.current = false;
+    }
+    if (isLastLevel && !currentLevel?.isBreak && secondsLeft <= 60 && secondsLeft > 0) {
+      if (!announcedDayEndRef.current) {
+        announcedDayEndRef.current = true;
+        addAnnouncement(tournamentId, "Fin du Day dans moins d'1 minute", "dayend");
+      }
+    } else {
+      announcedDayEndRef.current = false;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [secondsLeft, levelIndex]);
 
   const eliminatedIds = new Set(eliminations.map((e) => e.registration_id));
   const stillIn = registrations.filter((r) => !eliminatedIds.has(r.id));
