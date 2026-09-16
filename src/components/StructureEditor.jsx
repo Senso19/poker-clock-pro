@@ -587,8 +587,8 @@ function InsertPositionModal({ type, levels, onClose, onConfirm }) {
 
 function DriverField({ label, children }) {
   return (
-    <div className="flex items-center gap-3">
-      <label className="w-56 shrink-0 text-base text-felt-cream/70">{label}</label>
+    <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
+      <label className="sm:w-56 shrink-0 text-sm sm:text-base text-felt-cream/70">{label}</label>
       {children}
     </div>
   );
@@ -598,33 +598,35 @@ function AutoField({ label, fieldKey, config, setFieldMode, setFieldValue }) {
   const field = config.fields[fieldKey] || { mode: "auto", value: 0 };
   const isAuto = field.mode !== "manual";
   return (
-    <div className="flex items-center gap-3">
-      <label className="w-56 shrink-0 text-base text-felt-cream/70">{label}</label>
-      <input
-        type="number"
-        value={field.value}
-        disabled={isAuto}
-        onChange={(e) => setFieldValue(fieldKey, Number(e.target.value) || 0)}
-        className="flex-1 bg-felt-bg border border-felt-cream/10 rounded-md px-4 py-2.5 text-base text-felt-cream disabled:opacity-60"
-      />
-      <button
-        onClick={() => setFieldMode(fieldKey, "auto")}
-        title="Calculer automatiquement"
-        className={`w-9 h-9 shrink-0 rounded flex items-center justify-center text-sm ${
-          isAuto ? "bg-felt-gold text-felt-bg" : "bg-felt-bg text-felt-cream/40 hover:text-felt-cream border border-felt-cream/10"
-        }`}
-      >
-        🧮
-      </button>
-      <button
-        onClick={() => setFieldMode(fieldKey, "manual")}
-        title="Saisie manuelle"
-        className={`w-9 h-9 shrink-0 rounded flex items-center justify-center text-sm ${
-          !isAuto ? "bg-felt-gold text-felt-bg" : "bg-felt-bg text-felt-cream/40 hover:text-felt-cream border border-felt-cream/10"
-        }`}
-      >
-        ✎
-      </button>
+    <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
+      <label className="sm:w-56 shrink-0 text-sm sm:text-base text-felt-cream/70">{label}</label>
+      <div className="flex items-center gap-3">
+        <input
+          type="number"
+          value={field.value}
+          disabled={isAuto}
+          onChange={(e) => setFieldValue(fieldKey, Number(e.target.value) || 0)}
+          className="flex-1 bg-felt-bg border border-felt-cream/10 rounded-md px-4 py-2.5 text-base text-felt-cream disabled:opacity-60"
+        />
+        <button
+          onClick={() => setFieldMode(fieldKey, "auto")}
+          title="Calculer automatiquement"
+          className={`w-9 h-9 shrink-0 rounded flex items-center justify-center text-sm ${
+            isAuto ? "bg-felt-gold text-felt-bg" : "bg-felt-bg text-felt-cream/40 hover:text-felt-cream border border-felt-cream/10"
+          }`}
+        >
+          🧮
+        </button>
+        <button
+          onClick={() => setFieldMode(fieldKey, "manual")}
+          title="Saisie manuelle"
+          className={`w-9 h-9 shrink-0 rounded flex items-center justify-center text-sm ${
+            !isAuto ? "bg-felt-gold text-felt-bg" : "bg-felt-bg text-felt-cream/40 hover:text-felt-cream border border-felt-cream/10"
+          }`}
+        >
+          ✎
+        </button>
+      </div>
     </div>
   );
 }
