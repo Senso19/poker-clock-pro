@@ -125,7 +125,7 @@ export default function EliminationView() {
 function EliminationPicker({ candidates, onConfirm, onCancel }) {
   const [selected, setSelected] = useState("");
   return (
-    <div className="mt-1 mb-2 ml-4 flex items-center gap-2 bg-felt-bg border border-felt-alert/30 rounded-md px-3 py-2">
+    <div className="mt-1 mb-2 ml-4 flex flex-wrap items-center gap-2 bg-felt-bg border border-felt-alert/30 rounded-md px-3 py-2">
       <span className="text-xs text-felt-cream/60">Éliminé par (optionnel) :</span>
       <select
         value={selected}

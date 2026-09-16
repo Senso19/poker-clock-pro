@@ -155,7 +155,7 @@ export default function AccountsAdmin() {
           <div
             key={a.id}
             style={{ backgroundColor: "var(--pcp-cell-bg)", color: "var(--pcp-cell-text)" }}
-            className="flex items-center gap-4 py-3"
+            className="flex flex-wrap items-center gap-3 py-3"
           >
             {a.avatar_data ? (
               <img src={a.avatar_data} alt="" className="w-11 h-11 rounded-full object-cover shrink-0" />
@@ -164,7 +164,7 @@ export default function AccountsAdmin() {
                 {a.pseudo?.[0]?.toUpperCase()}
               </div>
             )}
-            <button onClick={() => setEditingAccount(a)} className="min-w-0 flex-1 text-left">
+            <button onClick={() => setEditingAccount(a)} className="min-w-0 flex-1 text-left basis-32">
               <div className="pcp-title text-felt-gold hover:text-felt-gold/80 font-medium truncate">{a.pseudo}</div>
               {(a.first_name || a.last_name) && (
                 <div className="pcp-body text-xs text-felt-cream/40 truncate">
@@ -172,36 +172,38 @@ export default function AccountsAdmin() {
                 </div>
               )}
             </button>
-            {a.is_owner ? (
-              <span
-                title="Le rôle de ce compte (fondateur du club) ne peut pas être changé ici : donnez le rôle admin à quelqu'un d'autre puis supprimez ce compte pour transférer l'accès."
-                className="pcp-value flex items-center gap-1.5 bg-felt-bg border border-felt-cream/10 rounded-md px-2 py-1.5 text-sm text-felt-gold shrink-0"
-              >
-                <Lock size={13} /> Admin
-              </span>
-            ) : (
-              <select
-                value={a.role}
-                onChange={(e) => handleRoleChange(a.id, e.target.value)}
-                className="pcp-value bg-felt-bg border border-felt-cream/10 rounded-md px-2 py-1.5 text-sm text-felt-gold shrink-0"
-              >
-                {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            )}
-            <div className="flex items-center gap-3 shrink-0 text-felt-cream/50">
-              <button onClick={() => setEditingAccount(a)} title="Modifier" className="hover:text-white">
-                <Pencil size={16} />
-              </button>
-              <button onClick={() => handleDelete(a.id, a.pseudo)} title="Supprimer" className="hover:text-felt-alert">
-                <Trash2 size={16} />
-              </button>
-              <button onClick={() => setMergingAccount(a)} title="Fusionner avec un autre compte" className="hover:text-white">
-                <Merge size={16} />
-              </button>
+            <div className="flex items-center gap-3 shrink-0 ml-auto sm:ml-0">
+              {a.is_owner ? (
+                <span
+                  title="Le rôle de ce compte (fondateur du club) ne peut pas être changé ici : donnez le rôle admin à quelqu'un d'autre puis supprimez ce compte pour transférer l'accès."
+                  className="pcp-value flex items-center gap-1.5 bg-felt-bg border border-felt-cream/10 rounded-md px-2 py-1.5 text-sm text-felt-gold shrink-0"
+                >
+                  <Lock size={13} /> Admin
+                </span>
+              ) : (
+                <select
+                  value={a.role}
+                  onChange={(e) => handleRoleChange(a.id, e.target.value)}
+                  className="pcp-value bg-felt-bg border border-felt-cream/10 rounded-md px-2 py-1.5 text-sm text-felt-gold shrink-0"
+                >
+                  {Object.entries(ROLE_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <div className="flex items-center gap-3 shrink-0 text-felt-cream/50">
+                <button onClick={() => setEditingAccount(a)} title="Modifier" className="hover:text-white">
+                  <Pencil size={16} />
+                </button>
+                <button onClick={() => handleDelete(a.id, a.pseudo)} title="Supprimer" className="hover:text-felt-alert">
+                  <Trash2 size={16} />
+                </button>
+                <button onClick={() => setMergingAccount(a)} title="Fusionner avec un autre compte" className="hover:text-white">
+                  <Merge size={16} />
+                </button>
+              </div>
             </div>
           </div>
         ))}
@@ -606,7 +608,7 @@ function RolePermissionsMatrix() {
         Administrateur a toujours tous les droits (non modifiable). Cliquez le cadenas pour figer un rôle et éviter
         toute modification accidentelle.
       </div>
-      <div className="overflow-x-auto">
+      <div className="hidden sm:block overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-felt-cream/40 text-xs">
@@ -647,6 +649,41 @@ function RolePermissionsMatrix() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Sur mobile, la matrice illisible en tableau devient une carte par
+          rôle : une liste verticale de permissions, plus simple à lire et
+          à toucher qu'un tableau compressé horizontalement. */}
+      <div className="sm:hidden space-y-3">
+        {roles.map((role) => (
+          <div key={role} className="bg-felt-bg border border-felt-cream/10 rounded-md p-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="font-display text-sm text-felt-cream/80">{ROLE_LABELS[role]}</div>
+              <button
+                onClick={() => toggleLock(role)}
+                title={locked[role] ? "Déverrouiller ce rôle" : "Figer ce rôle"}
+                className={`flex items-center gap-1 text-xs ${locked[role] ? "text-felt-gold" : "text-felt-cream/30 hover:text-felt-cream/60"}`}
+              >
+                {locked[role] ? <Lock size={14} /> : <LockOpen size={14} />}
+                {locked[role] ? "Figé" : "Figer"}
+              </button>
+            </div>
+            <div className="space-y-1.5">
+              {permKeys.map((k) => (
+                <label key={k} className="flex items-center justify-between gap-3 py-1 text-sm text-felt-cream/70">
+                  <span>{PERMISSION_LABELS[k]}</span>
+                  <input
+                    type="checkbox"
+                    checked={!!perms[role]?.[k]}
+                    disabled={!!locked[role]}
+                    onChange={() => toggle(role, k)}
+                    className="cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 shrink-0"
+                  />
+                </label>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
