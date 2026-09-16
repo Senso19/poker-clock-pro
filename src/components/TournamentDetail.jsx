@@ -971,7 +971,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
 
           {error && <div className="text-felt-alert text-sm mb-3">Erreur : {error}</div>}
 
-          <div className="grid grid-cols-[48px_1fr_90px_32px] sm:grid-cols-[72px_1fr_140px_44px] gap-3 px-4 pb-4 mb-3 border-b border-felt-cream/10 text-sm uppercase tracking-wide text-felt-cream/50">
+          <div className="grid grid-cols-[32px_1fr_64px_24px] sm:grid-cols-[72px_1fr_140px_44px] gap-2 sm:gap-3 px-3 sm:px-4 pb-4 mb-3 border-b border-felt-cream/10 text-sm uppercase tracking-wide text-felt-cream/50">
             <div>Place</div>
             <div>Nom ({registrations.length})</div>
             <div>Tapis</div>
@@ -988,23 +988,23 @@ export default function TournamentDetail({ tournamentId, onBack }) {
               <div key={reg.id} className="relative">
                 <div
                   style={{ backgroundColor: "var(--pcp-cell-bg, rgba(20,24,28,0.5))", color: "var(--pcp-cell-text, inherit)" }}
-                  className={`grid grid-cols-[48px_1fr_90px_32px] sm:grid-cols-[72px_1fr_140px_44px] gap-3 items-center px-4 py-5 mb-2.5 rounded-md ${
+                  className={`grid grid-cols-[32px_1fr_64px_24px] sm:grid-cols-[72px_1fr_140px_44px] gap-2 sm:gap-3 items-center px-3 sm:px-4 py-4 sm:py-5 mb-2.5 rounded-md ${
                     isOut ? "opacity-50" : ""
                   }`}
                 >
-                  <div className="pcp-value text-felt-gold font-display text-lg">
+                  <div className="pcp-value text-felt-gold font-display text-base sm:text-lg">
                     {isOut && position ? `${position}e` : ""}
                   </div>
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                     {reg.accounts?.avatar_data ? (
-                      <img src={reg.accounts.avatar_data} alt="" className="w-12 h-12 rounded-full object-cover shrink-0" />
+                      <img src={reg.accounts.avatar_data} alt="" className="w-9 h-9 sm:w-12 sm:h-12 rounded-full object-cover shrink-0" />
                     ) : (
-                      <div className="w-12 h-12 rounded-full bg-felt-bg flex items-center justify-center text-felt-cream/40 font-display text-base shrink-0">
+                      <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-full bg-felt-bg flex items-center justify-center text-felt-cream/40 font-display text-sm sm:text-base shrink-0">
                         {reg.players?.full_name?.[0]?.toUpperCase()}
                       </div>
                     )}
                     <div className="min-w-0">
-                      <div className={`pcp-title font-medium text-lg truncate ${isOut ? "text-felt-cream/40" : "text-felt-gold"}`}>
+                      <div className={`pcp-title font-medium text-base sm:text-lg truncate ${isOut ? "text-felt-cream/40" : "text-felt-gold"}`}>
                         {reg.players?.full_name}
                       </div>
                       <div className="pcp-body text-sm text-felt-cream/40 truncate">
