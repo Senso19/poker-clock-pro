@@ -10,7 +10,7 @@ import MobileClockView from "./MobileClockView.jsx";
 import StructureEditor from "./StructureEditor.jsx";
 import TournamentDetail from "./TournamentDetail.jsx";
 import TournamentPublicView from "./TournamentPublicView.jsx";
-import TournamentSettingsModal from "./TournamentSettingsModal.jsx";
+import TournamentSettingsModal, { TournamentSettingsFields } from "./TournamentSettingsModal.jsx";
 
 const TABS = [
   { key: "clock", label: "Horloge" },
@@ -33,6 +33,7 @@ export default function TournamentPage({ tournamentId, onBack }) {
   const clockControl = canControlClock(account?.role);
 
   const [tab, setTab] = useState("clock");
+  const [playersMobileSubTab, setPlayersMobileSubTab] = useState("list"); // "params" | "list" — sous-onglets mobile uniquement
   const [tournament, setTournament] = useState(null);
   const [levels, setLevels] = useState(defaultStructure());
   const [loading, setLoading] = useState(true);
@@ -146,7 +147,35 @@ export default function TournamentPage({ tournamentId, onBack }) {
           ))}
         {tab === "players" &&
           (manage ? (
-            <TournamentDetail tournamentId={tournamentId} onBack={onBack} />
+            <div className="h-full flex flex-col">
+              {isMobile && (
+                <div className="flex border-b border-felt-cream/10 shrink-0">
+                  {[
+                    { key: "params", label: "Paramètres" },
+                    { key: "list", label: "Joueurs" },
+                  ].map((t) => (
+                    <button
+                      key={t.key}
+                      onClick={() => setPlayersMobileSubTab(t.key)}
+                      className={`flex-1 py-2.5 text-sm font-display font-medium text-center border-b-2 -mb-px ${
+                        playersMobileSubTab === t.key ? "border-felt-gold text-felt-gold" : "border-transparent text-felt-cream/50"
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="flex-1 min-h-0 overflow-hidden">
+                {isMobile && playersMobileSubTab === "params" ? (
+                  <div className="p-4 font-body text-felt-cream h-full overflow-y-auto max-w-lg">
+                    <TournamentSettingsFields tournament={tournament} onSaved={load} confirmLabel="Enregistrer" />
+                  </div>
+                ) : (
+                  <TournamentDetail tournamentId={tournamentId} onBack={onBack} />
+                )}
+              </div>
+            </div>
           ) : (
             <TournamentPublicView tournamentId={tournamentId} onBack={onBack} />
           ))}

@@ -4,11 +4,38 @@ import { fetchChampionships, assignTournamentToChampionship } from "../lib/point
 
 /**
  * TournamentSettingsModal — "Réglages tournoi" ouvert via l'icône ⚙ à côté
- * du nom du tournoi. Permet de rattacher un championnat, modifier
- * nom/date/heure/lieu, et activer les options Gérer Joueurs / Suivi des
- * knockouts / Gérer les Payouts.
+ * du nom du tournoi (desktop, ou tablette). Permet de rattacher un
+ * championnat, modifier nom/date/heure/lieu, et activer les options Gérer
+ * Joueurs / Suivi des knockouts / Gérer les Payouts.
+ *
+ * TournamentSettingsFields — le même formulaire, sans la fenêtre modale
+ * (pas de fond noir, pas de bouton Fermer) : utilisé sur mobile comme
+ * sous-onglet "Paramètres" intégré à côté de "Joueurs", façon BlindValet.
  */
 export default function TournamentSettingsModal({ tournament, onClose, onSaved }) {
+  return (
+    <div onClick={onClose} className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div onClick={(e) => e.stopPropagation()} className="bg-felt-panel border border-felt-cream/10 rounded-lg w-full max-w-sm p-6 font-body text-felt-cream max-h-[85vh] overflow-y-auto">
+        <div className="font-display text-lg mb-5">Réglages tournoi</div>
+        <TournamentSettingsFields
+          tournament={tournament}
+          onSaved={() => {
+            onSaved?.();
+            onClose();
+          }}
+          confirmLabel="Confirmer"
+          extraActions={
+            <button onClick={onClose} className="px-4 py-2 text-felt-cream/60 hover:text-felt-cream">
+              Fermer
+            </button>
+          }
+        />
+      </div>
+    </div>
+  );
+}
+
+export function TournamentSettingsFields({ tournament, onSaved, confirmLabel = "Enregistrer", extraActions = null }) {
   const [championships, setChampionships] = useState([]);
   const [championshipId, setChampionshipId] = useState(tournament.championship_id || "");
   const [stageLabel, setStageLabel] = useState(tournament.stage_label || "");
@@ -86,7 +113,6 @@ export default function TournamentSettingsModal({ tournament, onClose, onSaved }
       }
 
       onSaved?.();
-      onClose();
     } catch (e) {
       setError(e.message);
     }
@@ -94,156 +120,150 @@ export default function TournamentSettingsModal({ tournament, onClose, onSaved }
   }
 
   return (
-    <div onClick={onClose} className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div onClick={(e) => e.stopPropagation()} className="bg-felt-panel border border-felt-cream/10 rounded-lg w-full max-w-sm p-6 font-body text-felt-cream max-h-[85vh] overflow-y-auto">
-        <div className="font-display text-lg mb-5">Réglages tournoi</div>
-
-        <div className="mb-4">
-          <div className="text-xs text-felt-cream/50 mb-1.5">Championnats</div>
-          {currentChampionship ? (
-            <div className="flex items-center gap-2 bg-felt-bg border border-felt-cream/10 rounded-full px-3 py-1.5 w-fit text-sm">
-              <span>{currentChampionship.name}</span>
-              <button
-                onClick={() => {
-                  setChampionshipId("");
-                  setStageLabel("");
-                }}
-                className="text-felt-cream/40 hover:text-felt-alert"
-              >
-                ✕
-              </button>
-            </div>
-          ) : addingChampionship ? (
-            <div className="space-y-2">
-              <select
-                value={championshipId}
-                onChange={(e) => setChampionshipId(e.target.value)}
-                className="w-full bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-2 text-sm text-felt-cream"
-              >
-                <option value="">Choisir un championnat</option>
-                {championships.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-              <input
-                value={stageLabel}
-                onChange={(e) => setStageLabel(e.target.value)}
-                placeholder="Nom de l'étape (ex : Étape 3)"
-                className="w-full bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-2 text-sm text-felt-cream placeholder:text-felt-cream/40"
-              />
-            </div>
-          ) : (
+    <>
+      <div className="mb-4">
+        <div className="text-xs text-felt-cream/50 mb-1.5">Championnats</div>
+        {currentChampionship ? (
+          <div className="flex items-center gap-2 bg-felt-bg border border-felt-cream/10 rounded-full px-3 py-1.5 w-fit text-sm">
+            <span>{currentChampionship.name}</span>
             <button
-              onClick={() => setAddingChampionship(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-felt-cream/20 text-sm text-felt-cream/70 hover:text-felt-cream hover:border-felt-cream/40"
+              onClick={() => {
+                setChampionshipId("");
+                setStageLabel("");
+              }}
+              className="text-felt-cream/40 hover:text-felt-alert"
             >
-              <span>+</span> Ajouter un championnat
+              ✕
             </button>
-          )}
-        </div>
-
-        <label className="block text-xs text-felt-cream/50 mb-1.5 mt-4">
-          Nom du tournoi
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full mt-1 bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-2 text-felt-cream"
-          />
-        </label>
-
-        <label className="block text-xs text-felt-cream/50 mb-1.5 mt-4">
-          Date
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="w-full mt-1 bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-2 text-felt-cream"
-          />
-        </label>
-
-        <label className="block text-xs text-felt-cream/50 mb-1.5 mt-4">
-          Heure
-          <input
-            type="time"
-            value={time}
-            onChange={(e) => setTime(e.target.value)}
-            className="w-full mt-1 bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-2 text-felt-cream"
-          />
-        </label>
-
-        <label className="block text-xs text-felt-cream/50 mb-1.5 mt-4">
-          Lieu
-          <input
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            placeholder="Aucun lieu"
-            className="w-full mt-1 bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-2 text-felt-cream placeholder:text-felt-cream/40"
-          />
-        </label>
-
-        <div className="mt-5 space-y-3">
-          <label className="flex items-center gap-2 text-sm text-felt-cream/80">
-            <input type="checkbox" checked={managePlayers} onChange={(e) => setManagePlayers(e.target.checked)} />
-            Gérer Joueurs
-          </label>
-          <label className="flex items-center gap-2 text-sm text-felt-cream/80">
-            <input type="checkbox" checked={trackKnockouts} onChange={(e) => setTrackKnockouts(e.target.checked)} />
-            Suivi des knockouts
-          </label>
-          <label className="flex items-center gap-2 text-sm text-felt-cream/80">
-            <input type="checkbox" checked={managePayouts} onChange={(e) => setManagePayouts(e.target.checked)} />
-            Gérer les Payouts
-          </label>
-          <label className="flex items-center gap-2 text-sm text-felt-alert/80 pt-2 border-t border-felt-cream/10 mt-1">
-            <input type="checkbox" checked={forceFinished} onChange={(e) => setForceFinished(e.target.checked)} />
-            Forcer le statut "Terminé"
-          </label>
-        </div>
-
-        <div className="mt-5 pt-4 border-t border-felt-cream/10">
-          <label className="flex items-center gap-2 text-sm text-felt-cream/80">
-            <input type="checkbox" checked={publicView} onChange={(e) => setPublicView(e.target.checked)} />
-            Accès public (lecture seule, sans connexion)
-          </label>
-          <div className="text-xs text-felt-cream/40 mt-1">
-            Toute personne avec le lien pourra voir l'horloge et la liste des joueurs, sans se connecter ni créer de
-            compte.
           </div>
-          {publicView && (
-            <div className="flex items-center gap-2 mt-2">
-              <input
-                readOnly
-                value={publicUrl}
-                onClick={(e) => e.target.select()}
-                className="flex-1 bg-felt-bg border border-felt-cream/10 rounded-md px-2 py-1.5 text-xs text-felt-cream/70"
-              />
-              <button
-                onClick={copyPublicLink}
-                className="px-3 py-1.5 text-xs rounded-md bg-felt-panel border border-felt-cream/10 text-felt-cream/70 hover:text-felt-cream whitespace-nowrap"
-              >
-                {linkCopied ? "✓ Copié" : "Copier"}
-              </button>
-            </div>
-          )}
-        </div>
-
-        {error && <div className="text-felt-alert text-sm mt-4">{error}</div>}
-
-        <div className="flex justify-end gap-3 mt-6">
-          <button onClick={onClose} className="px-4 py-2 text-felt-cream/60 hover:text-felt-cream">
-            Fermer
-          </button>
+        ) : addingChampionship ? (
+          <div className="space-y-2">
+            <select
+              value={championshipId}
+              onChange={(e) => setChampionshipId(e.target.value)}
+              className="w-full bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-2 text-sm text-felt-cream"
+            >
+              <option value="">Choisir un championnat</option>
+              {championships.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            <input
+              value={stageLabel}
+              onChange={(e) => setStageLabel(e.target.value)}
+              placeholder="Nom de l'étape (ex : Étape 3)"
+              className="w-full bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-2 text-sm text-felt-cream placeholder:text-felt-cream/40"
+            />
+          </div>
+        ) : (
           <button
-            onClick={handleConfirm}
-            disabled={saving}
-            className="px-4 py-2 bg-felt-gold text-felt-bg rounded-md font-display disabled:opacity-40"
+            onClick={() => setAddingChampionship(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-felt-cream/20 text-sm text-felt-cream/70 hover:text-felt-cream hover:border-felt-cream/40"
           >
-            {saving ? "Sauvegarde…" : "Confirmer"}
+            <span>+</span> Ajouter un championnat
           </button>
-        </div>
+        )}
       </div>
-    </div>
+
+      <label className="block text-xs text-felt-cream/50 mb-1.5 mt-4">
+        Nom du tournoi
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="w-full mt-1 bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-2 text-felt-cream"
+        />
+      </label>
+
+      <label className="block text-xs text-felt-cream/50 mb-1.5 mt-4">
+        Date
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          className="w-full mt-1 bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-2 text-felt-cream"
+        />
+      </label>
+
+      <label className="block text-xs text-felt-cream/50 mb-1.5 mt-4">
+        Heure
+        <input
+          type="time"
+          value={time}
+          onChange={(e) => setTime(e.target.value)}
+          className="w-full mt-1 bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-2 text-felt-cream"
+        />
+      </label>
+
+      <label className="block text-xs text-felt-cream/50 mb-1.5 mt-4">
+        Lieu
+        <input
+          value={location}
+          onChange={(e) => setLocation(e.target.value)}
+          placeholder="Aucun lieu"
+          className="w-full mt-1 bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-2 text-felt-cream placeholder:text-felt-cream/40"
+        />
+      </label>
+
+      <div className="mt-5 space-y-3">
+        <label className="flex items-center gap-2 text-sm text-felt-cream/80">
+          <input type="checkbox" checked={managePlayers} onChange={(e) => setManagePlayers(e.target.checked)} />
+          Gérer Joueurs
+        </label>
+        <label className="flex items-center gap-2 text-sm text-felt-cream/80">
+          <input type="checkbox" checked={trackKnockouts} onChange={(e) => setTrackKnockouts(e.target.checked)} />
+          Suivi des knockouts
+        </label>
+        <label className="flex items-center gap-2 text-sm text-felt-cream/80">
+          <input type="checkbox" checked={managePayouts} onChange={(e) => setManagePayouts(e.target.checked)} />
+          Gérer les Payouts
+        </label>
+        <label className="flex items-center gap-2 text-sm text-felt-alert/80 pt-2 border-t border-felt-cream/10 mt-1">
+          <input type="checkbox" checked={forceFinished} onChange={(e) => setForceFinished(e.target.checked)} />
+          Forcer le statut "Terminé"
+        </label>
+      </div>
+
+      <div className="mt-5 pt-4 border-t border-felt-cream/10">
+        <label className="flex items-center gap-2 text-sm text-felt-cream/80">
+          <input type="checkbox" checked={publicView} onChange={(e) => setPublicView(e.target.checked)} />
+          Accès public (lecture seule, sans connexion)
+        </label>
+        <div className="text-xs text-felt-cream/40 mt-1">
+          Toute personne avec le lien pourra voir l'horloge et la liste des joueurs, sans se connecter ni créer de
+          compte.
+        </div>
+        {publicView && (
+          <div className="flex items-center gap-2 mt-2">
+            <input
+              readOnly
+              value={publicUrl}
+              onClick={(e) => e.target.select()}
+              className="flex-1 bg-felt-bg border border-felt-cream/10 rounded-md px-2 py-1.5 text-xs text-felt-cream/70"
+            />
+            <button
+              onClick={copyPublicLink}
+              className="px-3 py-1.5 text-xs rounded-md bg-felt-panel border border-felt-cream/10 text-felt-cream/70 hover:text-felt-cream whitespace-nowrap"
+            >
+              {linkCopied ? "✓ Copié" : "Copier"}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {error && <div className="text-felt-alert text-sm mt-4">{error}</div>}
+
+      <div className="flex justify-end gap-3 mt-6">
+        {extraActions}
+        <button
+          onClick={handleConfirm}
+          disabled={saving}
+          className="px-4 py-2 bg-felt-gold text-felt-bg rounded-md font-display disabled:opacity-40"
+        >
+          {saving ? "Sauvegarde…" : confirmLabel}
+        </button>
+      </div>
+    </>
   );
 }
