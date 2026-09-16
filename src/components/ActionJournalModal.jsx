@@ -7,11 +7,13 @@ const TYPE_ICON = {
   register: "➕👤",
   elimination: "👤",
   create: "➕",
+  shuffle: "⇄",
+  balance: "⚖",
 };
 
 // Types que l'on sait défaire proprement. "create" (création du tournoi)
 // n'est volontairement pas réversible depuis ce journal.
-const UNDOABLE_TYPES = ["register", "elimination"];
+const UNDOABLE_TYPES = ["register", "elimination", "shuffle", "balance"];
 
 /**
  * ActionJournalModal — "Journal de tournoi" façon BlindValet : liste de
@@ -104,6 +106,13 @@ export default function ActionJournalModal({ tournamentId, playersPerTable, onCl
         if (ev.payload.registrationId) {
           await reseatIfConflict(ev.payload.registrationId);
         }
+      } else if ((ev.type === "shuffle" || ev.type === "balance") && Array.isArray(ev.payload?.before)) {
+        // Replace chaque joueur concerné à sa table/siège d'avant l'action.
+        await Promise.all(
+          ev.payload.before.map((b) =>
+            supabase.from("registrations").update({ table_number: b.table_number, seat_number: b.seat_number }).eq("id", b.registrationId)
+          )
+        );
       }
       await markEventUndone(ev.id);
       await load();

@@ -104,18 +104,29 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
     );
   }
 
-  function addLevel() {
+  function addLevel(afterIndex = null) {
     setLevels((prev) => {
-      const lastBlind = [...prev].reverse().find((l) => !l.isBreak);
+      const refIndex = afterIndex != null ? afterIndex : prev.length - 1;
+      const lastBlind = [...prev.slice(0, refIndex + 1)].reverse().find((l) => !l.isBreak);
       const sb = lastBlind ? (Number(lastBlind.smallBlind) || 0) * 2 : 25;
       const bb = lastBlind ? (Number(lastBlind.bigBlind) || 0) * 2 : 50;
       const ante = config.antesEnabled ? (config.anteType === "sb" ? sb : bb) : 0;
-      return [...prev, { smallBlind: sb, bigBlind: bb, ante, durationMinutes: lastBlind?.durationMinutes || 20 }];
+      const newLevel = { smallBlind: sb, bigBlind: bb, ante, durationMinutes: lastBlind?.durationMinutes || 20 };
+      if (afterIndex == null) return [...prev, newLevel];
+      const next = [...prev];
+      next.splice(afterIndex + 1, 0, newLevel);
+      return next;
     });
   }
 
-  function addBreak() {
-    setLevels((prev) => [...prev, { isBreak: true, breakLabel: "Pause", durationMinutes: 10 }]);
+  function addBreak(afterIndex = null) {
+    const newBreak = { isBreak: true, breakLabel: "Pause", durationMinutes: 10 };
+    setLevels((prev) => {
+      if (afterIndex == null) return [...prev, newBreak];
+      const next = [...prev];
+      next.splice(afterIndex + 1, 0, newBreak);
+      return next;
+    });
   }
 
   function removeLevel(index) {
@@ -452,6 +463,8 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                         )}
                         <td className="py-4 pl-2 pr-4 rounded-r-md">
                           <div className="flex gap-1.5 justify-end">
+                            <IconButton title="Insérer un niveau après celui-ci" onClick={() => addLevel(i)}>+N</IconButton>
+                            <IconButton title="Insérer une pause après celle-ci" onClick={() => addBreak(i)}>+P</IconButton>
                             <IconButton onClick={() => moveLevel(i, -1)}>▲</IconButton>
                             <IconButton onClick={() => moveLevel(i, 1)}>▼</IconButton>
                             <IconButton alert onClick={() => removeLevel(i)}>✕</IconButton>
@@ -521,10 +534,11 @@ function AutoField({ label, fieldKey, config, setFieldMode, setFieldValue }) {
   );
 }
 
-function IconButton({ children, onClick, alert }) {
+function IconButton({ children, onClick, alert, title }) {
   return (
     <button
       onClick={onClick}
+      title={title}
       className={`w-8 h-8 rounded text-sm flex items-center justify-center ${
         alert
           ? "bg-felt-alert/20 text-felt-alert hover:bg-felt-alert/40"

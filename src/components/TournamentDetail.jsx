@@ -45,6 +45,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   const [stackDraft, setStackDraft] = useState("");
   const [movingReg, setMovingReg] = useState(null);
   const [shuffling, setShuffling] = useState(false);
+  const [balanceProposal, setBalanceProposal] = useState(null);
   const [balancing, setBalancing] = useState(false);
   const [captainAccounts, setCaptainAccounts] = useState([]);
   const [tableCaptains, setTableCaptains] = useState([]);
@@ -354,6 +355,9 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     setError(null);
     try {
       const perTable = tournament?.players_per_table || 9;
+      // Instantané des places AVANT tirage, pour pouvoir annuler cette
+      // action précisément depuis le Journal de tournoi.
+      const before = registrations.map((r) => ({ registrationId: r.id, table_number: r.table_number, seat_number: r.seat_number }));
       const shuffled = [...registrations].sort(() => Math.random() - 0.5);
       await Promise.all(
         shuffled.map((reg, i) => {
@@ -364,6 +368,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
       );
       await supabase.from("tournaments").update({ seats_drawn: true }).eq("id", tournamentId);
       setTournament((t) => ({ ...t, seats_drawn: true }));
+      logEvent(tournamentId, "shuffle", "Tirage des places", { before });
       await loadRegistrations();
     } catch (e) {
       setError(e.message);
@@ -385,35 +390,48 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   }
 
   async function autoBalanceTables() {
+    if (!(await confirmAction("L'équilibrage des tables va être effectué. Continuer ?"))) return;
+
+    const eliminatedIdsNow = new Set(eliminations.map((e) => e.registration_id));
+    const perTable = tournament?.players_per_table || 9;
+    const finalTableSize = tournament?.final_table_size || perTable;
+    const active = registrations.filter((r) => !eliminatedIdsNow.has(r.id));
+    if (active.length === 0) return;
+    const numTables = computeTargetTableCount(active.length, perTable, finalTableSize);
+    const sorted = [...active].sort(
+      (a, b) => (a.table_number || 0) - (b.table_number || 0) || (a.seat_number || 0) - (b.seat_number || 0)
+    );
+    const moves = [];
+    sorted.forEach((reg, i) => {
+      const table = (i % numTables) + 1;
+      const seat = Math.floor(i / numTables) + 1;
+      if (reg.table_number !== table || reg.seat_number !== seat) {
+        moves.push({ reg, fromTable: reg.table_number, fromSeat: reg.seat_number, toTable: table, toSeat: seat });
+      }
+    });
+    if (moves.length === 0) return;
+    setBalanceProposal(moves);
+  }
+
+  async function applyBalanceProposal() {
+    const moves = balanceProposal;
+    if (!moves) return;
     setBalancing(true);
     setError(null);
     try {
-      const eliminatedIdsNow = new Set(eliminations.map((e) => e.registration_id));
-      const perTable = tournament?.players_per_table || 9;
-      const finalTableSize = tournament?.final_table_size || perTable;
-      const active = registrations.filter((r) => !eliminatedIdsNow.has(r.id));
-      if (active.length === 0) {
-        setBalancing(false);
-        return;
-      }
-      const numTables = computeTargetTableCount(active.length, perTable, finalTableSize);
-      const sorted = [...active].sort(
-        (a, b) => (a.table_number || 0) - (b.table_number || 0) || (a.seat_number || 0) - (b.seat_number || 0)
+      // Instantané AVANT le déplacement, pour permettre d'annuler
+      // précisément depuis le Journal de tournoi.
+      const before = moves.map((m) => ({ registrationId: m.reg.id, table_number: m.fromTable, seat_number: m.fromSeat }));
+      await Promise.all(
+        moves.map((m) => supabase.from("registrations").update({ table_number: m.toTable, seat_number: m.toSeat }).eq("id", m.reg.id))
       );
-      const updates = [];
-      sorted.forEach((reg, i) => {
-        const table = (i % numTables) + 1;
-        const seat = Math.floor(i / numTables) + 1;
-        if (reg.table_number !== table || reg.seat_number !== seat) {
-          updates.push(supabase.from("registrations").update({ table_number: table, seat_number: seat }).eq("id", reg.id));
-        }
-      });
-      await Promise.all(updates);
+      logEvent(tournamentId, "balance", "Équilibrage des tables", { before });
       await loadRegistrations();
     } catch (e) {
       setError(e.message);
     }
     setBalancing(false);
+    setBalanceProposal(null);
   }
 
   // Calcule si un rééquilibrage est possible ET préférable en l'état actuel
@@ -922,6 +940,38 @@ export default function TournamentDetail({ tournamentId, onBack }) {
             ticketId={`${tournament.id.slice(0, 8)}-${ticket.reg.id.slice(0, 8)}-${ticket.type}`}
           />
         </TicketModal>
+      )}
+      {balanceProposal && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setBalanceProposal(null)}>
+          <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-5 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <div className="font-display text-base mb-1">Déplacements proposés</div>
+            <div className="text-xs text-felt-cream/50 mb-3">
+              {balanceProposal.length} joueur{balanceProposal.length > 1 ? "s" : ""} concerné{balanceProposal.length > 1 ? "s" : ""}.
+            </div>
+            <div className="max-h-72 overflow-y-auto space-y-1 mb-4">
+              {balanceProposal.map((m) => (
+                <div key={m.reg.id} className="flex items-center justify-between text-sm bg-felt-bg/60 rounded px-3 py-2">
+                  <span className="truncate">{m.reg.players?.full_name || m.reg.players?.pseudo}</span>
+                  <span className="text-felt-cream/40 text-xs whitespace-nowrap ml-2">
+                    T{m.fromTable || "-"}/S{m.fromSeat || "-"} → T{m.toTable}/S{m.toSeat}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setBalanceProposal(null)} className="px-3 py-1.5 text-sm text-felt-cream/60 hover:text-felt-cream">
+                Annuler
+              </button>
+              <button
+                onClick={applyBalanceProposal}
+                disabled={balancing}
+                className="px-4 py-1.5 text-sm bg-felt-gold text-felt-bg rounded-md font-display disabled:opacity-40"
+              >
+                {balancing ? "Application…" : "OK"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       {showPasteImport && (
         <PasteImportModal

@@ -115,7 +115,7 @@ export default function TableSeatingModal({
           className="flex items-center justify-between px-5 py-3 border-b border-felt-cream/10 cursor-move select-none shrink-0"
         >
           <div className="font-display text-xl text-felt-cream">⠿ Vue des tables</div>
-          <button onClick={onClose} className="text-felt-cream/50 hover:text-felt-cream px-2">
+          <button onPointerDown={(e) => e.stopPropagation()} onClick={onClose} className="text-felt-cream/50 hover:text-felt-cream px-2">
             ✕
           </button>
         </div>
