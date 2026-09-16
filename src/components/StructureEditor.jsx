@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTheme } from "../context/ThemeContext.jsx";
 import CustomizablePanel from "./CustomizablePanel.jsx";
 import { useConfirm } from "../context/ConfirmContext.jsx";
+import { useIsMobile } from "../lib/useIsMobile.js";
 import {
   fetchActiveTournament,
   fetchLevels,
@@ -31,6 +32,8 @@ import {
 export default function StructureEditor({ onSaved, mode = "tournament", template = null }) {
   const confirmAction = useConfirm();
   const { theme } = useTheme();
+  const isMobile = useIsMobile();
+  const [mobileSubTab, setMobileSubTab] = useState("params"); // "params" | "table" — sous-onglets mobile uniquement
   const [tournament, setTournament] = useState(null);
   const [levels, setLevels] = useState(mode === "template" ? template?.levels || [] : []);
   const [config, setConfig] = useState(mode === "template" ? template?.structure_config || defaultStructureConfig() : defaultStructureConfig());
@@ -265,12 +268,33 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
 
         {error && <div className="text-felt-alert text-sm mb-3">Erreur : {error}</div>}
 
+        {isMobile && (
+          <div className="flex border-b border-felt-cream/10 mb-5 -mt-1">
+            {[
+              { key: "params", label: "Paramètres" },
+              { key: "table", label: "Structure des blindes" },
+            ].map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setMobileSubTab(t.key)}
+                className={`flex-1 py-2.5 text-sm font-display font-medium text-center border-b-2 -mb-px ${
+                  mobileSubTab === t.key ? "border-felt-gold text-felt-gold" : "border-transparent text-felt-cream/50"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="flex flex-col lg:flex-row gap-8 items-start">
           {/* Colonne gauche — Paramètres */}
           <CustomizablePanel
             panelKey="structure-params"
             defaultOrder={0}
-            className="bg-felt-panel border border-felt-cream/10 rounded-lg p-7 space-y-5"
+            className={`bg-felt-panel border border-felt-cream/10 rounded-lg p-7 space-y-5 ${
+              isMobile && mobileSubTab !== "params" ? "hidden lg:block" : ""
+            }`}
           >
             <DriverField label="Joueurs Anticipés">
               <input
@@ -346,7 +370,13 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
           </CustomizablePanel>
 
           {/* Colonne droite — Structure */}
-          <CustomizablePanel panelKey="structure-table" defaultOrder={1} className="bg-felt-panel border border-felt-cream/10 rounded-lg p-7">
+          <CustomizablePanel
+            panelKey="structure-table"
+            defaultOrder={1}
+            className={`bg-felt-panel border border-felt-cream/10 rounded-lg p-7 ${
+              isMobile && mobileSubTab !== "table" ? "hidden lg:block" : ""
+            }`}
+          >
             <div className="flex flex-wrap items-center justify-end gap-2 mb-6">
               <button onClick={() => setInsertModalType("level")} className="text-xs px-3 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display">
                 Insérer un niveau
