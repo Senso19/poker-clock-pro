@@ -115,6 +115,19 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
     });
   }
 
+  // "Ajouter un niveau" : ajoute directement en bas de la structure, avec
+  // SB/BB doublés par rapport au dernier niveau de blinds (pas de fenêtre,
+  // pas de surbrillance — c'est le cas d'usage le plus courant).
+  function appendLevelAtEnd() {
+    setLevels((prev) => {
+      const lastBlind = [...prev].reverse().find((l) => !l.isBreak);
+      const sb = lastBlind ? (Number(lastBlind.smallBlind) || 0) * 2 : 25;
+      const bb = lastBlind ? (Number(lastBlind.bigBlind) || 0) * 2 : 50;
+      const ante = config.antesEnabled ? (config.anteType === "sb" ? sb : bb) : 0;
+      return [...prev, { smallBlind: sb, bigBlind: bb, ante, durationMinutes: lastBlind?.durationMinutes || 20 }];
+    });
+  }
+
   function addBreak(afterIndex = null) {
     const newBreak = { isBreak: true, breakLabel: "Pause", durationMinutes: 0, isNew: true };
     setLevels((prev) => {
@@ -326,8 +339,11 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
           {/* Colonne droite — Structure */}
           <CustomizablePanel panelKey="structure-table" defaultOrder={1} className="bg-felt-panel border border-felt-cream/10 rounded-lg p-7">
             <div className="flex flex-wrap items-center justify-end gap-2 mb-6">
+              <button onClick={() => setInsertModalType("level")} className="text-xs px-3 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display">
+                Insérer un niveau
+              </button>
               <button onClick={() => setInsertModalType("break")} className="text-xs px-3 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display">
-                Ajouter pause
+                Ajouter une pause
               </button>
               <button onClick={handleSaveAsTemplate} className="text-xs px-3 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display">
                 Enregistrer comme modèle
@@ -476,10 +492,10 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
             </div>
 
             <button
-              onClick={() => setInsertModalType("level")}
+              onClick={appendLevelAtEnd}
               className="mt-4 px-3 py-2 bg-felt-bg border border-felt-cream/10 rounded-md text-sm font-display text-felt-cream/70 hover:text-felt-cream"
             >
-              + Niveau
+              Ajouter un niveau
             </button>
           </CustomizablePanel>
         </div>
