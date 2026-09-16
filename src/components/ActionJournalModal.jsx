@@ -106,6 +106,21 @@ export default function ActionJournalModal({ tournamentId, playersPerTable, onCl
         if (ev.payload.registrationId) {
           await reseatIfConflict(ev.payload.registrationId);
         }
+        // S'il y a de nouveau plusieurs joueurs en jeu, le tournoi n'est
+        // plus terminé : on annule le statut "Terminé" posé automatiquement
+        // à l'élimination de l'avant-dernier joueur, pour que ses actions
+        // (Éliminer, Rebuy, Changer de table...) redeviennent disponibles.
+        const { data: allRegs } = await supabase.from("registrations").select("id").eq("tournament_id", tournamentId);
+        const { data: activeElims } = await supabase
+          .from("eliminations")
+          .select("registration_id")
+          .eq("tournament_id", tournamentId)
+          .eq("undone", false);
+        const eliminatedNow = new Set((activeElims || []).map((e) => e.registration_id));
+        const stillInCount = (allRegs || []).filter((r) => !eliminatedNow.has(r.id)).length;
+        if (stillInCount > 1) {
+          await supabase.from("tournaments").update({ force_finished: false }).eq("id", tournamentId);
+        }
       } else if ((ev.type === "shuffle" || ev.type === "balance") && Array.isArray(ev.payload?.before)) {
         // Replace chaque joueur concerné à sa table/siège d'avant l'action.
         await Promise.all(
