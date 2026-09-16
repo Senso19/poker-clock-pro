@@ -21,8 +21,19 @@ export default function TournamentSettingsModal({ tournament, onClose, onSaved }
   const [trackKnockouts, setTrackKnockouts] = useState(!!tournament.track_knockouts);
   const [managePayouts, setManagePayouts] = useState(!!tournament.manage_payouts);
   const [forceFinished, setForceFinished] = useState(!!tournament.force_finished);
+  const [publicView, setPublicView] = useState(!!tournament.public_view);
+  const [linkCopied, setLinkCopied] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+
+  const publicUrl = `${window.location.origin}/public/${tournament.id}`;
+
+  function copyPublicLink() {
+    navigator.clipboard.writeText(publicUrl).then(() => {
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    });
+  }
 
   useEffect(() => {
     fetchChampionships().then(setChampionships).catch(() => {});
@@ -63,6 +74,7 @@ export default function TournamentSettingsModal({ tournament, onClose, onSaved }
           track_knockouts: trackKnockouts,
           manage_payouts: managePayouts,
           force_finished: forceFinished,
+          public_view: publicView,
         })
         .eq("id", tournament.id);
       if (updErr) throw updErr;
@@ -188,6 +200,33 @@ export default function TournamentSettingsModal({ tournament, onClose, onSaved }
             <input type="checkbox" checked={forceFinished} onChange={(e) => setForceFinished(e.target.checked)} />
             Forcer le statut "Terminé"
           </label>
+        </div>
+
+        <div className="mt-5 pt-4 border-t border-felt-cream/10">
+          <label className="flex items-center gap-2 text-sm text-felt-cream/80">
+            <input type="checkbox" checked={publicView} onChange={(e) => setPublicView(e.target.checked)} />
+            Accès public (lecture seule, sans connexion)
+          </label>
+          <div className="text-xs text-felt-cream/40 mt-1">
+            Toute personne avec le lien pourra voir l'horloge et la liste des joueurs, sans se connecter ni créer de
+            compte.
+          </div>
+          {publicView && (
+            <div className="flex items-center gap-2 mt-2">
+              <input
+                readOnly
+                value={publicUrl}
+                onClick={(e) => e.target.select()}
+                className="flex-1 bg-felt-bg border border-felt-cream/10 rounded-md px-2 py-1.5 text-xs text-felt-cream/70"
+              />
+              <button
+                onClick={copyPublicLink}
+                className="px-3 py-1.5 text-xs rounded-md bg-felt-panel border border-felt-cream/10 text-felt-cream/70 hover:text-felt-cream whitespace-nowrap"
+              >
+                {linkCopied ? "✓ Copié" : "Copier"}
+              </button>
+            </div>
+          )}
         </div>
 
         {error && <div className="text-felt-alert text-sm mt-4">{error}</div>}

@@ -38,7 +38,7 @@ function advanceForElapsed(levelIndex, secondsLeft, elapsedSeconds, levels) {
  */
 export default function MobileClockView({ levels }) {
   const { account } = useAccount();
-  const canEdit = canControlClock(account.role);
+  const canEdit = canControlClock(account?.role);
 
   const [tournamentId, setTournamentId] = useState(null);
   const [levelIndex, setLevelIndex] = useState(0);

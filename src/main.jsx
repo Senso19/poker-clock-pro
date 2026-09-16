@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App.jsx";
 import AuthScreen from "./components/AuthScreen.jsx";
@@ -10,10 +10,20 @@ import { ConfirmProvider } from "./context/ConfirmContext.jsx";
 import "./lib/installPrompt.js";
 import "./index.css";
 
+// Chargé à la demande uniquement (contient EditableClock, gros module) —
+// ne doit jamais alourdir le bundle principal chargé par tout le monde,
+// y compris sur l'écran de connexion.
+const PublicTournamentPage = lazy(() => import("./components/PublicTournamentPage.jsx"));
+
 // Route publique (sans connexion) pour le formulaire d'inscription
 // Festival/Open : /inscription/<slug-du-registre>. Contourne entièrement
 // l'écran de connexion.
 const publicFormMatch = window.location.pathname.match(/^\/inscription\/([^/]+)\/?$/);
+
+// Route publique (sans connexion) pour consulter un tournoi en lecture
+// seule : /public/<id-du-tournoi>. N'affiche quelque chose que si l'admin
+// a explicitement activé "Accès public" pour ce tournoi précis.
+const publicTournamentMatch = window.location.pathname.match(/^\/public\/([^/]+)\/?$/);
 
 function Root() {
   const { account, loading } = useAccount();
@@ -29,10 +39,22 @@ function Root() {
   return <App />;
 }
 
+const loadingScreen = (
+  <div className="h-screen w-screen flex items-center justify-center bg-felt-bg text-felt-cream/50 font-body">
+    Chargement…
+  </div>
+);
+
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     {publicFormMatch ? (
       <PublicRegistrationForm slug={publicFormMatch[1]} />
+    ) : publicTournamentMatch ? (
+      <ThemeProvider>
+        <Suspense fallback={loadingScreen}>
+          <PublicTournamentPage tournamentId={publicTournamentMatch[1]} />
+        </Suspense>
+      </ThemeProvider>
     ) : (
       <AccountProvider>
         <ThemeProvider>
