@@ -47,6 +47,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   const [movingReg, setMovingReg] = useState(null);
   const [shuffling, setShuffling] = useState(false);
   const [balanceProposal, setBalanceProposal] = useState(null);
+  const [winnerAnnounce, setWinnerAnnounce] = useState(null);
   const [showBalanceSuggestion, setShowBalanceSuggestion] = useState(false);
   const [balancing, setBalancing] = useState(false);
   const [captainAccounts, setCaptainAccounts] = useState([]);
@@ -614,6 +615,18 @@ export default function TournamentDetail({ tournamentId, onBack }) {
       `${reg.players?.pseudo || reg.players?.full_name} éliminé${position > 1 ? "" : ""} à la ${position}ᵉ place`,
       "elimination"
     );
+
+    // Si l'élimination laisse un seul joueur en jeu, c'est le vainqueur :
+    // le tournoi passe automatiquement en Terminé, une fenêtre l'annonce,
+    // et l'annonce s'affiche aussi sur le panneau Annonces de l'horloge.
+    const remaining = stillIn.filter((r) => r.id !== reg.id);
+    if (remaining.length === 1) {
+      await supabase.from("tournaments").update({ force_finished: true, clock_is_running: false }).eq("id", tournamentId);
+      setTournament((t) => ({ ...t, force_finished: true, clock_is_running: false }));
+      const winnerName = remaining[0].players?.pseudo || remaining[0].players?.full_name || "Le gagnant";
+      setWinnerAnnounce({ winnerName });
+      addAnnouncement(tournamentId, `🏆 ${winnerName} a gagné le tournoi !`, "winner");
+    }
     setEliminatingReg(null);
     setOpenMenuId(null);
     loadEliminations();
@@ -936,10 +949,10 @@ export default function TournamentDetail({ tournamentId, onBack }) {
                 {openMenuId === reg.id && (
                   <div className="absolute right-2 top-10 z-20 bg-felt-bg border border-felt-gold/40 rounded-md shadow-lg py-1 w-44 text-sm">
                     <MenuItem onClick={() => setTicket({ type: "buyin", reg })}>🎫 Ticket</MenuItem>
-                    {!isOut && !reg.table_number && (
+                    {!isOut && !reg.table_number && !tournament?.force_finished && (
                       <MenuItem onClick={() => assignSeatTo(reg)}>🎲 Attribuer un siège</MenuItem>
                     )}
-                    {!isOut && (
+                    {!isOut && !tournament?.force_finished && (
                       <>
                         {!isFreezeout && <MenuItem onClick={() => addRebuy(reg)}>+ Rebuy</MenuItem>}
                         {!isFreezeout && <MenuItem onClick={() => addAddon(reg)}>+ Addon</MenuItem>}
@@ -955,9 +968,11 @@ export default function TournamentDetail({ tournamentId, onBack }) {
                         </MenuItem>
                       </>
                     )}
-                    <MenuItem alert onClick={() => unregisterPlayer(reg)}>
-                      Désinscrire
-                    </MenuItem>
+                    {!tournament?.force_finished && (
+                      <MenuItem alert onClick={() => unregisterPlayer(reg)}>
+                        Désinscrire
+                      </MenuItem>
+                    )}
                   </div>
                 )}
 
@@ -1095,6 +1110,18 @@ export default function TournamentDetail({ tournamentId, onBack }) {
             ticketId={`${tournament.id.slice(0, 8)}-${ticket.reg.id.slice(0, 8)}-${ticket.type}`}
           />
         </TicketModal>
+      )}
+      {winnerAnnounce && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setWinnerAnnounce(null)}>
+          <div className="bg-felt-panel border border-felt-gold/40 rounded-lg p-8 w-full max-w-sm text-center" onClick={(e) => e.stopPropagation()}>
+            <div className="text-5xl mb-3">🏆</div>
+            <div className="font-display text-xl mb-1">{winnerAnnounce.winnerName}</div>
+            <div className="text-felt-cream/60 text-sm mb-6">a gagné le tournoi !</div>
+            <button onClick={() => setWinnerAnnounce(null)} className="px-4 py-2 bg-felt-gold text-felt-bg rounded-md font-display">
+              OK
+            </button>
+          </div>
+        </div>
       )}
       {anteAlert && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setAnteAlert(null)}>
