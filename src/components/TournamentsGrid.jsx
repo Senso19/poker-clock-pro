@@ -4,9 +4,10 @@ import { fetchAllTournaments, deleteTournament } from "../lib/tournaments.js";
 import { useAccount } from "../context/AccountContext.jsx";
 import { canManageTournaments, canParticipate } from "../lib/auth.js";
 import { fetchChampionships } from "../lib/points.js";
-import { fetchStructureTemplates, saveLevels, saveStructureConfig } from "../lib/levels.js";
+import { fetchStructureTemplates, saveLevels, saveStructureConfig, fetchLevels } from "../lib/levels.js";
 import { fetchClockTemplates, applyClockTemplateToTournament } from "../lib/clockTemplates.js";
 import { logEvent } from "../lib/events.js";
+import { addAnnouncement } from "../lib/announcements.js";
 import CustomizablePanel from "./CustomizablePanel.jsx";
 import EditableButton from "./EditableButton.jsx";
 import { useConfirm } from "../context/ConfirmContext.jsx";
@@ -33,6 +34,7 @@ export default function TournamentsGrid({ onOpen }) {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
+  const [winnerAnnounce, setWinnerAnnounce] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [search, setSearch] = useState("");
@@ -155,6 +157,75 @@ export default function TournamentsGrid({ onOpen }) {
     if (!(await confirmAction(`Supprimer définitivement "${t.name}" et toutes ses données ?`))) return;
     try {
       await deleteTournament(t.id);
+      await load();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function handleDuplicate(t) {
+    setOpenMenuId(null);
+    try {
+      const { data: created, error: insErr } = await supabase
+        .from("tournaments")
+        .insert({
+          name: `${t.name} (copie)`,
+          date: t.date,
+          buy_in: t.buy_in,
+          rebuy_amount: t.rebuy_amount,
+          addon_amount: t.addon_amount,
+          starting_stack: t.starting_stack,
+          status: "running",
+          championship_id: t.championship_id,
+          stage_label: t.stage_label,
+          registration_open: true,
+          max_players: t.max_players,
+          players_per_table: t.players_per_table,
+          final_table_size: t.final_table_size,
+          reserved_seats: t.reserved_seats,
+          location: t.location,
+          track_knockouts: t.track_knockouts,
+          manage_payouts: t.manage_payouts,
+          manage_players: t.manage_players,
+          structure_config: t.structure_config,
+          clock_layout: t.clock_layout,
+          clock_background: t.clock_background,
+          max_tables: t.max_tables,
+          // Volontairement pas copiés : joueurs/inscriptions (aucune ligne
+          // "registrations" n'est créée), places tirées, horloge démarrée,
+          // statut terminé, accès public (à réactiver au besoin).
+        })
+        .select()
+        .single();
+      if (insErr) throw insErr;
+      logEvent(created.id, "create", created.name);
+      const sourceLevels = await fetchLevels(t.id);
+      if (sourceLevels.length > 0) await saveLevels(created.id, sourceLevels);
+      await load();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function handleMarkFinished(t) {
+    setOpenMenuId(null);
+    if (!(await confirmAction(`Marquer "${t.name}" comme terminé ? Le chrono s'arrêtera.`))) return;
+    try {
+      await supabase.from("tournaments").update({ force_finished: true, clock_is_running: false }).eq("id", t.id);
+      // S'il ne reste qu'un seul joueur non éliminé, c'est le gagnant —
+      // on l'annonce (fenêtre ici + écrit sur le panneau Annonces de
+      // l'horloge, visible sur grand écran).
+      const [{ data: regs }, { data: elims }] = await Promise.all([
+        supabase.from("registrations").select("id, players(full_name, pseudo)").eq("tournament_id", t.id),
+        supabase.from("eliminations").select("registration_id").eq("tournament_id", t.id).eq("undone", false),
+      ]);
+      const eliminatedIds = new Set((elims || []).map((e) => e.registration_id));
+      const stillIn = (regs || []).filter((r) => !eliminatedIds.has(r.id));
+      if (stillIn.length === 1) {
+        const winnerName = stillIn[0].players?.pseudo || stillIn[0].players?.full_name || "Le gagnant";
+        setWinnerAnnounce({ tournamentName: t.name, winnerName });
+        addAnnouncement(t.id, `🏆 ${winnerName} a gagné le tournoi !`, "winner");
+      }
       await load();
     } catch (e) {
       setError(e.message);
@@ -304,6 +375,8 @@ export default function TournamentsGrid({ onOpen }) {
                 onToggleRegister={() => handleToggleRegister(t)}
                 onToggleMenu={() => setOpenMenuId(openMenuId === t.id ? null : t.id)}
                 onDelete={() => handleDelete(t)}
+                onDuplicate={() => handleDuplicate(t)}
+                onMarkFinished={() => handleMarkFinished(t)}
               />
             ))}
           </CustomizablePanel>
@@ -382,6 +455,8 @@ export default function TournamentsGrid({ onOpen }) {
               onToggleRegister={() => handleToggleRegister(t)}
               onToggleMenu={() => setOpenMenuId(openMenuId === t.id ? null : t.id)}
               onDelete={() => handleDelete(t)}
+              onDuplicate={() => handleDuplicate(t)}
+              onMarkFinished={() => handleMarkFinished(t)}
             />
           ))}
         </CustomizablePanel>
@@ -401,15 +476,29 @@ export default function TournamentsGrid({ onOpen }) {
               onToggleRegister={() => handleToggleRegister(t)}
               onToggleMenu={() => setOpenMenuId(openMenuId === t.id ? null : t.id)}
               onDelete={() => handleDelete(t)}
+              onDuplicate={() => handleDuplicate(t)}
+              onMarkFinished={() => handleMarkFinished(t)}
             />
           ))}
         </CustomizablePanel>
+      )}
+      {winnerAnnounce && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setWinnerAnnounce(null)}>
+          <div className="bg-felt-panel border border-felt-gold/40 rounded-lg p-8 w-full max-w-sm text-center" onClick={(e) => e.stopPropagation()}>
+            <div className="text-5xl mb-3">🏆</div>
+            <div className="font-display text-xl mb-1">{winnerAnnounce.winnerName}</div>
+            <div className="text-felt-cream/60 text-sm mb-6">a gagné « {winnerAnnounce.tournamentName} » !</div>
+            <button onClick={() => setWinnerAnnounce(null)} className="px-4 py-2 bg-felt-gold text-felt-bg rounded-md font-display">
+              OK
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
 }
 
-function TournamentCard({ t, badge, count, already, manage, busy, menuOpen, onOpen, onToggleRegister, onToggleMenu, onDelete }) {
+function TournamentCard({ t, badge, count, already, manage, busy, menuOpen, onOpen, onToggleRegister, onToggleMenu, onDelete, onDuplicate, onMarkFinished }) {
   return (
     <div
       onClick={onOpen}
@@ -484,6 +573,14 @@ function TournamentCard({ t, badge, count, already, manage, busy, menuOpen, onOp
                 onClick={(e) => e.stopPropagation()}
                 className="absolute right-0 bottom-8 z-20 bg-felt-bg border border-felt-gold/40 rounded-md shadow-lg py-1 w-36 text-sm"
               >
+                <button onClick={onDuplicate} className="w-full text-left px-3 py-2 text-felt-cream/80 hover:bg-felt-panel">
+                  📋 Dupliquer
+                </button>
+                {!t.force_finished && (
+                  <button onClick={onMarkFinished} className="w-full text-left px-3 py-2 text-felt-cream/80 hover:bg-felt-panel">
+                    🏁 Marquer comme fini
+                  </button>
+                )}
                 <button onClick={onDelete} className="w-full text-left px-3 py-2 text-felt-alert hover:bg-felt-panel">
                   🗑 Supprimer
                 </button>
@@ -496,7 +593,7 @@ function TournamentCard({ t, badge, count, already, manage, busy, menuOpen, onOp
   );
 }
 
-function TournamentRow({ t, badge, count, already, manage, busy, menuOpen, onOpen, onToggleRegister, onToggleMenu, onDelete }) {
+function TournamentRow({ t, badge, count, already, manage, busy, menuOpen, onOpen, onToggleRegister, onToggleMenu, onDelete, onDuplicate, onMarkFinished }) {
   return (
     <div
       onClick={onOpen}
@@ -564,6 +661,14 @@ function TournamentRow({ t, badge, count, already, manage, busy, menuOpen, onOpe
                 onClick={(e) => e.stopPropagation()}
                 className="absolute right-0 top-8 z-20 bg-felt-bg border border-felt-gold/40 rounded-md shadow-lg py-1 w-36 text-sm"
               >
+                <button onClick={onDuplicate} className="w-full text-left px-3 py-2 text-felt-cream/80 hover:bg-felt-panel">
+                  📋 Dupliquer
+                </button>
+                {!t.force_finished && (
+                  <button onClick={onMarkFinished} className="w-full text-left px-3 py-2 text-felt-cream/80 hover:bg-felt-panel">
+                    🏁 Marquer comme fini
+                  </button>
+                )}
                 <button onClick={onDelete} className="w-full text-left px-3 py-2 text-felt-alert hover:bg-felt-panel">
                   🗑 Supprimer
                 </button>
