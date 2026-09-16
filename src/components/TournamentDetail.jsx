@@ -453,9 +453,26 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     const moves = [];
 
     if (usedTables.length > targetCount) {
-      // Cas 1 : casser la table la moins garnie, répartir uniquement ses
-      // joueurs sur les tables restantes (la moins garnie d'abord).
-      const breakTable = usedTables.reduce((min, t) => (byTable[t].length < byTable[min].length ? t : min), usedTables[0]);
+      // Cas 1 : on privilégie toujours de casser la table au numéro le plus
+      // élevé (la table 1 est la dernière qu'on cassera), même si elle est
+      // complète — tant que les autres tables ont assez de sièges libres
+      // pour absorber tous ses joueurs. Sinon on essaie la suivante par
+      // ordre décroissant.
+      const descTables = [...usedTables].sort((a, b) => b - a);
+      let breakTable = null;
+      for (const t of descTables) {
+        const others = usedTables.filter((o) => o !== t);
+        const freeCapacity = others.reduce((sum, o) => sum + (perTable - byTable[o].length), 0);
+        if (byTable[t].length <= freeCapacity) {
+          breakTable = t;
+          break;
+        }
+      }
+      // Repli improbable : si aucune table ne rentre exactement (ne devrait
+      // pas arriver vu le calcul de targetCount), on prend la moins garnie.
+      if (breakTable == null) {
+        breakTable = usedTables.reduce((min, t) => (byTable[t].length < byTable[min].length ? t : min), usedTables[0]);
+      }
       const destTables = usedTables.filter((t) => t !== breakTable);
       const counts = {};
       destTables.forEach((t) => (counts[t] = byTable[t].length));
@@ -469,12 +486,19 @@ export default function TournamentDetail({ tournamentId, onBack }) {
         moves.push({ reg, fromTable: reg.table_number, fromSeat: reg.seat_number, toTable: dest, toSeat: seat });
       });
     } else {
-      // Cas 2 : réoptimiser l'écart entre la table la plus et la moins
-      // garnie, un joueur à la fois, jusqu'à un écart maximal de 1.
+      // Cas 2 : en attendant qu'une table haute ait assez peu de joueurs
+      // pour être cassée, on réoptimise normalement l'écart entre la table
+      // la plus et la moins garnie — à écart égal, on prend en priorité un
+      // joueur de la table au numéro le plus élevé, pour l'aider à se vider
+      // plus vite.
       const tablesState = usedTables.map((t) => ({ t, players: [...byTable[t]] }));
       let guard = 0;
       while (guard++ < 200) {
-        const maxT = tablesState.reduce((a, b) => (b.players.length > a.players.length ? b : a));
+        const maxT = tablesState.reduce((a, b) => {
+          if (b.players.length > a.players.length) return b;
+          if (b.players.length === a.players.length && b.t > a.t) return b;
+          return a;
+        });
         const minT = tablesState.reduce((a, b) => (b.players.length < a.players.length ? b : a));
         if (maxT.players.length - minT.players.length < 2) break;
         const reg = maxT.players[maxT.players.length - 1];
