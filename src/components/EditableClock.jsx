@@ -4,7 +4,7 @@ import { useTheme } from "../context/ThemeContext.jsx";
 import { fetchCurrentTournament } from "../lib/tournaments.js";
 import { saveClockState } from "../lib/clockState.js";
 import { playSound, SOUND_OPTIONS } from "../lib/sounds.js";
-import { formatTime } from "../lib/format.js";
+import { formatTime, clamp } from "../lib/format.js";
 import { fetchClubSettings, setLiveAnnouncement } from "../lib/auth.js";
 import { compressImageFile, uploadImageToStorage } from "../lib/imageUtils.js";
 import EditableButton from "./EditableButton.jsx";
@@ -106,9 +106,6 @@ const H_ALIGN = { left: "justify-start", center: "justify-center", right: "justi
 const V_ALIGN = { top: "flex-start", center: "center", bottom: "flex-end" };
 const CAROUSEL_LABELS = { structure: "Structure des blinds", eliminated: "Élimination", headsup: "Heads Up", ranking: "Classement", winner: "Vainqueur" };
 
-function clamp(v, min, max) {
-  return Math.max(min, Math.min(max, v));
-}
 
 function hexToRgba(hex, alpha = 1) {
   const clean = (hex || "#000000").replace("#", "");
@@ -2218,8 +2215,8 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
               onChange={(e) => {
                 const files = Array.from(e.target.files || []);
                 if (files.length === 0) return;
-                Promise.all(files.map((file) => compressImageFile(file, { maxSize: 600 }))).then((dataUrls) => {
-                  onChange({ sponsorImages: [...(style.sponsorImages || []), ...dataUrls] });
+                Promise.all(files.map((file) => uploadImageToStorage(file, { maxSize: 600, folder: "sponsor-logos" }))).then((urls) => {
+                  onChange({ sponsorImages: [...(style.sponsorImages || []), ...urls] });
                 });
                 e.target.value = "";
               }}

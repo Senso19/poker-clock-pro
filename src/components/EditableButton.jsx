@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase.js";
+import { clamp } from "../lib/format.js";
 import { useTheme } from "../context/ThemeContext.jsx";
 import { useEditMode } from "../context/EditModeContext.jsx";
 
@@ -52,9 +53,6 @@ export default function EditableButton({ groupKey, id, children, className, wrap
     persist(nextTheme);
   }
 
-  function clamp(v, min, max) {
-    return Math.max(min, Math.min(max, v));
-  }
 
   function handlePointerDown(e) {
     e.preventDefault();

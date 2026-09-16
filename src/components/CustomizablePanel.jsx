@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase.js";
+import { clamp } from "../lib/format.js";
 import { useTheme } from "../context/ThemeContext.jsx";
 import { useEditMode } from "../context/EditModeContext.jsx";
 
@@ -89,9 +90,6 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
     persist(nextTheme);
   }
 
-  function clamp(v, min, max) {
-    return Math.max(min, Math.min(max, v));
-  }
 
   // Déplacement LIBRE au pointeur (souris + tactile) : on maintient la
   // poignée ⠿, on glisse n'importe où dans la zone (le plus proche
