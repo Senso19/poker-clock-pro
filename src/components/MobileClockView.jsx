@@ -4,6 +4,7 @@ import { fetchCurrentTournament } from "../lib/tournaments.js";
 import { saveClockState } from "../lib/clockState.js";
 import { canControlClock } from "../lib/auth.js";
 import { formatTime } from "../lib/format.js";
+import { computeFinishPositions } from "../lib/points.js";
 import { useAccount } from "../context/AccountContext.jsx";
 
 // Avance le niveau/temps restant d'un nombre de secondes écoulées, comme
@@ -157,6 +158,13 @@ export default function MobileClockView({ levels }) {
   const avgStackBB = currentLevel?.bigBlind ? Math.round(avgStack / currentLevel.bigBlind) : 0;
   const progress = currentLevel ? 100 - (secondsLeft / ((currentLevel.durationMinutes || 20) * 60)) * 100 : 0;
 
+  // Recalcule la vraie place de chaque joueur (voir EditableClock.jsx pour
+  // le détail) plutôt que d'utiliser la valeur figée en base.
+  const positionByReg = computeFinishPositions(registrations.length, eliminations);
+  const rankedEliminations = [...eliminations]
+    .map((e) => ({ ...e, finish_position: positionByReg.get(e.registration_id) }))
+    .sort((a, b) => a.finish_position - b.finish_position);
+
   if (!currentLevel) {
     return <div className="p-6 text-felt-cream/50 font-body text-center">Aucune structure de blinds.</div>;
   }
@@ -225,11 +233,11 @@ export default function MobileClockView({ levels }) {
         </div>
       )}
 
-      {eliminations.length > 0 && (
+      {rankedEliminations.length > 0 && (
         <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-3 mb-4">
           <div className="text-xs text-felt-cream/40 uppercase mb-2">Dernier éliminé</div>
-          <div className="font-medium">{eliminations[0]?.registrations?.players?.full_name}</div>
-          <div className="text-felt-gold text-sm">{eliminations[0]?.finish_position}e place</div>
+          <div className="font-medium">{rankedEliminations[0]?.registrations?.players?.full_name}</div>
+          <div className="text-felt-gold text-sm">{rankedEliminations[0]?.finish_position}e place</div>
         </div>
       )}
 

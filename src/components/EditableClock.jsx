@@ -5,6 +5,7 @@ import { fetchCurrentTournament } from "../lib/tournaments.js";
 import { saveClockState } from "../lib/clockState.js";
 import { playSound, SOUND_OPTIONS } from "../lib/sounds.js";
 import { addAnnouncement, fetchRecentAnnouncements } from "../lib/announcements.js";
+import { computeFinishPositions } from "../lib/points.js";
 import { formatTime, clamp } from "../lib/format.js";
 import { compressImageFile, uploadImageToStorage } from "../lib/imageUtils.js";
 import EditableButton from "./EditableButton.jsx";
@@ -534,7 +535,15 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   const stillIn = registrations.filter((r) => !eliminatedIds.has(r.id));
   const avgStack = stillIn.length > 0 ? Math.round(registrations.reduce((s, r) => s + (r.stack || 0), 0) / stillIn.length) : 0;
   const avgStackBB = currentLevel?.bigBlind ? Math.round(avgStack / currentLevel.bigBlind) : 0;
-  const lastElimination = eliminations[0];
+  // Recalcule la vraie place de chaque joueur à partir de l'ordre
+  // chronologique réel et du nombre total ACTUEL de joueurs — la valeur
+  // stockée en base au moment de l'élimination devient fausse dès qu'un
+  // joueur s'inscrit plus tard (inscription tardive).
+  const eliminationPositionByReg = computeFinishPositions(registrations.length, eliminations);
+  const rankedEliminations = [...eliminations]
+    .map((e) => ({ ...e, finish_position: eliminationPositionByReg.get(e.registration_id) }))
+    .sort((a, b) => a.finish_position - b.finish_position);
+  const lastElimination = rankedEliminations[0];
   const isFinished = registrations.length > 1 && stillIn.length === 1;
   const winner = isFinished ? stillIn[0] : null;
 
@@ -1348,7 +1357,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
       {!panels.ranking.removed && (
         <Panel id="ranking" layout={panels.ranking} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Classement" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
           {panels.ranking.style.showTitle && <div className="text-felt-cream/30 uppercase tracking-wide mb-2" style={titleStyle(panels.ranking.style)}>{panels.ranking.style.customTitle || "Classement"}</div>}
-          <RankingContent style={panels.ranking.style} eliminations={eliminations} textStyle={textStyle} />
+          <RankingContent style={panels.ranking.style} eliminations={rankedEliminations} textStyle={textStyle} />
         </Panel>
       )}
 
@@ -1384,7 +1393,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
             {currentCarouselType === "structure" && <StructureContent style={panels.carousel.style} levels={levels} levelIndex={levelIndex} />}
             {currentCarouselType === "eliminated" && <EliminatedContent style={panels.carousel.style} lastElimination={lastElimination} total={registrations.length} textStyle={textStyle} />}
             {currentCarouselType === "headsup" && <HeadsupContent style={panels.carousel.style} stillIn={stillIn} textStyle={textStyle} />}
-            {currentCarouselType === "ranking" && <RankingContent style={panels.carousel.style} eliminations={eliminations} textStyle={textStyle} />}
+            {currentCarouselType === "ranking" && <RankingContent style={panels.carousel.style} eliminations={rankedEliminations} textStyle={textStyle} />}
             {currentCarouselType === "winner" && <WinnerContent style={panels.carousel.style} winner={winner} textStyle={textStyle} />}
             {!currentCarouselType && <div className="text-felt-cream/40 text-sm text-center">Rien à afficher pour l'instant</div>}
           </div>

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase.js";
 import { computeSeatAssignment } from "../lib/seating.js";
 import { importPlayersFromFile, exportResultsToExcel } from "./SheetsSync.jsx";
-import { computeTournamentPoints, fetchChampionships } from "../lib/points.js";
+import { computeTournamentPoints, fetchChampionships, computeFinishPositions } from "../lib/points.js";
 import { selectTournament } from "../lib/tournaments.js";
 import { fetchAllAccounts, assignTableCaptain, fetchTableCaptainAssignments, canParticipate } from "../lib/auth.js";
 import TicketPrint from "./TicketPrint.jsx";
@@ -702,9 +702,8 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   eliminations.forEach((e) => {
     if (e.eliminated_by) koCounts.set(e.eliminated_by, (koCounts.get(e.eliminated_by) || 0) + 1);
   });
-  const positionByReg = new Map();
+  const positionByReg = computeFinishPositions(registrations.length, eliminations);
   if (isFinished) positionByReg.set(stillIn[0].id, 1);
-  eliminations.forEach((e) => positionByReg.set(e.registration_id, e.finish_position));
 
   let finalResults = [];
   if (isFinished && champ) {

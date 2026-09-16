@@ -1,5 +1,20 @@
 import { supabase } from "./supabase.js";
 
+// Calcule la place finale de chaque joueur éliminé, à partir de l'ordre
+// chronologique réel des éliminations et du nombre total de joueurs
+// ACTUEL — plutôt que de se fier à une valeur figée au moment de
+// l'élimination, qui devient fausse dès qu'un joueur s'inscrit plus tard
+// (inscription tardive) et fait grossir le total après coup.
+export function computeFinishPositions(totalPlayers, eliminations) {
+  const sorted = [...eliminations].sort((a, b) => new Date(a.eliminated_at) - new Date(b.eliminated_at));
+  const map = new Map();
+  sorted.forEach((e, idx) => {
+    map.set(e.registration_id, totalPlayers - idx);
+  });
+  return map;
+}
+
+
 /**
  * points.js — classement par points avec formule libre façon BlindValet.
  *
@@ -166,9 +181,8 @@ export async function fetchChampionshipStandings(championshipId) {
     eliminations.forEach((e) => {
       if (e.eliminated_by) koCounts.set(e.eliminated_by, (koCounts.get(e.eliminated_by) || 0) + 1);
     });
-    const positionByReg = new Map();
+    const positionByReg = computeFinishPositions(totalPlayers, eliminations);
     positionByReg.set(stillIn[0].id, 1);
-    eliminations.forEach((e) => positionByReg.set(e.registration_id, e.finish_position));
 
     for (const reg of registrations) {
       const position = positionByReg.get(reg.id);
