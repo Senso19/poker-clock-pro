@@ -230,7 +230,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   const [registrations, setRegistrations] = useState([]);
   const [eliminations, setEliminations] = useState([]);
   const [sponsorIdx, setSponsorIdx] = useState(0);
-  const [announcement, setAnnouncement] = useState("");
+  const [announcement, setAnnouncement] = useState(null);
   const [tournamentBg, setTournamentBg] = useState(effectiveDesignOnly ? initialLayout?.background || null : null);
   const [bgSaveError, setBgSaveError] = useState(null);
   const [showBgPicker, setShowBgPicker] = useState(false);
@@ -312,22 +312,52 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
     return () => clearInterval(t);
   }, [panels.sponsors?.style?.intervalSeconds]);
 
+  const lastAnnouncementIdRef = useRef(null);
+  const announcementExpireRef = useRef(null);
   useEffect(() => {
     if (!tournamentId) return;
     function loadAnnouncement() {
-      fetchRecentAnnouncements(tournamentId, 1)
-        .then((list) => setAnnouncement(list[0]?.text || ""))
+      fetchRecentAnnouncements(tournamentId, 10)
+        .then((list) => {
+          // Le tirage des places (défilement vertical continu) prend le
+          // dessus sur tout tant qu'il n'a pas été explicitement arrêté.
+          const drawControl = list.find((a) => a.kind === "draw" || a.kind === "draw_stop");
+          if (drawControl?.kind === "draw") {
+            let players = [];
+            try {
+              players = JSON.parse(drawControl.text);
+            } catch {
+              players = [];
+            }
+            setAnnouncement({ mode: "draw", players });
+            return;
+          }
+          const latest = list.find((a) => a.kind !== "draw" && a.kind !== "draw_stop");
+          if (!latest) {
+            setAnnouncement(null);
+            return;
+          }
+          if (latest.id !== lastAnnouncementIdRef.current) {
+            lastAnnouncementIdRef.current = latest.id;
+            setAnnouncement({ mode: "ticker", text: latest.text, id: latest.id });
+            clearTimeout(announcementExpireRef.current);
+            // Défile 30 secondes puis disparaît.
+            announcementExpireRef.current = setTimeout(() => setAnnouncement(null), 30000);
+          }
+        })
         .catch(() => {});
     }
     loadAnnouncement();
     const t = setInterval(loadAnnouncement, 5000);
-    return () => clearInterval(t);
+    return () => {
+      clearInterval(t);
+      clearTimeout(announcementExpireRef.current);
+    };
   }, [tournamentId]);
 
   async function handleEditAnnouncement() {
-    const next = prompt("Message à afficher sur le panneau Annonces :", announcement);
+    const next = prompt("Message à afficher sur le panneau Annonces :", announcement?.mode === "ticker" ? announcement.text : "");
     if (next === null || !next.trim()) return;
-    setAnnouncement(next);
     addAnnouncement(tournamentId, next, "manual");
   }
 
@@ -1477,12 +1507,45 @@ function SponsorsContent({ style, sponsorIdx }) {
 }
 
 function AnnouncementsContent({ style, announcement, textStyle }) {
-  if (!announcement?.trim()) {
+  if (!announcement) {
     return <div className="text-felt-cream/30 text-sm text-center">Aucune annonce pour le moment.</div>;
   }
+
+  if (announcement.mode === "draw") {
+    const players = announcement.players || [];
+    if (players.length === 0) {
+      return <div className="text-felt-cream/30 text-sm text-center">Tirage en cours…</div>;
+    }
+    // Boucle continue : la liste est dupliquée pour un défilement sans
+    // coupure visible, vers le haut, jusqu'à l'arrêt manuel.
+    const duration = Math.max(8, players.length * 1.6);
+    return (
+      <div className="w-full h-full overflow-hidden relative">
+        <div className="absolute inset-x-0 animate-pcp-scroll-up" style={{ animationDuration: `${duration}s` }}>
+          {[...players, ...players].map((p, i) => (
+            <div key={i} className="text-center py-1" style={textStyle(style)}>
+              {p.pseudo} — Table {p.table} Siège {p.seat}
+            </div>
+          ))}
+        </div>
+        <style>{`
+          @keyframes pcp-scroll-up { from { transform: translateY(0); } to { transform: translateY(-50%); } }
+          .animate-pcp-scroll-up { animation-name: pcp-scroll-up; animation-timing-function: linear; animation-iteration-count: infinite; }
+        `}</style>
+      </div>
+    );
+  }
+
+  // Mode "ticker" : défilement horizontal continu, de droite à gauche.
   return (
-    <div className="w-full h-full flex items-center justify-center text-center break-words" style={textStyle(style)}>
-      {announcement}
+    <div className="w-full h-full overflow-hidden relative flex items-center">
+      <div className="whitespace-nowrap animate-pcp-scroll-left" style={textStyle(style)}>
+        {announcement.text}
+      </div>
+      <style>{`
+        @keyframes pcp-scroll-left { from { transform: translateX(100%); } to { transform: translateX(-100%); } }
+        .animate-pcp-scroll-left { animation: pcp-scroll-left 14s linear infinite; }
+      `}</style>
     </div>
   );
 }

@@ -387,6 +387,17 @@ export default function TournamentDetail({ tournamentId, onBack }) {
       await supabase.from("tournaments").update({ seats_drawn: true }).eq("id", tournamentId);
       setTournament((t) => ({ ...t, seats_drawn: true }));
       logEvent(tournamentId, "shuffle", "Tirage des places", { before });
+      // Liste triée alphabétiquement par pseudo, pour le défilement vertical
+      // continu du panneau Annonces (remplace le mode "ticker" normal
+      // jusqu'à ce que l'admin l'arrête explicitement).
+      const drawList = shuffled
+        .map((reg, i) => ({
+          pseudo: reg.players?.pseudo || reg.players?.full_name || "?",
+          table: Math.floor(i / perTable) + 1,
+          seat: (i % perTable) + 1,
+        }))
+        .sort((a, b) => a.pseudo.localeCompare(b.pseudo));
+      addAnnouncement(tournamentId, JSON.stringify(drawList), "draw");
       await loadRegistrations();
     } catch (e) {
       setError(e.message);
@@ -813,6 +824,15 @@ export default function TournamentDetail({ tournamentId, onBack }) {
               >
                 <span>⇄</span> {shuffling ? "Tirage…" : "Tirer les places"}
               </button>
+              {tournament?.seats_drawn && (
+                <button
+                  onClick={() => addAnnouncement(tournamentId, "", "draw_stop")}
+                  title="Arrêter le défilement du tirage sur le panneau Annonces"
+                  className="text-sm text-felt-cream/50 hover:text-felt-cream flex items-center gap-1.5"
+                >
+                  <span>⏹</span> Stop défilement tirage
+                </button>
+              )}
               <button
                 onClick={() => setShowJournal(true)}
                 className="text-sm text-felt-cream/60 hover:text-felt-cream flex items-center gap-1.5"
