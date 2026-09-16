@@ -343,7 +343,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                 Insérer un niveau
               </button>
               <button onClick={() => setInsertModalType("break")} className="text-xs px-3 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display">
-                Ajouter une pause
+                Insérer une pause
               </button>
               <button onClick={handleSaveAsTemplate} className="text-xs px-3 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display">
                 Enregistrer comme modèle
@@ -495,7 +495,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
               onClick={appendLevelAtEnd}
               className="mt-4 px-3 py-2 bg-felt-bg border border-felt-cream/10 rounded-md text-sm font-display text-felt-cream/70 hover:text-felt-cream"
             >
-              Ajouter un niveau
+              + Niveau
             </button>
           </CustomizablePanel>
         </div>
