@@ -1048,8 +1048,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
           playersPerTable={tournament?.players_per_table}
           onClose={() => setShowJournal(false)}
           onChanged={() => {
-            loadRegistrations();
-            loadEliminations();
+            loadEverything();
           }}
         />
       )}

@@ -113,6 +113,12 @@ export default function ActionJournalModal({ tournamentId, playersPerTable, onCl
             supabase.from("registrations").update({ table_number: b.table_number, seat_number: b.seat_number }).eq("id", b.registrationId)
           )
         );
+        if (ev.type === "shuffle") {
+          // Le tirage initial redevient possible : sans ça, le bouton
+          // "Tirer les places" resterait bloqué alors que plus personne n'a
+          // de siège.
+          await supabase.from("tournaments").update({ seats_drawn: false }).eq("id", tournamentId);
+        }
       }
       await markEventUndone(ev.id);
       await load();
