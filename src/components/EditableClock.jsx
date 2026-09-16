@@ -642,8 +642,11 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   }
 
   function toggleFullscreen() {
+    // Cible le conteneur extérieur (flexible), pas le plateau à taille fixe
+    // (1600x900) mis à l'échelle : sinon le mode plein écran s'appliquerait
+    // sur un élément déjà redimensionné par transform, faussant l'affichage.
     if (document.fullscreenElement) document.exitFullscreen();
-    else containerRef.current?.requestFullscreen();
+    else outerScaleRef.current?.requestFullscreen();
   }
 
   function handleToolbarPointerDown(e) {
@@ -781,7 +784,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
       <div
         ref={containerRef}
         className="relative overflow-hidden shrink-0"
-        style={{ ...clockBgStyle, width: 1600, height: 900, transform: `scale(${scale})` }}
+        style={{ ...clockBgStyle, width: 1600, height: 900, transform: `scale(${scale})`, transformOrigin: "center center" }}
       >
       {bgImageLayerStyle && <div className="absolute inset-0 pointer-events-none" style={bgImageLayerStyle} />}
       {bgTintStyle && <div className="absolute inset-0 pointer-events-none" style={bgTintStyle} />}

@@ -41,6 +41,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
   const [savedAt, setSavedAt] = useState(null);
   const [templates, setTemplates] = useState([]);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [insertModalType, setInsertModalType] = useState(null); // null | "level" | "break"
 
   useEffect(() => {
     if (mode === "tournament") {
@@ -329,7 +330,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
           {/* Colonne droite — Structure */}
           <CustomizablePanel panelKey="structure-table" defaultOrder={1} className="bg-felt-panel border border-felt-cream/10 rounded-lg p-7">
             <div className="flex flex-wrap items-center justify-end gap-2 mb-6">
-              <button onClick={addBreak} className="text-xs px-3 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display">
+              <button onClick={() => setInsertModalType("break")} className="text-xs px-3 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display">
                 Ajouter pause
               </button>
               <button onClick={handleSaveAsTemplate} className="text-xs px-3 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display">
@@ -463,8 +464,6 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                         )}
                         <td className="py-4 pl-2 pr-4 rounded-r-md">
                           <div className="flex gap-1.5 justify-end">
-                            <IconButton title="Insérer un niveau après celui-ci" onClick={() => addLevel(i)}>+N</IconButton>
-                            <IconButton title="Insérer une pause après celle-ci" onClick={() => addBreak(i)}>+P</IconButton>
                             <IconButton onClick={() => moveLevel(i, -1)}>▲</IconButton>
                             <IconButton onClick={() => moveLevel(i, 1)}>▼</IconButton>
                             <IconButton alert onClick={() => removeLevel(i)}>✕</IconButton>
@@ -478,12 +477,58 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
             </div>
 
             <button
-              onClick={addLevel}
+              onClick={() => setInsertModalType("level")}
               className="mt-4 px-3 py-2 bg-felt-bg border border-felt-cream/10 rounded-md text-sm font-display text-felt-cream/70 hover:text-felt-cream"
             >
               + Niveau
             </button>
           </CustomizablePanel>
+        </div>
+      </div>
+      {insertModalType && (
+        <InsertPositionModal
+          type={insertModalType}
+          levels={levels}
+          onClose={() => setInsertModalType(null)}
+          onConfirm={(afterIndex) => {
+            if (insertModalType === "level") addLevel(afterIndex);
+            else addBreak(afterIndex);
+            setInsertModalType(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function InsertPositionModal({ type, levels, onClose, onConfirm }) {
+  const [afterIndex, setAfterIndex] = useState(levels.length - 1);
+  return (
+    <div onClick={onClose} className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div onClick={(e) => e.stopPropagation()} className="bg-felt-panel border border-felt-cream/10 rounded-lg w-full max-w-sm font-body text-felt-cream p-5">
+        <div className="font-display text-base mb-1">
+          Où insérer {type === "level" ? "ce niveau" : "cette pause"} ?
+        </div>
+        <div className="text-xs text-felt-cream/50 mb-3">Choisissez la position dans la structure existante.</div>
+        <select
+          value={afterIndex}
+          onChange={(e) => setAfterIndex(Number(e.target.value))}
+          className="w-full bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-2 text-sm mb-4"
+        >
+          <option value={-1}>Au début</option>
+          {levels.map((l, i) => (
+            <option key={i} value={i}>
+              Après le niveau {i + 1} ({l.isBreak ? l.breakLabel || "Pause" : `${l.smallBlind}/${l.bigBlind}`})
+            </option>
+          ))}
+        </select>
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="px-3 py-1.5 text-sm text-felt-cream/60 hover:text-felt-cream">
+            Annuler
+          </button>
+          <button onClick={() => onConfirm(afterIndex)} className="px-4 py-1.5 text-sm bg-felt-gold text-felt-bg rounded-md font-display">
+            Insérer
+          </button>
         </div>
       </div>
     </div>

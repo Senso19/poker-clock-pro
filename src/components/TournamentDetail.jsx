@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase.js";
+import { computeSeatAssignment } from "../lib/seating.js";
 import { importPlayersFromFile, exportResultsToExcel } from "./SheetsSync.jsx";
 import { computeTournamentPoints, fetchChampionships } from "../lib/points.js";
 import { selectTournament } from "../lib/tournaments.js";
-import { computeSeatAssignment } from "../lib/seating.js";
 import { fetchAllAccounts, assignTableCaptain, fetchTableCaptainAssignments, canParticipate } from "../lib/auth.js";
 import TicketPrint from "./TicketPrint.jsx";
 import TicketModal from "./TicketModal.jsx";
@@ -46,6 +46,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   const [movingReg, setMovingReg] = useState(null);
   const [shuffling, setShuffling] = useState(false);
   const [balanceProposal, setBalanceProposal] = useState(null);
+  const [showBalanceSuggestion, setShowBalanceSuggestion] = useState(false);
   const [balancing, setBalancing] = useState(false);
   const [captainAccounts, setCaptainAccounts] = useState([]);
   const [tableCaptains, setTableCaptains] = useState([]);
@@ -188,22 +189,37 @@ export default function TournamentDetail({ tournamentId, onBack }) {
 
   async function registerOnePlayer(name, accountId = null) {
     const player = await findOrCreatePlayer(name);
-    const { table, seat } = await computeSeatAssignment(tournament);
+    // Plus d'attribution automatique de table/siège à l'inscription (quel
+    // que soit l'état du tournoi) — ça se fait désormais uniquement via
+    // "Tirer les places" (tous les joueurs) ou le bouton individuel
+    // "Attribuer un siège" (un joueur sans siège après un tirage déjà fait).
     const { data: reg, error: regErr } = await supabase
       .from("registrations")
       .insert({
         tournament_id: tournamentId,
         player_id: player.id,
         account_id: accountId,
-        table_number: table,
-        seat_number: seat,
+        table_number: null,
+        seat_number: null,
         stack: tournament.starting_stack,
       })
       .select("*, players(id, full_name, first_name, last_name, club, pseudo), accounts(avatar_data, pseudo)")
       .single();
     if (regErr) throw regErr;
+
     logEvent(tournamentId, "register", player.full_name, { registrationId: reg.id, playerId: player.id, accountId });
     return reg;
+  }
+
+  async function assignSeatTo(reg) {
+    try {
+      const { table, seat } = await computeSeatAssignment(tournament);
+      await supabase.from("registrations").update({ table_number: table, seat_number: seat }).eq("id", reg.id);
+      await loadRegistrations();
+    } catch (e) {
+      setError(e.message);
+    }
+    setOpenMenuId(null);
   }
 
   // "Membre du club" = un vrai compte de l'app (pas n'importe quel nom déjà
@@ -389,14 +405,12 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     return Math.max(1, Math.ceil(activeCount / perTable));
   }
 
-  async function autoBalanceTables() {
-    if (!(await confirmAction("L'équilibrage des tables va être effectué. Continuer ?"))) return;
-
+  function computeBalanceMoves() {
     const eliminatedIdsNow = new Set(eliminations.map((e) => e.registration_id));
     const perTable = tournament?.players_per_table || 9;
     const finalTableSize = tournament?.final_table_size || perTable;
     const active = registrations.filter((r) => !eliminatedIdsNow.has(r.id));
-    if (active.length === 0) return;
+    if (active.length === 0) return [];
     const numTables = computeTargetTableCount(active.length, perTable, finalTableSize);
     const sorted = [...active].sort(
       (a, b) => (a.table_number || 0) - (b.table_number || 0) || (a.seat_number || 0) - (b.seat_number || 0)
@@ -409,9 +423,28 @@ export default function TournamentDetail({ tournamentId, onBack }) {
         moves.push({ reg, fromTable: reg.table_number, fromSeat: reg.seat_number, toTable: table, toSeat: seat });
       }
     });
+    return moves;
+  }
+
+  async function autoBalanceTables() {
+    if (!(await confirmAction("L'équilibrage des tables va être effectué. Continuer ?"))) return;
+    const moves = computeBalanceMoves();
     if (moves.length === 0) return;
     setBalanceProposal(moves);
   }
+
+  // Dès que le rééquilibrage devient recommandé (transition, pas à chaque
+  // rendu), une fenêtre le propose spontanément plutôt que d'attendre que
+  // l'utilisateur clique lui-même sur le bouton.
+  const wasNeedingBalanceRef = useRef(false);
+  useEffect(() => {
+    const needs = computeNeedsBalance();
+    if (needs && !wasNeedingBalanceRef.current && !balanceProposal && !showBalanceSuggestion) {
+      setShowBalanceSuggestion(true);
+    }
+    wasNeedingBalanceRef.current = needs;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [registrations, eliminations]);
 
   async function applyBalanceProposal() {
     const moves = balanceProposal;
@@ -743,8 +776,10 @@ export default function TournamentDetail({ tournamentId, onBack }) {
                           <>
                             Éliminé{eliminatorName ? ` par ${eliminatorName}` : ""}
                           </>
-                        ) : (
+                        ) : reg.table_number ? (
                           <>Table {reg.table_number} · Siège {reg.seat_number}</>
+                        ) : (
+                          <span className="text-felt-alert/70">Sans siège</span>
                         )}
                         {reg.rebuys > 0 && ` · ${reg.rebuys} rebuy(s)`}
                         {reg.addons > 0 && ` · ${reg.addons} addon(s)`}
@@ -783,6 +818,9 @@ export default function TournamentDetail({ tournamentId, onBack }) {
                 {openMenuId === reg.id && (
                   <div className="absolute right-2 top-10 z-20 bg-felt-bg border border-felt-gold/40 rounded-md shadow-lg py-1 w-44 text-sm">
                     <MenuItem onClick={() => setTicket({ type: "buyin", reg })}>🎫 Ticket</MenuItem>
+                    {!isOut && !reg.table_number && (
+                      <MenuItem onClick={() => assignSeatTo(reg)}>🎲 Attribuer un siège</MenuItem>
+                    )}
                     {!isOut && (
                       <>
                         {!isFreezeout && <MenuItem onClick={() => addRebuy(reg)}>+ Rebuy</MenuItem>}
@@ -940,6 +978,32 @@ export default function TournamentDetail({ tournamentId, onBack }) {
             ticketId={`${tournament.id.slice(0, 8)}-${ticket.reg.id.slice(0, 8)}-${ticket.type}`}
           />
         </TicketModal>
+      )}
+      {showBalanceSuggestion && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setShowBalanceSuggestion(false)}>
+          <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="font-display text-base mb-2">⚖ Rééquilibrage recommandé</div>
+            <div className="text-sm text-felt-cream/60 mb-4">
+              La répartition des joueurs entre les tables n'est plus optimale. Voulez-vous équilibrer les tables
+              maintenant ?
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowBalanceSuggestion(false)} className="px-3 py-1.5 text-sm text-felt-cream/60 hover:text-felt-cream">
+                Annuler
+              </button>
+              <button
+                onClick={() => {
+                  setShowBalanceSuggestion(false);
+                  const moves = computeBalanceMoves();
+                  if (moves.length > 0) setBalanceProposal(moves);
+                }}
+                className="px-4 py-1.5 text-sm bg-felt-gold text-felt-bg rounded-md font-display"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       {balanceProposal && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setBalanceProposal(null)}>

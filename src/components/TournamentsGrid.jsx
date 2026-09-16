@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase.js";
 import { fetchAllTournaments, deleteTournament } from "../lib/tournaments.js";
-import { computeSeatAssignment } from "../lib/seating.js";
 import { useAccount } from "../context/AccountContext.jsx";
 import { canManageTournaments, canParticipate } from "../lib/auth.js";
 import { fetchChampionships } from "../lib/points.js";
@@ -132,13 +131,14 @@ export default function TournamentsGrid({ onOpen }) {
           if (pErr) throw pErr;
           player = created;
         }
-        const { table, seat } = await computeSeatAssignment(t);
+        // Plus d'attribution automatique de table/siège à l'inscription —
+        // se fait ensuite via "Tirer les places" ou individuellement.
         const { error: regErr } = await supabase.from("registrations").insert({
           tournament_id: t.id,
           player_id: player.id,
           account_id: account.id,
-          table_number: table,
-          seat_number: seat,
+          table_number: null,
+          seat_number: null,
           stack: t.starting_stack,
         });
         if (regErr) throw regErr;
