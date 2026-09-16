@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { fetchStructureTemplates, deleteStructureTemplate, saveLevels, saveStructureConfig } from "../lib/levels.js";
-import { fetchClockTemplates, deleteClockTemplate, applyClockTemplateToTournament } from "../lib/clockTemplates.js";
+import { fetchStructureTemplates, deleteStructureTemplate, saveLevels, saveStructureConfig, saveStructureTemplate } from "../lib/levels.js";
+import { fetchClockTemplates, deleteClockTemplate, applyClockTemplateToTournament, createClockTemplate } from "../lib/clockTemplates.js";
 import { fetchAllTournaments } from "../lib/tournaments.js";
 import { fetchFormTemplates, deleteFormTemplate } from "../lib/forms.js";
 import FormTemplatePreviewModal from "./FormTemplatePreviewModal.jsx";
@@ -83,11 +83,31 @@ export default function StructureTemplatesManager() {
     }
   }
 
+  async function handleDuplicateStruct(t) {
+    try {
+      const copy = await saveStructureTemplate(`${t.name} (copie)`, t.levels || [], t.structure_config || null);
+      setStructTemplates((prev) => [copy, ...prev]);
+      setEditingStruct(copy);
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
   async function handleDeleteClock(id) {
     if (!(await confirmAction("Supprimer ce modèle d'horloge ?"))) return;
     try {
       await deleteClockTemplate(id);
       setClockTemplates((prev) => prev.filter((t) => t.id !== id));
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function handleDuplicateClock(t) {
+    try {
+      const copy = await createClockTemplate(`${t.name} (copie)`, t.layout || {});
+      setClockTemplates((prev) => [copy, ...prev]);
+      setEditingClock(copy);
     } catch (e) {
       setError(e.message);
     }
@@ -218,15 +238,27 @@ export default function StructureTemplatesManager() {
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="pcp-title font-display text-base">{t.name}</div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteStruct(t.id);
-                  }}
-                  className="text-xs text-felt-alert/60 hover:text-felt-alert"
-                >
-                  🗑
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDuplicateStruct(t);
+                    }}
+                    title="Dupliquer ce modèle"
+                    className="text-xs text-felt-cream/50 hover:text-felt-cream"
+                  >
+                    📋
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteStruct(t.id);
+                    }}
+                    className="text-xs text-felt-alert/60 hover:text-felt-alert"
+                  >
+                    🗑
+                  </button>
+                </div>
               </div>
               <div className="space-y-2 text-sm mb-3">
                 <Row label="Niveaux" value={(t.levels || []).length} />
@@ -287,15 +319,27 @@ export default function StructureTemplatesManager() {
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="pcp-title font-display text-base">{t.name}</div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteClock(t.id);
-                  }}
-                  className="text-xs text-felt-alert/60 hover:text-felt-alert"
-                >
-                  🗑
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDuplicateClock(t);
+                    }}
+                    title="Dupliquer ce modèle"
+                    className="text-xs text-felt-cream/50 hover:text-felt-cream"
+                  >
+                    📋
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteClock(t.id);
+                    }}
+                    className="text-xs text-felt-alert/60 hover:text-felt-alert"
+                  >
+                    🗑
+                  </button>
+                </div>
               </div>
               <div className="flex gap-2">
                 <button
