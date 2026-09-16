@@ -225,7 +225,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
       if (withRoom.length > 0) {
         // Une place existe déjà quelque part : on l'utilise directement.
         const table = withRoom[Math.floor(Math.random() * withRoom.length)];
-        const occupied = new Set(registrations.map((r) => `${r.table_number}-${r.seat_number}`));
+        const occupied = computeOccupiedSeats(registrations);
         const seat = findFreeSeat(occupied, table, perTable) || 1;
         await supabase.from("registrations").update({ table_number: table, seat_number: seat }).eq("id", reg.id);
         addAnnouncement(tournamentId, `${reg.players?.pseudo || reg.players?.full_name} placé Table ${table} Siège ${seat}`, "move");
