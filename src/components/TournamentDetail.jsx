@@ -747,7 +747,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     return (a.table_number || 0) - (b.table_number || 0) || (a.seat_number || 0) - (b.seat_number || 0);
   });
   const tableNumbers = [...new Set(registrations.map((r) => r.table_number))].sort((a, b) => a - b);
-  let lastTable = null;
+
 
   return (
     <div className="h-full overflow-y-auto font-body text-felt-cream">
@@ -928,8 +928,6 @@ export default function TournamentDetail({ tournamentId, onBack }) {
           {sortedRegs.map((reg) => {
             const isOut = eliminatedIds.has(reg.id);
             const koCount = koCounts.get(reg.id) || 0;
-            const showTable = !isOut && reg.table_number !== lastTable;
-            if (!isOut) lastTable = reg.table_number;
             const position = positionByReg.get(reg.id);
             const eliminatorName = eliminatedByName.get(reg.id);
 
@@ -942,7 +940,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
                   }`}
                 >
                   <div className="pcp-value text-felt-gold font-display text-lg">
-                    {isOut ? (position ? `${position}e` : "") : showTable ? reg.table_number : ""}
+                    {isOut && position ? `${position}e` : ""}
                   </div>
                   <div className="flex items-center gap-3 min-w-0">
                     {reg.accounts?.avatar_data ? (
