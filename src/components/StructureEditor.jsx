@@ -101,18 +101,13 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
 
   function updateLevel(index, field, value) {
     setLevels((prev) =>
-      prev.map((l, i) => (i === index ? { ...l, [field]: value } : l))
+      prev.map((l, i) => (i === index ? { ...l, [field]: value, isNew: false } : l))
     );
   }
 
   function addLevel(afterIndex = null) {
     setLevels((prev) => {
-      const refIndex = afterIndex != null ? afterIndex : prev.length - 1;
-      const lastBlind = [...prev.slice(0, refIndex + 1)].reverse().find((l) => !l.isBreak);
-      const sb = lastBlind ? (Number(lastBlind.smallBlind) || 0) * 2 : 25;
-      const bb = lastBlind ? (Number(lastBlind.bigBlind) || 0) * 2 : 50;
-      const ante = config.antesEnabled ? (config.anteType === "sb" ? sb : bb) : 0;
-      const newLevel = { smallBlind: sb, bigBlind: bb, ante, durationMinutes: lastBlind?.durationMinutes || 20 };
+      const newLevel = { smallBlind: 0, bigBlind: 0, ante: 0, durationMinutes: 0, isNew: true };
       if (afterIndex == null) return [...prev, newLevel];
       const next = [...prev];
       next.splice(afterIndex + 1, 0, newLevel);
@@ -121,7 +116,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
   }
 
   function addBreak(afterIndex = null) {
-    const newBreak = { isBreak: true, breakLabel: "Pause", durationMinutes: 10 };
+    const newBreak = { isBreak: true, breakLabel: "Pause", durationMinutes: 0, isNew: true };
     setLevels((prev) => {
       if (afterIndex == null) return [...prev, newBreak];
       const next = [...prev];
@@ -146,6 +141,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
 
   async function handleSave() {
     setError(null);
+    const cleanLevels = levels.map(({ isNew, ...l }) => l);
     if (mode === "template") {
       if (!name.trim()) {
         setError("Merci de donner un nom au modèle.");
@@ -153,8 +149,8 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
       }
       setSaving(true);
       try {
-        if (template) await updateStructureTemplate(template.id, name.trim(), levels, config);
-        else await saveStructureTemplate(name.trim(), levels, config);
+        if (template) await updateStructureTemplate(template.id, name.trim(), cleanLevels, config);
+        else await saveStructureTemplate(name.trim(), cleanLevels, config);
         onSaved?.();
       } catch (e) {
         setError(e.message);
@@ -165,7 +161,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
     if (!tournament) return;
     setSaving(true);
     try {
-      await saveLevels(tournament.id, levels);
+      await saveLevels(tournament.id, cleanLevels);
       await saveStructureConfig(tournament.id, config);
       setSavedAt(new Date());
       onSaved?.();
@@ -179,7 +175,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
     const templateName = prompt("Nom du modèle (ex : Turbo, Deepstack, Standard...)");
     if (!templateName?.trim()) return;
     try {
-      const t = await saveStructureTemplate(templateName.trim(), levels, config);
+      const t = await saveStructureTemplate(templateName.trim(), levels.map(({ isNew, ...l }) => l), config);
       setTemplates((prev) => [t, ...prev]);
     } catch (e) {
       setError(e.message);
@@ -393,7 +389,10 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                     const m = rowStart % 60;
                     const elapsed = `${h}:${String(m).padStart(2, "0")}`;
                     return (
-                      <tr key={i} className={level.isBreak ? "bg-felt-bg/40" : "bg-felt-bg/70"}>
+                      <tr
+                        key={i}
+                        className={level.isNew ? "bg-felt-gold/20 ring-1 ring-inset ring-felt-gold/60" : level.isBreak ? "bg-felt-bg/40" : "bg-felt-bg/70"}
+                      >
                         <td className="py-4 pl-4 pr-2 text-felt-gold/70 rounded-l-md text-lg font-display">{i + 1}</td>
                         {level.isBreak ? (
                           <>
