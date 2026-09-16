@@ -67,7 +67,7 @@ function formatShortDate(d) {
 export default function ChampionshipView() {
   const confirmAction = useConfirm();
   const { account } = useAccount();
-  const manage = canManageTournaments(account.role);
+  const manage = canManageTournaments(account?.role);
   const [summaries, setSummaries] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [loading, setLoading] = useState(true);

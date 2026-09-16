@@ -48,13 +48,13 @@ const DEFAULT_FONT_SIZE = 14;
  * individuellement, et ajouter/retirer un trait de séparation juste après
  * lui — l'agencement complet est mémorisé dans club_settings.theme.
  */
-export default function Sidebar({ tab, setTab }) {
+export default function Sidebar({ tab, setTab, onRequestLogin }) {
   const { account, logout } = useAccount();
   const { theme, setTheme } = useTheme();
   const { isEditMode } = useEditMode();
-  const manage = canManageTournaments(account.role);
-  const manageAccounts = canManageAccounts(account.role);
-  const isStaffOnly = account.role === "floor" || account.role === "table_captain";
+  const manage = canManageTournaments(account?.role);
+  const manageAccounts = canManageAccounts(account?.role);
+  const isStaffOnly = account?.role === "floor" || account?.role === "table_captain";
   const [showProfile, setShowProfile] = useState(false);
   const [showContact, setShowContact] = useState(false);
   const [showPending, setShowPending] = useState(false);
@@ -219,6 +219,9 @@ export default function Sidebar({ tab, setTab }) {
 
   function isVisible(key) {
     if (key.startsWith("space-")) return true;
+    // Visiteur non connecté : uniquement Tournois et Championnats, comme
+    // demandé — tout le reste attend une connexion.
+    if (!account) return key === "tournaments" || key === "championship";
     if (key === "templates" || key === "settings" || key === "registrations") return manage;
     if (key === "accounts") return manageAccounts;
     if (key === "eliminate") return isStaffOnly;
@@ -485,6 +488,21 @@ export default function Sidebar({ tab, setTab }) {
   }
 
   function ProfileFooter({ onNavigate }) {
+    if (!account) {
+      return (
+        <div className="shrink-0 border-t border-felt-gold/10 py-4 px-5">
+          <button
+            onClick={() => {
+              onRequestLogin?.();
+              onNavigate?.();
+            }}
+            className="w-full text-center text-sm bg-felt-gold text-felt-bg rounded-md py-2 font-display"
+          >
+            Se connecter
+          </button>
+        </div>
+      );
+    }
     return (
       <div className="shrink-0 border-t border-felt-gold/10 py-4">
         <div className="flex flex-col items-center px-5 mb-3">
@@ -513,6 +531,21 @@ export default function Sidebar({ tab, setTab }) {
           </button>
         </div>
       </div>
+    );
+  }
+
+  // Bandeau tout en haut de la barre, invitant un visiteur non connecté à
+  // se connecter — la navigation reste en lecture seule (tournois et
+  // championnats uniquement) tant qu'il ne l'a pas fait.
+  function GuestBanner() {
+    if (account) return null;
+    return (
+      <button
+        onClick={() => onRequestLogin?.()}
+        className="shrink-0 w-full text-center text-xs bg-felt-gold/15 hover:bg-felt-gold/25 text-felt-gold py-2 px-3 border-b border-felt-gold/20"
+      >
+        👤 Vous consultez en lecture seule — Se connecter
+      </button>
     );
   }
 
@@ -561,6 +594,7 @@ export default function Sidebar({ tab, setTab }) {
             ✕
           </button>
         </div>
+        <GuestBanner />
         {renderNavList(handleNav)}
         <ProfileFooter onNavigate={() => setMobileOpen(false)} />
       </div>
@@ -573,6 +607,7 @@ export default function Sidebar({ tab, setTab }) {
         >
           <div style={{ width }} className="h-full flex flex-col">
             <ClubHeader />
+            <GuestBanner />
             {renderNavList((key) => setTab(key))}
             <ProfileFooter />
           </div>

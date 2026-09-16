@@ -10,7 +10,7 @@ export default function EditModeToggleButton() {
   const { account } = useAccount();
   const { isEditMode, setIsEditMode } = useEditMode();
 
-  if (account.role !== "admin") return null;
+  if (account?.role !== "admin") return null;
 
   return (
     <button

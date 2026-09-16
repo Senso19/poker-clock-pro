@@ -22,7 +22,7 @@ import { useConfirm } from "../context/ConfirmContext.jsx";
 export default function TournamentsGrid({ onOpen }) {
   const confirmAction = useConfirm();
   const { account } = useAccount();
-  const manage = canManageTournaments(account.role);
+  const manage = canManageTournaments(account?.role);
   const [tournaments, setTournaments] = useState([]);
   const [counts, setCounts] = useState({});
   const [eliminatedCounts, setEliminatedCounts] = useState({});
@@ -80,11 +80,15 @@ export default function TournamentsGrid({ onOpen }) {
         setEliminatedCounts(e);
       }
 
-      const { data: myR } = await supabase
-        .from("registrations")
-        .select("tournament_id")
-        .eq("account_id", account.id);
-      setMyRegs(new Set((myR || []).map((r) => r.tournament_id)));
+      // Un visiteur non connecté n'a pas d'inscriptions personnelles à
+      // suivre — pas de requête, la grille reste en pure consultation.
+      if (account) {
+        const { data: myR } = await supabase
+          .from("registrations")
+          .select("tournament_id")
+          .eq("account_id", account.id);
+        setMyRegs(new Set((myR || []).map((r) => r.tournament_id)));
+      }
     } catch (e) {
       setError(e.message);
     }
@@ -92,6 +96,10 @@ export default function TournamentsGrid({ onOpen }) {
   }
 
   async function handleToggleRegister(t) {
+    if (!account) {
+      setError("Connectez-vous pour vous inscrire à un tournoi.");
+      return;
+    }
     if (!myRegs.has(t.id) && !canParticipate(account)) {
       setError("Votre compte doit d'abord être validé par un administrateur avant de pouvoir vous inscrire à un tournoi.");
       return;

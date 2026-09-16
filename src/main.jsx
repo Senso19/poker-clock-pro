@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from "react";
+import React, { Suspense, lazy, useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App.jsx";
 import AuthScreen from "./components/AuthScreen.jsx";
@@ -27,6 +27,11 @@ const publicTournamentMatch = window.location.pathname.match(/^\/public\/([^/]+)
 
 function Root() {
   const { account, loading } = useAccount();
+  const [showLogin, setShowLogin] = useState(false);
+
+  useEffect(() => {
+    if (account) setShowLogin(false);
+  }, [account]);
 
   if (loading) {
     return (
@@ -35,8 +40,26 @@ function Root() {
       </div>
     );
   }
-  if (!account) return <AuthScreen />;
-  return <App />;
+
+  return (
+    <>
+      <App onRequestLogin={() => setShowLogin(true)} />
+      {showLogin && !account && (
+        <div className="fixed inset-0 z-[100] bg-felt-bg sm:bg-black/70 sm:flex sm:items-center sm:justify-center">
+          <div className="relative h-full sm:h-auto sm:max-h-[90vh] sm:overflow-y-auto sm:rounded-lg sm:max-w-sm sm:w-full">
+            <button
+              onClick={() => setShowLogin(false)}
+              className="absolute top-3 right-3 z-10 text-felt-cream/50 hover:text-felt-cream text-xl"
+              aria-label="Fermer"
+            >
+              ✕
+            </button>
+            <AuthScreen />
+          </div>
+        </div>
+      )}
+    </>
+  );
 }
 
 const loadingScreen = (

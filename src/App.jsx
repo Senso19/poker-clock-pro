@@ -32,11 +32,11 @@ function TabFallback() {
  * sans dépendre d'un tournoi actif. L'horloge et la structure d'UN tournoi
  * précis restent accessibles via ses propres onglets dans TournamentPage.
  */
-export default function App() {
+export default function App({ onRequestLogin }) {
   const { account } = useAccount();
-  const manage = canManageTournaments(account.role);
-  const manageAccounts = canManageAccounts(account.role);
-  const isStaffOnly = account.role === "floor" || account.role === "table_captain";
+  const manage = canManageTournaments(account?.role);
+  const manageAccounts = canManageAccounts(account?.role);
+  const isStaffOnly = account?.role === "floor" || account?.role === "table_captain";
 
   const [tab, setTab] = useState(isStaffOnly ? "eliminate" : "tournaments");
   const [openTournamentId, setOpenTournamentId] = useState(null);
@@ -74,7 +74,7 @@ export default function App() {
 
   return (
     <div className="h-screen w-screen flex" style={bgStyle}>
-      <Sidebar tab={tab} setTab={goToTab} />
+      <Sidebar tab={tab} setTab={goToTab} onRequestLogin={onRequestLogin} />
       <div className="flex-1 min-w-0 h-full overflow-hidden relative pt-[calc(56px+env(safe-area-inset-top))] sm:pt-0">
         <Suspense fallback={<TabFallback />}>
           {tab === "tournaments" &&

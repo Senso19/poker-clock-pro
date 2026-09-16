@@ -29,8 +29,8 @@ const TABS = [
 export default function TournamentPage({ tournamentId, onBack }) {
   const { account } = useAccount();
   const isMobile = useIsMobile();
-  const manage = canManageTournaments(account.role);
-  const clockControl = canControlClock(account.role);
+  const manage = canManageTournaments(account?.role);
+  const clockControl = canControlClock(account?.role);
 
   const [tab, setTab] = useState("clock");
   const [tournament, setTournament] = useState(null);
