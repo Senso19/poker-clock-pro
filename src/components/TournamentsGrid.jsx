@@ -35,6 +35,7 @@ export default function TournamentsGrid({ onOpen }) {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
   const [winnerAnnounce, setWinnerAnnounce] = useState(null);
+  const [winners, setWinners] = useState({});
   const [busyId, setBusyId] = useState(null);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [search, setSearch] = useState("");
@@ -68,8 +69,8 @@ export default function TournamentsGrid({ onOpen }) {
       const ids = list.map((t) => t.id);
       if (ids.length > 0) {
         const [{ data: regs }, { data: elims }] = await Promise.all([
-          supabase.from("registrations").select("tournament_id").in("tournament_id", ids),
-          supabase.from("eliminations").select("tournament_id").in("tournament_id", ids).eq("undone", false),
+          supabase.from("registrations").select("id, tournament_id, players(pseudo, full_name)").in("tournament_id", ids),
+          supabase.from("eliminations").select("tournament_id, registration_id").in("tournament_id", ids).eq("undone", false),
         ]);
         const c = {};
         (regs || []).forEach((r) => {
@@ -77,10 +78,26 @@ export default function TournamentsGrid({ onOpen }) {
         });
         setCounts(c);
         const e = {};
+        const eliminatedRegIds = new Set();
         (elims || []).forEach((r) => {
           e[r.tournament_id] = (e[r.tournament_id] || 0) + 1;
+          eliminatedRegIds.add(r.registration_id);
         });
         setEliminatedCounts(e);
+
+        // Vainqueur = le seul joueur d'un tournoi terminé encore non
+        // éliminé — affiché directement sur sa carte.
+        const finishedIds = new Set(list.filter((t) => t.force_finished).map((t) => t.id));
+        const byTournamentActive = {};
+        (regs || []).forEach((r) => {
+          if (!finishedIds.has(r.tournament_id) || eliminatedRegIds.has(r.id)) return;
+          (byTournamentActive[r.tournament_id] ||= []).push(r);
+        });
+        const w = {};
+        Object.entries(byTournamentActive).forEach(([tId, players]) => {
+          if (players.length === 1) w[tId] = players[0].players?.pseudo || players[0].players?.full_name;
+        });
+        setWinners(w);
       }
 
       // Un visiteur non connecté n'a pas d'inscriptions personnelles à
@@ -377,6 +394,7 @@ export default function TournamentsGrid({ onOpen }) {
                 onDelete={() => handleDelete(t)}
                 onDuplicate={() => handleDuplicate(t)}
                 onMarkFinished={() => handleMarkFinished(t)}
+                winnerName={winners[t.id]}
               />
             ))}
           </CustomizablePanel>
@@ -457,6 +475,7 @@ export default function TournamentsGrid({ onOpen }) {
               onDelete={() => handleDelete(t)}
               onDuplicate={() => handleDuplicate(t)}
               onMarkFinished={() => handleMarkFinished(t)}
+              winnerName={winners[t.id]}
             />
           ))}
         </CustomizablePanel>
@@ -478,6 +497,7 @@ export default function TournamentsGrid({ onOpen }) {
               onDelete={() => handleDelete(t)}
               onDuplicate={() => handleDuplicate(t)}
               onMarkFinished={() => handleMarkFinished(t)}
+              winnerName={winners[t.id]}
             />
           ))}
         </CustomizablePanel>
@@ -498,7 +518,7 @@ export default function TournamentsGrid({ onOpen }) {
   );
 }
 
-function TournamentCard({ t, badge, count, already, manage, busy, menuOpen, onOpen, onToggleRegister, onToggleMenu, onDelete, onDuplicate, onMarkFinished }) {
+function TournamentCard({ t, badge, count, already, manage, busy, menuOpen, onOpen, onToggleRegister, onToggleMenu, onDelete, onDuplicate, onMarkFinished, winnerName }) {
   return (
     <div
       onClick={onOpen}
@@ -506,6 +526,12 @@ function TournamentCard({ t, badge, count, already, manage, busy, menuOpen, onOp
       className="relative bg-felt-panel border border-felt-cream/10 rounded-xl p-4 flex flex-col hover:border-felt-cream/20 transition-colors cursor-pointer"
     >
       <div className="pcp-title font-display text-base leading-tight mb-1 truncate">{t.name}</div>
+      {winnerName && (
+        <div className="flex items-center gap-1.5 text-xs text-felt-gold mb-1.5 truncate">
+          <span>🏆</span>
+          <span className="truncate">{winnerName}</span>
+        </div>
+      )}
       <div className="flex items-center justify-between gap-2 mb-3">
         <div className="pcp-body text-xs text-felt-cream/40 truncate">
           {t.scheduled_at
@@ -593,7 +619,7 @@ function TournamentCard({ t, badge, count, already, manage, busy, menuOpen, onOp
   );
 }
 
-function TournamentRow({ t, badge, count, already, manage, busy, menuOpen, onOpen, onToggleRegister, onToggleMenu, onDelete, onDuplicate, onMarkFinished }) {
+function TournamentRow({ t, badge, count, already, manage, busy, menuOpen, onOpen, onToggleRegister, onToggleMenu, onDelete, onDuplicate, onMarkFinished, winnerName }) {
   return (
     <div
       onClick={onOpen}
@@ -606,6 +632,12 @@ function TournamentRow({ t, badge, count, already, manage, busy, menuOpen, onOpe
           {t.scheduled_at ? new Date(t.scheduled_at).toLocaleString("fr-FR") : new Date(t.date || t.created_at).toLocaleDateString("fr-FR")}
         </div>
       </div>
+      {winnerName && (
+        <div className="flex items-center gap-1.5 text-xs text-felt-gold shrink-0">
+          <span>🏆</span>
+          <span className="truncate max-w-[120px]">{winnerName}</span>
+        </div>
+      )}
       <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full shrink-0 ${badge.cls}`}>
         {badge.dot && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
         {badge.label}
