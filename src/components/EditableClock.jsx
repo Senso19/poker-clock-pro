@@ -6,7 +6,7 @@ import { saveClockState } from "../lib/clockState.js";
 import { playSound, SOUND_OPTIONS } from "../lib/sounds.js";
 import { formatTime } from "../lib/format.js";
 import { fetchClubSettings, setLiveAnnouncement } from "../lib/auth.js";
-import { compressImageFile } from "../lib/imageUtils.js";
+import { compressImageFile, uploadImageToStorage } from "../lib/imageUtils.js";
 import EditableButton from "./EditableButton.jsx";
 
 /**
@@ -576,9 +576,15 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   async function addImage(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const dataUrl = await compressImageFile(file, { maxSize: 1000 });
-    const newImg = { id: `img-${Date.now()}`, x: 10, y: 10, w: 40, h: 40, imageData: dataUrl, layer: "back", fit: "contain" };
-    persist(panels, [...images, newImg]);
+    setBgSaveError(null);
+    try {
+      const url = await uploadImageToStorage(file, { maxSize: 1000, folder: "clock-images" });
+      const newImg = { id: `img-${Date.now()}`, x: 10, y: 10, w: 40, h: 40, imageData: url, layer: "back", fit: "contain" };
+      persist(panels, [...images, newImg]);
+    } catch (err) {
+      console.error("addImage failed:", err);
+      setBgSaveError(err?.message || "Échec de l'envoi de l'image.");
+    }
     e.target.value = "";
   }
 
@@ -587,17 +593,8 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
     if (!file) return;
     setBgSaveError(null);
     try {
-      const dataUrl = await compressImageFile(file, { maxSize: 1600, quality: 0.8 });
-      // Stocké dans Supabase Storage (pas en base64 dans la base) : évite
-      // les lignes énormes en base qui provoquaient des "statement
-      // timeout" lors de l'enregistrement.
-      const blob = await (await fetch(dataUrl)).blob();
-      const ext = blob.type === "image/png" ? "png" : "jpg";
-      const path = `clock-backgrounds/${tournamentId || "template"}-${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from("pokerclock-media").upload(path, blob, { contentType: blob.type, upsert: true });
-      if (uploadError) throw uploadError;
-      const { data: urlData } = supabase.storage.from("pokerclock-media").getPublicUrl(path);
-      saveTournamentBg({ ...tournamentBg, type: "image", value: urlData.publicUrl });
+      const url = await uploadImageToStorage(file, { maxSize: 1600, quality: 0.8, folder: "clock-backgrounds" });
+      saveTournamentBg({ ...tournamentBg, type: "image", value: url });
     } catch (err) {
       console.error("handleTournamentBgImage failed:", err);
       setBgSaveError(err?.message || "Échec de l'envoi de l'image.");

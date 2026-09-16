@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase.js";
 import { useTheme } from "../context/ThemeContext.jsx";
 import { fetchClubSettings, setRegistrationCode, setChatSettings } from "../lib/auth.js";
-import { compressImageFile } from "../lib/imageUtils.js";
+import { compressImageFile, uploadImageToStorage } from "../lib/imageUtils.js";
 
 const PRESETS = [
   { name: "Feutre (défaut)", value: "#14181C" },
@@ -70,8 +70,8 @@ export default function LayoutSettings() {
   async function handleBackgroundImage(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const dataUrl = await compressImageFile(file, { maxSize: 1440, quality: 0.78 });
-    const next = { ...theme, background: { type: "image", value: dataUrl } };
+    const url = await uploadImageToStorage(file, { maxSize: 1440, quality: 0.78, folder: "page-backgrounds" });
+    const next = { ...theme, background: { type: "image", value: url } };
     setTheme(next);
     await persist(next);
   }

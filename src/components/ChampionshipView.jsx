@@ -14,7 +14,7 @@ import ChampionshipDetailPage from "./ChampionshipDetailPage.jsx";
 import CustomizablePanel from "./CustomizablePanel.jsx";
 import { useConfirm } from "../context/ConfirmContext.jsx";
 import EditableButton from "./EditableButton.jsx";
-import { compressImageFile } from "../lib/imageUtils.js";
+import { uploadImageToStorage } from "../lib/imageUtils.js";
 
 const VARIABLES = [
   ["p", "nombre de joueurs"],
@@ -99,11 +99,11 @@ export default function ChampionshipView() {
 
   async function handleCardBannerChange(championshipId, file) {
     if (!file) return;
-    const dataUrl = await compressImageFile(file, { maxSize: 1200 });
     try {
-      await updateChampionshipBanner(championshipId, dataUrl);
+      const url = await uploadImageToStorage(file, { maxSize: 1200, folder: "championship-banners" });
+      await updateChampionshipBanner(championshipId, url);
       setSummaries((list) =>
-        list.map((s) => (s.championship.id === championshipId ? { ...s, championship: { ...s.championship, banner_image: dataUrl } } : s))
+        list.map((s) => (s.championship.id === championshipId ? { ...s, championship: { ...s.championship, banner_image: url } } : s))
       );
     } catch (e) {
       setError(e.message);
@@ -371,8 +371,12 @@ function ChampionshipEditor({ onCreate, onCancel, loading }) {
   async function handleBannerFile(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const dataUrl = await compressImageFile(file, { maxSize: 1200 });
-    setBannerImage(dataUrl);
+    try {
+      const url = await uploadImageToStorage(file, { maxSize: 1200, folder: "championship-banners" });
+      setBannerImage(url);
+    } catch (err) {
+      console.error("handleBannerFile failed:", err);
+    }
     e.target.value = "";
   }
 
