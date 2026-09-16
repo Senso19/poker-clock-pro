@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase.js";
-import { computeSeatAssignment } from "../lib/seating.js";
+
 import { importPlayersFromFile, exportResultsToExcel } from "./SheetsSync.jsx";
 import { computeTournamentPoints, fetchChampionships, computeFinishPositions } from "../lib/points.js";
 import { selectTournament } from "../lib/tournaments.js";
@@ -217,10 +217,31 @@ export default function TournamentDetail({ tournamentId, onBack }) {
 
   async function assignSeatTo(reg) {
     try {
-      const { table, seat } = await computeSeatAssignment(tournament);
-      await supabase.from("registrations").update({ table_number: table, seat_number: seat }).eq("id", reg.id);
-      addAnnouncement(tournamentId, `${reg.players?.pseudo || reg.players?.full_name} placé Table ${table} Siège ${seat}`, "move");
-      await loadRegistrations();
+      const perTable = tournament?.players_per_table || 9;
+      const { byTable } = groupActiveByTable();
+      const usedTables = Object.keys(byTable).map(Number);
+      const withRoom = usedTables.filter((t) => byTable[t].length < perTable);
+
+      if (withRoom.length > 0) {
+        // Une place existe déjà quelque part : on l'utilise directement.
+        const table = withRoom[Math.floor(Math.random() * withRoom.length)];
+        const occupied = new Set(registrations.map((r) => `${r.table_number}-${r.seat_number}`));
+        const seat = findFreeSeat(occupied, table, perTable) || 1;
+        await supabase.from("registrations").update({ table_number: table, seat_number: seat }).eq("id", reg.id);
+        addAnnouncement(tournamentId, `${reg.players?.pseudo || reg.players?.full_name} placé Table ${table} Siège ${seat}`, "move");
+        await loadRegistrations();
+      } else {
+        // Plus aucune place nulle part : on ouvre une nouvelle table pour ce
+        // joueur, puis on rééquilibre pour récupérer des joueurs déjà assis
+        // et optimiser la répartition sur toutes les tables (y compris la
+        // nouvelle), plutôt que de le laisser seul à sa table.
+        const newTable = usedTables.length > 0 ? Math.max(...usedTables) + 1 : 1;
+        await supabase.from("registrations").update({ table_number: newTable, seat_number: 1 }).eq("id", reg.id);
+        addAnnouncement(tournamentId, `${reg.players?.pseudo || reg.players?.full_name} placé Table ${newTable} Siège 1 (nouvelle table)`, "move");
+        await loadRegistrations();
+        const moves = computeRebalanceMoves();
+        if (moves.length > 0) await applyMoves(moves, "balance", "Nouvelle table + équilibrage");
+      }
     } catch (e) {
       setError(e.message);
     }

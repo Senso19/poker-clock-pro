@@ -1,4 +1,5 @@
 import { supabase } from "./supabase.js";
+import { computeSeatAssignment } from "./seating.js";
 
 /**
  * forms.js — registres de formulaires d'inscription (Festival/Open) :
@@ -243,15 +244,17 @@ export async function validateSubmission(submission, registry) {
     player = { ...player, ...Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)) };
   }
 
-  // Plus d'attribution automatique de table/siège à la validation d'une
-  // inscription — se fait ensuite via "Tirer les places" ou individuellement.
+  // Attribution automatique via le tirage progressif (4 tables de départ,
+  // +2 dès qu'un palier de 60% est franchi...) — spécifique au registre
+  // Festival/Open, qui fonctionne comme un check-in au fil de l'eau.
+  const { table, seat } = await computeSeatAssignment(tournament);
   const { data: reg, error: regErr } = await supabase
     .from("registrations")
     .insert({
       tournament_id: tournament.id,
       player_id: player.id,
-      table_number: null,
-      seat_number: null,
+      table_number: table,
+      seat_number: seat,
       stack: tournament.starting_stack,
     })
     .select()
