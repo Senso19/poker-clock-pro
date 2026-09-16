@@ -15,6 +15,7 @@ import CustomizablePanel from "./CustomizablePanel.jsx";
 import { useConfirm } from "../context/ConfirmContext.jsx";
 import { logEvent } from "../lib/events.js";
 import { addAnnouncement } from "../lib/announcements.js";
+import { useIsMobile } from "../lib/useIsMobile.js";
 
 /**
  * TournamentDetail — gestion complète d'UN tournoi précis (admin/TD), façon
@@ -26,6 +27,8 @@ import { addAnnouncement } from "../lib/announcements.js";
  */
 export default function TournamentDetail({ tournamentId, onBack }) {
   const confirmAction = useConfirm();
+  const isMobile = useIsMobile();
+  const [mobileSubTab, setMobileSubTab] = useState("params"); // "params" | "table" — sous-onglets mobile uniquement
   const [tournament, setTournament] = useState(null);
   const [registrations, setRegistrations] = useState([]);
   const [eliminations, setEliminations] = useState([]);
@@ -772,9 +775,33 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   return (
     <div className="h-full overflow-y-auto font-body text-felt-cream">
       <div className="max-w-[92rem] mx-auto p-4 sm:p-6">
+        {isMobile && (
+          <div className="flex border-b border-felt-cream/10 mb-5 -mt-1">
+            {[
+              { key: "params", label: "Paramètres" },
+              { key: "table", label: "Joueurs" },
+            ].map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setMobileSubTab(t.key)}
+                className={`flex-1 py-2.5 text-sm font-display font-medium text-center border-b-2 -mb-px ${
+                  mobileSubTab === t.key ? "border-felt-gold text-felt-gold" : "border-transparent text-felt-cream/50"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="flex flex-col lg:flex-row gap-8 items-start">
         {/* Colonne gauche : paramètres du tournoi */}
-        <CustomizablePanel panelKey="players-params" defaultOrder={0} className="bg-felt-panel border border-felt-cream/10 rounded-lg p-7">
+        <CustomizablePanel
+          panelKey="players-params"
+          defaultOrder={0}
+          className={`bg-felt-panel border border-felt-cream/10 rounded-lg p-7 ${
+            isMobile && mobileSubTab !== "params" ? "hidden lg:block" : ""
+          }`}
+        >
           <div className="font-display text-2xl tracking-wide mb-1">JOUEURS</div>
           <div className="text-sm text-felt-cream/50 mb-5">Paramètres</div>
 
@@ -842,7 +869,13 @@ export default function TournamentDetail({ tournamentId, onBack }) {
         </CustomizablePanel>
 
         {/* Colonne droite : liste des joueurs */}
-        <CustomizablePanel panelKey="players-table" defaultOrder={1} className="bg-felt-panel border border-felt-cream/10 rounded-lg p-7">
+        <CustomizablePanel
+          panelKey="players-table"
+          defaultOrder={1}
+          className={`bg-felt-panel border border-felt-cream/10 rounded-lg p-7 ${
+            isMobile && mobileSubTab !== "table" ? "hidden lg:block" : ""
+          }`}
+        >
           <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
             <div className="flex flex-wrap items-center gap-3">
               <button
