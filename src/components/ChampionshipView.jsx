@@ -213,7 +213,7 @@ export default function ChampionshipView() {
           <CustomizablePanel
             panelKey="championships-active"
             defaultWidth="1 1 100%"
-            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3"
+            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4"
           >
             {active.map((s) => (
               <ActiveChampionshipCard
@@ -235,7 +235,7 @@ export default function ChampionshipView() {
           <CustomizablePanel
             panelKey="championships-finished"
             defaultWidth="1 1 100%"
-            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3"
+            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4"
           >
             {finished.map((s) => (
               <FinishedChampionshipCard
@@ -263,26 +263,30 @@ function ActiveChampionshipCard({ s, selected, onClick, manage, onBannerChange }
       }`}
     >
       <BannerImage image={s.championship.banner_image} manage={manage} onChange={onBannerChange} />
-      <div className="p-4">
-        <div className="pcp-title font-display text-lg mb-2 truncate">{s.championship.name}</div>
+      <div className="p-4 sm:p-5">
+        <div className="pcp-title font-display text-xl sm:text-lg mb-2.5 sm:mb-2 truncate">{s.championship.name}</div>
         <div className="flex items-center gap-2 mb-4">
-          <span className="pcp-body text-xs px-2.5 py-1 rounded bg-felt-bg text-felt-cream/50">{s.playerCount} joueurs</span>
-          <span className="pcp-body text-xs px-2.5 py-1 rounded bg-felt-bg text-felt-cream/50">{s.stageCount} tournois</span>
+          <span className="pcp-body text-xs px-3 py-1.5 sm:py-1 rounded-full bg-felt-bg text-felt-cream/50 uppercase tracking-wide">
+            {s.playerCount} joueurs
+          </span>
+          <span className="pcp-body text-xs px-3 py-1.5 sm:py-1 rounded-full bg-felt-bg text-felt-cream/50 uppercase tracking-wide">
+            {s.stageCount} tournois
+          </span>
         </div>
         <div className="pcp-space" />
         {s.leader ? (
-          <div className="pcp-row flex items-center gap-3 bg-felt-bg rounded-lg px-3 py-3 mb-4">
-            <MiniAvatar name={s.leader.name} size={40} />
+          <div className="pcp-row flex items-center gap-3 sm:gap-3 bg-felt-bg rounded-lg px-3 py-3.5 sm:py-3 mb-4">
+            <MiniAvatar name={s.leader.name} size={52} />
             <div className="min-w-0 flex-1">
               <div className="pcp-body text-[10px] text-felt-cream/40 uppercase tracking-wide">Joueur en tête</div>
-              <div className="pcp-body text-base text-felt-gold font-medium truncate">{s.leader.name}</div>
+              <div className="pcp-body text-lg sm:text-base text-felt-gold font-medium truncate">{s.leader.name}</div>
             </div>
-            <div className="pcp-value text-felt-gold font-display text-2xl shrink-0">{s.leader.totalPoints}</div>
+            <div className="pcp-value text-felt-gold font-display text-3xl sm:text-2xl shrink-0">{s.leader.totalPoints}</div>
           </div>
         ) : (
           <div className="pcp-body text-sm text-felt-cream/40 mb-4">Aucun résultat pour l'instant.</div>
         )}
-        <div className="grid grid-cols-2 gap-3 text-xs">
+        <div className="grid grid-cols-2 gap-3 text-sm sm:text-xs">
           <div>
             <div className="pcp-body text-felt-cream/30 uppercase tracking-wide mb-0.5">Précédent</div>
             {s.previousStage ? (
@@ -343,11 +347,15 @@ function FinishedChampionshipCard({ s, selected, onClick, manage, onBannerChange
       }`}
     >
       <BannerImage image={s.championship.banner_image} manage={manage} onChange={onBannerChange} />
-      <div className="p-4">
-        <div className="pcp-title font-display text-lg mb-2 truncate">{s.championship.name}</div>
+      <div className="p-4 sm:p-5">
+        <div className="pcp-title font-display text-xl sm:text-lg mb-2.5 sm:mb-2 truncate">{s.championship.name}</div>
         <div className="flex items-center gap-2 mb-3">
-          <span className="pcp-body text-xs px-2.5 py-1 rounded bg-felt-bg text-felt-cream/50">{s.playerCount} joueurs</span>
-          <span className="pcp-body text-xs px-2.5 py-1 rounded bg-felt-bg text-felt-cream/50">{s.stageCount} tournois</span>
+          <span className="pcp-body text-xs px-3 py-1.5 sm:py-1 rounded-full bg-felt-bg text-felt-cream/50 uppercase tracking-wide">
+            {s.playerCount} joueurs
+          </span>
+          <span className="pcp-body text-xs px-3 py-1.5 sm:py-1 rounded-full bg-felt-bg text-felt-cream/50 uppercase tracking-wide">
+            {s.stageCount} tournois
+          </span>
         </div>
         <div className="space-y-2 mb-3">
           {s.top3.length === 0 && <div className="pcp-body text-sm text-felt-cream/40">Aucun résultat.</div>}
