@@ -392,37 +392,87 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     setShuffling(false);
   }
 
-  // Équilibrage automatique : ne touche qu'aux joueurs encore en jeu,
-  // répartit le nombre minimal de tables nécessaires de façon égale
-  // (round-robin), pour compenser les éliminations en cours de tournoi.
-  // Nombre de tables cible : dès que le nombre de joueurs encore en jeu est
-  // au plus égal au réglage "Nombre de joueurs à la table finale", tout le
-  // monde se regroupe sur une seule table finale (même si ce nombre dépasse
-  // le "Joueurs par table" habituel). Sinon, répartition normale par
-  // "Joueurs par table".
+  // Équilibrage automatique — deux cas précis seulement, et on ne touche
+  // JAMAIS aux joueurs qui ne sont pas concernés :
+  //  1) Casser une table : si le nombre de tables utilisées dépasse le
+  //     nombre cible (assez d'éliminations pour s'en passer), on ferme la
+  //     table la moins garnie et on ne déplace QUE ses joueurs, répartis
+  //     sur des sièges vides des autres tables.
+  //  2) Réoptimiser un écart : si aucune table n'est à casser mais l'écart
+  //     entre la table la plus et la moins garnie atteint 2 joueurs ou
+  //     plus, on déplace UN seul joueur de la table la plus garnie vers la
+  //     moins garnie (répété si besoin), jusqu'à ce que l'écart ne dépasse
+  //     plus 1 — les autres joueurs des deux tables ne bougent pas.
   function computeTargetTableCount(activeCount, perTable, finalTableSize) {
     if (activeCount <= finalTableSize) return 1;
     return Math.max(1, Math.ceil(activeCount / perTable));
   }
 
-  function computeBalanceMoves() {
+  function groupActiveByTable() {
     const eliminatedIdsNow = new Set(eliminations.map((e) => e.registration_id));
+    const active = registrations.filter((r) => !eliminatedIdsNow.has(r.id) && r.table_number);
+    const byTable = {};
+    active.forEach((r) => {
+      if (!byTable[r.table_number]) byTable[r.table_number] = [];
+      byTable[r.table_number].push(r);
+    });
+    return { active, byTable };
+  }
+
+  function findFreeSeat(occupied, table, perTable) {
+    for (let seat = 1; seat <= perTable; seat++) {
+      const key = `${table}-${seat}`;
+      if (!occupied.has(key)) return seat;
+    }
+    return null;
+  }
+
+  function computeBalanceMoves() {
     const perTable = tournament?.players_per_table || 9;
     const finalTableSize = tournament?.final_table_size || perTable;
-    const active = registrations.filter((r) => !eliminatedIdsNow.has(r.id));
+    const { active, byTable } = groupActiveByTable();
     if (active.length === 0) return [];
-    const numTables = computeTargetTableCount(active.length, perTable, finalTableSize);
-    const sorted = [...active].sort(
-      (a, b) => (a.table_number || 0) - (b.table_number || 0) || (a.seat_number || 0) - (b.seat_number || 0)
-    );
+    const usedTables = Object.keys(byTable).map(Number).sort((a, b) => a - b);
+    if (usedTables.length === 0) return [];
+    const targetCount = computeTargetTableCount(active.length, perTable, finalTableSize);
+    const occupied = new Set(active.map((r) => `${r.table_number}-${r.seat_number}`));
     const moves = [];
-    sorted.forEach((reg, i) => {
-      const table = (i % numTables) + 1;
-      const seat = Math.floor(i / numTables) + 1;
-      if (reg.table_number !== table || reg.seat_number !== seat) {
-        moves.push({ reg, fromTable: reg.table_number, fromSeat: reg.seat_number, toTable: table, toSeat: seat });
+
+    if (usedTables.length > targetCount) {
+      // Cas 1 : casser la table la moins garnie, répartir uniquement ses
+      // joueurs sur les tables restantes (la moins garnie d'abord).
+      const breakTable = usedTables.reduce((min, t) => (byTable[t].length < byTable[min].length ? t : min), usedTables[0]);
+      const destTables = usedTables.filter((t) => t !== breakTable);
+      const counts = {};
+      destTables.forEach((t) => (counts[t] = byTable[t].length));
+      byTable[breakTable].forEach((reg) => {
+        const dest = destTables.reduce((min, t) => (counts[t] < counts[min] ? t : min), destTables[0]);
+        occupied.delete(`${reg.table_number}-${reg.seat_number}`);
+        const seat = findFreeSeat(occupied, dest, perTable);
+        if (seat == null) return;
+        occupied.add(`${dest}-${seat}`);
+        counts[dest] += 1;
+        moves.push({ reg, fromTable: reg.table_number, fromSeat: reg.seat_number, toTable: dest, toSeat: seat });
+      });
+    } else {
+      // Cas 2 : réoptimiser l'écart entre la table la plus et la moins
+      // garnie, un joueur à la fois, jusqu'à un écart maximal de 1.
+      const tablesState = usedTables.map((t) => ({ t, players: [...byTable[t]] }));
+      let guard = 0;
+      while (guard++ < 200) {
+        const maxT = tablesState.reduce((a, b) => (b.players.length > a.players.length ? b : a));
+        const minT = tablesState.reduce((a, b) => (b.players.length < a.players.length ? b : a));
+        if (maxT.players.length - minT.players.length < 2) break;
+        const reg = maxT.players[maxT.players.length - 1];
+        occupied.delete(`${reg.table_number}-${reg.seat_number}`);
+        const seat = findFreeSeat(occupied, minT.t, perTable);
+        if (seat == null) break;
+        occupied.add(`${minT.t}-${seat}`);
+        moves.push({ reg, fromTable: reg.table_number, fromSeat: reg.seat_number, toTable: minT.t, toSeat: seat });
+        maxT.players.pop();
+        minT.players.push(reg);
       }
-    });
+    }
     return moves;
   }
 
@@ -467,26 +517,20 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     setBalanceProposal(null);
   }
 
-  // Calcule si un rééquilibrage est possible ET préférable en l'état actuel
-  // (plus de tables utilisées que nécessaire, ou écart de plus d'un joueur
-  // entre la table la plus et la moins garnie) — pilote l'activation du
-  // bouton "Équilibrer les tables".
+  // Calcule si un des deux cas d'équilibrage s'applique (table à casser,
+  // ou écart de 2+ entre la table la plus et la moins garnie) — pilote
+  // l'activation du bouton et la proposition automatique.
   function computeNeedsBalance() {
-    const eliminatedIdsNow = new Set(eliminations.map((e) => e.registration_id));
     const perTable = tournament?.players_per_table || 9;
     const finalTableSize = tournament?.final_table_size || perTable;
-    const active = registrations.filter((r) => !eliminatedIdsNow.has(r.id));
+    const { active, byTable } = groupActiveByTable();
     if (active.length === 0) return false;
-    const numTables = computeTargetTableCount(active.length, perTable, finalTableSize);
-    const counts = {};
-    active.forEach((r) => {
-      counts[r.table_number] = (counts[r.table_number] || 0) + 1;
-    });
-    const usedTables = Object.keys(counts).length;
-    const values = Object.values(counts);
-    const max = Math.max(...values);
-    const min = Math.min(...values);
-    return usedTables !== numTables || max - min > 1;
+    const usedTables = Object.keys(byTable).map(Number);
+    if (usedTables.length === 0) return false;
+    const targetCount = computeTargetTableCount(active.length, perTable, finalTableSize);
+    if (usedTables.length > targetCount) return true;
+    const counts = usedTables.map((t) => byTable[t].length);
+    return Math.max(...counts) - Math.min(...counts) >= 2;
   }
 
   async function confirmElimination(reg, eliminatedByRegId) {

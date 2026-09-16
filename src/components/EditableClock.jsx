@@ -218,29 +218,6 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   const bgFileRef = useRef(null);
   const tournamentBgFileRef = useRef(null);
   const containerRef = useRef(null);
-  const outerScaleRef = useRef(null);
-  const [scale, setScale] = useState(1);
-
-  // Mise à l'échelle globale : l'horloge est conçue pour un plateau de
-  // référence de 1600x900 (16:9), puis agrandie/rétrécie en bloc pour
-  // remplir l'écran réel — tailles de police, bandes et espacements en px
-  // suivent alors proportionnellement, quelle que soit la résolution.
-  useEffect(() => {
-    const el = outerScaleRef.current;
-    if (!el) return;
-    const REF_W = 1600;
-    const REF_H = 900;
-    function update() {
-      const w = el.clientWidth;
-      const h = el.clientHeight;
-      if (!w || !h) return;
-      setScale(Math.min(w / REF_W, h / REF_H));
-    }
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
   const toolbarDrag = useRef(null);
 
   const [levelIndex, setLevelIndex] = useState(0);
@@ -642,11 +619,8 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   }
 
   function toggleFullscreen() {
-    // Cible le conteneur extérieur (flexible), pas le plateau à taille fixe
-    // (1600x900) mis à l'échelle : sinon le mode plein écran s'appliquerait
-    // sur un élément déjà redimensionné par transform, faussant l'affichage.
     if (document.fullscreenElement) document.exitFullscreen();
-    else outerScaleRef.current?.requestFullscreen();
+    else containerRef.current?.requestFullscreen();
   }
 
   function handleToolbarPointerDown(e) {
@@ -780,12 +754,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   }
 
   return (
-    <div ref={outerScaleRef} className="w-full h-full overflow-hidden flex items-center justify-center bg-felt-bg">
-      <div
-        ref={containerRef}
-        className="relative overflow-hidden shrink-0"
-        style={{ ...clockBgStyle, width: 1600, height: 900, transform: `scale(${scale})`, transformOrigin: "center center" }}
-      >
+    <div ref={containerRef} className="relative w-full h-full overflow-hidden" style={clockBgStyle}>
       {bgImageLayerStyle && <div className="absolute inset-0 pointer-events-none" style={bgImageLayerStyle} />}
       {bgTintStyle && <div className="absolute inset-0 pointer-events-none" style={bgTintStyle} />}
       {stripeBars.map((bar, i) => (
@@ -1403,7 +1372,6 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
       ))}
 
       <style>{`@keyframes pcp-fade { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }`}</style>
-    </div>
     </div>
   );
 }
