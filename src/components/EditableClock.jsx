@@ -1337,7 +1337,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
                 <FitText>
                   <div className="flex items-center gap-3">
                     <div style={textStyle(panels.blinds.style)}>{chips(currentLevel.smallBlind)}</div>
-                    <div className="w-px h-6 bg-felt-cream/20 shrink-0" />
+                    <BlindSeparator style={panels.blinds.style} vertical />
                     <div className="flex flex-col items-center">
                       <div style={textStyle(panels.blinds.style)}>{chips(currentLevel.bigBlind)}</div>
                       {currentLevel.ante > 0 && (
@@ -1353,7 +1353,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
                 <FitText>
                   <div className="flex flex-col items-end">
                     <div style={textStyle(panels.blinds.style)}>{chips(currentLevel.smallBlind)}</div>
-                    <div className="w-full h-px bg-felt-cream/20 my-1" />
+                    <BlindSeparator style={panels.blinds.style} />
                     <div style={textStyle(panels.blinds.style)}>{chips(currentLevel.bigBlind)}</div>
                     {currentLevel.ante > 0 && <div className="text-felt-gold text-xs mt-1">({chips(currentLevel.ante)})</div>}
                   </div>
@@ -1513,7 +1513,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
                 <FitText>
                   <div className="flex flex-col items-end">
                     <div style={textStyle(panels.next.style)}>{chips(nextLevel.smallBlind)}</div>
-                    <div className="w-full h-px bg-felt-cream/20 my-1" />
+                    <BlindSeparator style={panels.next.style} />
                     <div style={textStyle(panels.next.style)}>{chips(nextLevel.bigBlind)}</div>
                     {nextLevel.ante > 0 && <div className="text-felt-gold text-xs mt-1">({chips(nextLevel.ante)})</div>}
                   </div>
@@ -1522,8 +1522,12 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
                 <FitText>
                   <div className="flex items-center" style={{ gap: `${panels.next.style.itemGap ?? 8}px` }}>
                     <span style={textStyle(panels.next.style)}>{levelIndex + 2}</span>
-                    <span style={textStyle(panels.next.style)}>
-                      {chips(nextLevel.smallBlind)}/{chips(nextLevel.bigBlind)}
+                    {/* Même séparateur que le panneau Blinds plutôt qu'une
+                        barre oblique collée aux chiffres. */}
+                    <span className="flex items-center gap-2" style={textStyle(panels.next.style)}>
+                      {chips(nextLevel.smallBlind)}
+                      <BlindSeparator style={panels.next.style} vertical />
+                      {chips(nextLevel.bigBlind)}
                     </span>
                     {nextLevel.ante > 0 && <span style={textStyle(panels.next.style)}>({chips(nextLevel.ante)})</span>}
                     {nextLevel.durationMinutes && <span style={textStyle(panels.next.style)}>{nextLevel.durationMinutes} min</span>}
@@ -1616,6 +1620,57 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
 
       <style>{`@keyframes pcp-fade { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }`}</style>
     </div>
+  );
+}
+
+/**
+ * BlindSeparator — le trait entre la small blind et la big blind.
+ *
+ * L'ancien séparateur était un filet de 1 px à 20 % d'opacité et d'une
+ * hauteur fixe de 24 px : invisible de loin, et carrément perdu quand
+ * l'admin monte la police du panneau à 80 ou 120 px. Ici l'épaisseur et
+ * la longueur se calculent sur la taille de police du panneau, et la
+ * couleur est l'or du club plutôt qu'un gris transparent.
+ */
+const BLIND_SEPARATOR_COLOR = "#C9A15A";
+const BLIND_SEPARATOR_GLYPHS = { slash: "/", dash: "\u2013", dot: "\u2022" };
+
+function BlindSeparator({ style, vertical }) {
+  const kind = style.blindSeparator || "line";
+  if (kind === "none") return null;
+  const size = style.fontSize || 32;
+
+  if (kind !== "line") {
+    return (
+      <div
+        className="shrink-0 leading-none"
+        style={{
+          color: BLIND_SEPARATOR_COLOR,
+          fontSize: `${Math.round(size * 0.8)}px`,
+          fontFamily: FONT_FAMILY[style.font] || FONT_FAMILY.display,
+          // En pile le glyphe se place seul sur sa ligne : sans largeur
+          // pleine il se collerait au bord droit (le conteneur est en
+          // items-end) au lieu d'être centré sous la SB.
+          width: vertical ? undefined : "100%",
+          textAlign: vertical ? undefined : "center",
+        }}
+      >
+        {BLIND_SEPARATOR_GLYPHS[kind] || "/"}
+      </div>
+    );
+  }
+
+  const epaisseur = Math.max(2, Math.round(size * 0.07));
+  return vertical ? (
+    <div
+      className="shrink-0 rounded-full"
+      style={{ width: `${epaisseur}px`, height: `${Math.round(size * 0.85)}px`, backgroundColor: BLIND_SEPARATOR_COLOR }}
+    />
+  ) : (
+    <div
+      className="w-full rounded-full"
+      style={{ height: `${epaisseur}px`, margin: `${Math.max(2, Math.round(size * 0.08))}px 0`, backgroundColor: BLIND_SEPARATOR_COLOR }}
+    />
   );
 }
 
@@ -2134,6 +2189,22 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
           >
             <option value="stack">SB au-dessus de BB</option>
             <option value="row">SB à côté de BB</option>
+          </select>
+        </label>
+      )}
+      {(defaultTitle === "Blinds" || defaultTitle === "Prochaine blind") && (
+        <label className="flex items-center justify-between mb-2">
+          Séparateur SB / BB
+          <select
+            value={style.blindSeparator || "line"}
+            onChange={(e) => onChange({ blindSeparator: e.target.value })}
+            className="bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream"
+          >
+            <option value="line">Trait</option>
+            <option value="slash">Barre oblique /</option>
+            <option value="dash">Tiret –</option>
+            <option value="dot">Point •</option>
+            <option value="none">Aucun</option>
           </select>
         </label>
       )}
