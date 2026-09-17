@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import ClubLoader from "./ClubLoader.jsx";
+import { supabase } from "../lib/supabase.js";
 import { useTheme } from "../context/ThemeContext.jsx";
 import CustomizablePanel from "./CustomizablePanel.jsx";
 import EditableButton from "./EditableButton.jsx";
@@ -185,12 +186,46 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
     try {
       await saveLevels(tournament.id, cleanLevels);
       await saveStructureConfig(tournament.id, config);
+      await applyManualStartingStack();
       setSavedAt(new Date());
       onSaved?.();
     } catch (e) {
       setError(e.message);
     }
     setSaving(false);
+  }
+
+  // "Tapis de départ" saisi À LA MAIN : le montant devient celui du
+  // tournoi, et les joueurs déjà inscrits en sont crédités. En mode
+  // automatique la valeur est recalculée à partir des paramètres, la
+  // pousser aux joueurs n'aurait pas de sens.
+  //
+  // tournament.starting_stack sert de mémoire de ce qui a déjà été
+  // appliqué : sans cette comparaison, chaque enregistrement de la
+  // structure redemanderait de remettre les tapis à zéro. Et comme
+  // l'opération écrase des tapis en cours de jeu, elle est confirmée.
+  async function applyManualStartingStack() {
+    const field = config.fields?.startingStack;
+    if (!tournament || field?.mode !== "manual") return;
+    const value = Number(field.value) || 0;
+    if (value <= 0 || value === tournament.starting_stack) return;
+
+    const { data: regs } = await supabase
+      .from("registrations")
+      .select("id")
+      .eq("tournament_id", tournament.id);
+    const count = regs?.length || 0;
+
+    if (count > 0) {
+      const ok = await confirmAction(
+        `Créditer les ${count} joueur${count > 1 ? "s" : ""} inscrit${count > 1 ? "s" : ""} de ${value.toLocaleString("fr-FR")} jetons ? Leur tapis actuel sera remplacé.`
+      );
+      if (ok) await supabase.from("registrations").update({ stack: value }).eq("tournament_id", tournament.id);
+    }
+    // Appliqué ou non aux joueurs déjà là, le tournoi retient le montant :
+    // les inscriptions suivantes partiront avec ce tapis.
+    await supabase.from("tournaments").update({ starting_stack: value }).eq("id", tournament.id);
+    setTournament((t) => (t ? { ...t, starting_stack: value } : t));
   }
 
   async function handleSaveAsTemplate() {

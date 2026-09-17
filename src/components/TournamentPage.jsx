@@ -42,8 +42,8 @@ export default function TournamentPage({ tournamentId, onBack }) {
     load();
   }, [tournamentId]);
 
-  async function load() {
-    setLoading(true);
+  async function load({ silent = false } = {}) {
+    if (!silent) setLoading(true);
     const { data: t } = await supabase
       .from("tournaments")
       .select("*, championships(name)")
@@ -51,8 +51,26 @@ export default function TournamentPage({ tournamentId, onBack }) {
       .maybeSingle();
     setTournament(t);
     await loadLevels();
-    setLoading(false);
+    if (!silent) setLoading(false);
   }
+
+  // L'horloge lit la structure et les réglages du tournoi via ces états :
+  // sans rafraîchissement ils restaient figés sur leur valeur au moment
+  // où la page a été ouverte, et une modification faite en pleine partie
+  // (ici ou depuis un autre appareil) n'apparaissait jamais à l'écran.
+  // "silent" évite de repasser par l'écran de chargement à chaque tour.
+  useEffect(() => {
+    const t = setInterval(() => load({ silent: true }), 10000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tournamentId]);
+
+  // Revenir sur l'onglet Horloge doit montrer l'état à jour tout de suite,
+  // sans attendre le prochain tour de rafraîchissement.
+  useEffect(() => {
+    if (tab === "clock") load({ silent: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
 
   async function loadLevels() {
     try {

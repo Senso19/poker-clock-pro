@@ -106,6 +106,11 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     setLoading(false);
   }
 
+  // Nom affiché d'une inscription, source unique pour le tri et l'affichage.
+  function registrationLabel(r) {
+    return r.players?.pseudo || r.accounts?.pseudo || r.players?.full_name || "";
+  }
+
   async function loadRegistrations() {
     const { data, error } = await supabase
       .from("registrations")
@@ -113,7 +118,13 @@ export default function TournamentDetail({ tournamentId, onBack }) {
       .eq("tournament_id", tournamentId)
       .order("registered_at", { ascending: true });
     if (error) setError(error.message);
-    setRegistrations(data || []);
+    // Tri alphabétique sur le nom affiché. Il se fait ici et pas en SQL :
+    // le libellé vient de plusieurs tables jointes (pseudo du joueur, à
+    // défaut celui du compte, à défaut le nom complet), et localeCompare
+    // gère les accents, que l'ordre SQL par défaut classe mal.
+    setRegistrations(
+      (data || []).slice().sort((a, b) => registrationLabel(a).localeCompare(registrationLabel(b), "fr", { sensitivity: "base" }))
+    );
   }
 
   async function loadEliminations() {
@@ -258,6 +269,15 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     setOpenMenuId(null);
   }
 
+  // Une inscription en cours de tournoi (places déjà tirées) reçoit
+  // directement un siège : sans ça le joueur restait sans place jusqu'à ce
+  // qu'on pense à le placer à la main. Avant le tirage, on ne touche à
+  // rien — c'est "Tirer les places" qui répartit tout le monde.
+  async function seatIfTournamentUnderway(reg) {
+    if (reg && tournament?.seats_drawn) await assignSeatTo(reg);
+    else await loadRegistrations();
+  }
+
   // Nombre de membres du club du gestionnaire déjà inscrits à CE tournoi
   // interclubs (utilisé pour plafonner à MAX_CLUB_REGS_PER_INTERCLUB).
   function myClubRegistrationsCount() {
@@ -273,8 +293,8 @@ export default function TournamentDetail({ tournamentId, onBack }) {
       return;
     }
     try {
-      await registerOnePlayer(pickedAccount.pseudo, pickedAccount.id);
-      await loadRegistrations();
+      const reg = await registerOnePlayer(pickedAccount.pseudo, pickedAccount.id);
+      await seatIfTournamentUnderway(reg);
     } catch (e) {
       setError(e.message);
     }
@@ -286,8 +306,8 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     // n'appartiendrait à aucun club et échapperait au plafond.
     if (isClubMgr && tournament?.is_interclub) return;
     try {
-      await registerOnePlayer(name);
-      await loadRegistrations();
+      const reg = await registerOnePlayer(name);
+      await seatIfTournamentUnderway(reg);
     } catch (e) {
       setError(e.message);
     }
