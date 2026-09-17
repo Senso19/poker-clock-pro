@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import ClubLoader from "./ClubLoader.jsx";
 import { useTheme } from "../context/ThemeContext.jsx";
 import CustomizablePanel from "./CustomizablePanel.jsx";
+import EditableButton from "./EditableButton.jsx";
 import { useConfirm } from "../context/ConfirmContext.jsx";
 import { useIsMobile } from "../lib/useIsMobile.js";
 import {
@@ -383,19 +384,19 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
             }`}
           >
             <div className="flex flex-wrap items-center justify-end gap-2 mb-6">
-              <button onClick={() => setInsertModalType("level")} className="pcp-btn text-xs px-3 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display">
+              <EditableButton groupKey="structure-toolbar" id="insert-level" onClick={() => setInsertModalType("level")} className="pcp-btn text-xs px-3 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display">
                 Insérer un niveau
-              </button>
-              <button onClick={() => setInsertModalType("break")} className="pcp-btn text-xs px-3 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display">
+              </EditableButton>
+              <EditableButton groupKey="structure-toolbar" id="insert-break" onClick={() => setInsertModalType("break")} className="pcp-btn text-xs px-3 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display">
                 Insérer une pause
-              </button>
-              <button onClick={handleSaveAsTemplate} className="pcp-btn text-xs px-3 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display">
+              </EditableButton>
+              <EditableButton groupKey="structure-toolbar" id="save-template" onClick={handleSaveAsTemplate} className="pcp-btn text-xs px-3 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display">
                 Enregistrer comme modèle
-              </button>
+              </EditableButton>
               <div className="relative">
-                <button onClick={() => setShowTemplates((v) => !v)} className="pcp-btn text-xs px-3 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display">
+                <EditableButton groupKey="structure-toolbar" id="load-template" onClick={() => setShowTemplates((v) => !v)} className="pcp-btn text-xs px-3 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display">
                   Charger modèle
-                </button>
+                </EditableButton>
                 {showTemplates && (
                   <div className="absolute right-0 top-9 z-20 bg-felt-bg border border-felt-gold/40 rounded-md p-2 w-56 text-xs text-felt-cream shadow-lg max-h-72 overflow-y-auto">
                     {templates.length === 0 ? (
@@ -420,13 +421,15 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                   </div>
                 )}
               </div>
-              <button
+              <EditableButton
+                groupKey="structure-toolbar"
+                id="generate"
                 onClick={handleGenerate}
                 title="Générer la structure à partir des paramètres"
                 className="pcp-btn text-xs px-3 py-1.5 bg-felt-gold/90 text-felt-bg rounded-md font-display"
               >
                 🧮 Générer
-              </button>
+              </EditableButton>
             </div>
 
             <div className="overflow-x-auto">
@@ -464,10 +467,10 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                         }
                         className={level.isNew ? "bg-felt-gold/20 ring-1 ring-inset ring-felt-gold/60" : ""}
                       >
-                        <td className="py-4 pl-4 pr-2 text-felt-gold/70 rounded-l-md text-lg font-display">{i + 1}</td>
+                        <td style={{ paddingTop: "var(--pcp-row-pad, 16px)", paddingBottom: "var(--pcp-row-pad, 16px)" }} className="pl-4 pr-2 text-felt-gold/70 rounded-l-md text-lg font-display">{i + 1}</td>
                         {level.isBreak ? (
                           <>
-                            <td className="py-4 pr-3">
+                            <td style={{ paddingTop: "var(--pcp-row-pad, 16px)", paddingBottom: "var(--pcp-row-pad, 16px)" }} className="pr-3">
                               <div className="flex items-center gap-2">
                                 <input
                                   type="number"
@@ -481,7 +484,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                                 </span>
                               </div>
                             </td>
-                            <td colSpan={3} className="py-4 pr-3">
+                            <td colSpan={3} style={{ paddingTop: "var(--pcp-row-pad, 16px)", paddingBottom: "var(--pcp-row-pad, 16px)" }} className="pr-3">
                               <input
                                 value={level.breakLabel || ""}
                                 onChange={(e) => updateLevel(i, "breakLabel", e.target.value)}
@@ -493,7 +496,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                           </>
                         ) : (
                           <>
-                            <td className="py-4 pr-3">
+                            <td style={{ paddingTop: "var(--pcp-row-pad, 16px)", paddingBottom: "var(--pcp-row-pad, 16px)" }} className="pr-3">
                               <div className="flex items-center gap-2">
                                 <input
                                   type="number"
@@ -507,7 +510,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                                 </span>
                               </div>
                             </td>
-                            <td className="py-4 pr-3 text-right">
+                            <td style={{ paddingTop: "var(--pcp-row-pad, 16px)", paddingBottom: "var(--pcp-row-pad, 16px)" }} className="pr-3 text-right">
                               <input
                                 type="number"
                                 value={level.smallBlind}
@@ -516,7 +519,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                                 className="w-24 border border-felt-cream/10 rounded px-2 py-1.5 text-sm text-right font-medium"
                               />
                             </td>
-                            <td className="py-4 pr-3 text-right">
+                            <td style={{ paddingTop: "var(--pcp-row-pad, 16px)", paddingBottom: "var(--pcp-row-pad, 16px)" }} className="pr-3 text-right">
                               <input
                                 type="number"
                                 value={level.bigBlind}
@@ -526,13 +529,13 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                               />
                             </td>
                             {config.antesEnabled && (
-                              <td className="py-4 pr-3 text-right text-felt-cream/60">
+                              <td style={{ paddingTop: "var(--pcp-row-pad, 16px)", paddingBottom: "var(--pcp-row-pad, 16px)" }} className="pr-3 text-right text-felt-cream/60">
                                 {config.anteType === "sb" ? level.smallBlind : level.bigBlind}
                               </td>
                             )}
                           </>
                         )}
-                        <td className="py-4 pl-2 pr-4 rounded-r-md">
+                        <td style={{ paddingTop: "var(--pcp-row-pad, 16px)", paddingBottom: "var(--pcp-row-pad, 16px)" }} className="pl-2 pr-4 rounded-r-md">
                           <div className="flex gap-1.5 justify-end">
                             <IconButton onClick={() => moveLevel(i, -1)}>▲</IconButton>
                             <IconButton onClick={() => moveLevel(i, 1)}>▼</IconButton>
@@ -546,12 +549,15 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
               </table>
             </div>
 
-            <button
+            <EditableButton
+              groupKey="structure-toolbar"
+              id="append-level"
               onClick={appendLevelAtEnd}
-              className="pcp-btn mt-4 px-3 py-2 bg-felt-bg border border-felt-cream/10 rounded-md text-sm font-display text-felt-cream/70 hover:text-felt-cream"
+              wrapperClassName="mt-4"
+              className="pcp-btn px-3 py-2 bg-felt-bg border border-felt-cream/10 rounded-md text-sm font-display text-felt-cream/70 hover:text-felt-cream"
             >
               + Niveau
-            </button>
+            </EditableButton>
           </CustomizablePanel>
         </div>
       </div>

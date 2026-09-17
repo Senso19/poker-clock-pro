@@ -204,8 +204,11 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
   if (style.valueColor) forcedCssRules.push(`#${panelDomId} .pcp-value{color:${style.valueColor} !important;}`);
   if (style.textAlign) forcedCssRules.push(`#${panelDomId} .pcp-title,#${panelDomId} .pcp-body{text-align:${style.textAlign} !important;}`);
   if (style.rowDirection) forcedCssRules.push(`#${panelDomId} .pcp-row{flex-direction:${style.rowDirection} !important;}`);
-  if (style.btnBgColor) forcedCssRules.push(`#${panelDomId} .pcp-btn{background-color:${style.btnBgColor} !important; border-color:${style.btnBgColor} !important;}`);
-  if (style.btnTextColor) forcedCssRules.push(`#${panelDomId} .pcp-btn{color:${style.btnTextColor} !important;}`);
+  // :not([data-pcp-btn-custom]) — un bouton auquel l'admin a donné sa
+  // propre couleur (via son 🎨 individuel) garde la main sur le réglage
+  // global du panneau.
+  if (style.btnBgColor) forcedCssRules.push(`#${panelDomId} .pcp-btn:not([data-pcp-btn-custom]){background-color:${style.btnBgColor} !important; border-color:${style.btnBgColor} !important;}`);
+  if (style.btnTextColor) forcedCssRules.push(`#${panelDomId} .pcp-btn:not([data-pcp-btn-custom]){color:${style.btnTextColor} !important;}`);
   if (style.spaceHeight) forcedCssRules.push(`#${panelDomId} .pcp-space{height:${style.spaceHeight}px !important; display:block !important;}`);
   if (style.spaceHeight2) forcedCssRules.push(`#${panelDomId} .pcp-space-2{height:${style.spaceHeight2}px !important; display:block !important;}`);
   if (style.dividerColor) forcedCssRules.push(`#${panelDomId} > * + *{border-top-color:${style.dividerColor} !important;}`);
@@ -301,7 +304,12 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
           color: style.textColor || undefined,
           // Barre = le fond de la ligne entière (derrière le numéro et les
           // champs) ; cellule = le champ lui-même, posé sur cette barre.
+          // "Espace" = l'écart ENTRE deux barres ; "hauteur" = la marge
+          // haute et basse À L'INTÉRIEUR d'une barre. C'est cette dernière
+          // qui domine visuellement (16px par défaut contre 6px d'écart),
+          // donc réduire le seul écart ne se voit presque pas.
           "--pcp-row-gap": style.rowGap != null ? `${style.rowGap}px` : undefined,
+          "--pcp-row-pad": style.rowPadY != null ? `${style.rowPadY}px` : undefined,
           "--pcp-row-bg": style.rowBgColor || undefined,
           "--pcp-row-text": readableOn(style.rowBgColor),
           "--pcp-cell-bg": style.cellBgColor || undefined,
@@ -412,6 +420,17 @@ function PanelStyleEditor({ style, onChange, onClose, hasFreePosition, onResetPo
           value={style.rowGap ?? ""}
           placeholder="auto"
           onChange={(e) => onChange({ rowGap: e.target.value === "" ? null : Math.max(0, Number(e.target.value) || 0) })}
+          className="w-24 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
+        />
+      </label>
+      <label className="flex items-center justify-between mb-2">
+        Hauteur des barres (px)
+        <input
+          type="number"
+          min="0"
+          value={style.rowPadY ?? ""}
+          placeholder="auto"
+          onChange={(e) => onChange({ rowPadY: e.target.value === "" ? null : Math.max(0, Number(e.target.value) || 0) })}
           className="w-24 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
         />
       </label>
@@ -635,6 +654,7 @@ function PanelStyleEditor({ style, onChange, onClose, hasFreePosition, onResetPo
             bgColor: null,
             textColor: null,
             rowGap: null,
+            rowPadY: null,
             rowBgColor: null,
             cellBgColor: null,
             cellTextColor: null,

@@ -19,7 +19,7 @@ import { useEditMode } from "../context/EditModeContext.jsx";
  *
  * Persisté dans club_settings.theme.buttonStyles[groupKey.id].
  */
-export default function EditableButton({ groupKey, id, children, className, wrapperClassName, onClick, disabled, defaultOrder = 0 }) {
+export default function EditableButton({ groupKey, id, children, className, wrapperClassName, onClick, disabled, title, defaultOrder = 0 }) {
   const { theme, setTheme } = useTheme();
   const { isEditMode } = useEditMode();
   const [open, setOpen] = useState(false);
@@ -104,7 +104,17 @@ export default function EditableButton({ groupKey, id, children, className, wrap
       style={wrapperStyle}
     >
       <span className={`relative ${wrapperClassName?.includes("w-full") ? "flex w-full" : "inline-flex"}`}>
-        <button onClick={onClick} disabled={disabled} style={btnStyle} className={className}>
+        <button
+          onClick={onClick}
+          disabled={disabled}
+          title={title}
+          style={btnStyle}
+          // Marque un bouton qui a SA propre couleur : la règle de panneau
+          // "Fond des boutons" l'ignore alors, sinon son !important
+          // écraserait le réglage individuel, pourtant plus précis.
+          data-pcp-btn-custom={style.bgColor || style.textColor || style.transparent ? "" : undefined}
+          className={className}
+        >
           {label}
         </button>
         {isEditMode && (

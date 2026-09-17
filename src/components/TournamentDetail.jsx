@@ -14,6 +14,7 @@ import RegisterPlayerModal from "./RegisterPlayerModal.jsx";
 import TableSeatingModal from "./TableSeatingModal.jsx";
 import ActionJournalModal from "./ActionJournalModal.jsx";
 import CustomizablePanel from "./CustomizablePanel.jsx";
+import EditableButton from "./EditableButton.jsx";
 import { useConfirm } from "../context/ConfirmContext.jsx";
 import { logEvent } from "../lib/events.js";
 import { addAnnouncement } from "../lib/announcements.js";
@@ -886,12 +887,15 @@ export default function TournamentDetail({ tournamentId, onBack }) {
           )}
 
           {eliminations.length > 0 && (
-            <button
+            <EditableButton
+              groupKey="players-toolbar"
+              id="undo-elimination"
               onClick={undoLastElimination}
-              className="pcp-btn mt-6 w-full text-xs px-3 py-2 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display"
+              wrapperClassName="mt-6 w-full"
+              className="pcp-btn w-full text-xs px-3 py-2 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display"
             >
               ↩ Annuler la dernière élimination
-            </button>
+            </EditableButton>
           )}
         </CustomizablePanel>
 
@@ -926,13 +930,15 @@ export default function TournamentDetail({ tournamentId, onBack }) {
               >
                 {importing ? "Import…" : "Importer Excel/CSV"}
               </label>
-              <button
+              <EditableButton
+                groupKey="players-toolbar"
+                id="paste-list"
                 onClick={() => setShowPasteImport(true)}
                 title="Collez une liste de noms (un par ligne) — pratique si l'app source (ex: BlindValet en cours de tournoi) ne permet pas d'export fichier"
                 className="pcp-btn px-3 py-1.5 text-xs bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display whitespace-nowrap"
               >
                 Coller une liste
-              </button>
+              </EditableButton>
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <button
