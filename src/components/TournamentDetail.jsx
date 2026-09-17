@@ -888,7 +888,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
           {eliminations.length > 0 && (
             <button
               onClick={undoLastElimination}
-              className="mt-6 w-full text-xs px-3 py-2 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display"
+              className="pcp-btn mt-6 w-full text-xs px-3 py-2 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display"
             >
               ↩ Annuler la dernière élimination
             </button>
@@ -922,14 +922,14 @@ export default function TournamentDetail({ tournamentId, onBack }) {
               <label
                 htmlFor="excel-import"
                 title="Accepte les fichiers Excel/CSV exportés d'autres apps (BlindValet, etc.) — colonnes Nom/Prénom/Player/Pseudo reconnues"
-                className="cursor-pointer px-3 py-1.5 text-xs bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display whitespace-nowrap"
+                className="pcp-btn cursor-pointer px-3 py-1.5 text-xs bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display whitespace-nowrap"
               >
                 {importing ? "Import…" : "Importer Excel/CSV"}
               </label>
               <button
                 onClick={() => setShowPasteImport(true)}
                 title="Collez une liste de noms (un par ligne) — pratique si l'app source (ex: BlindValet en cours de tournoi) ne permet pas d'export fichier"
-                className="px-3 py-1.5 text-xs bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display whitespace-nowrap"
+                className="pcp-btn px-3 py-1.5 text-xs bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display whitespace-nowrap"
               >
                 Coller une liste
               </button>

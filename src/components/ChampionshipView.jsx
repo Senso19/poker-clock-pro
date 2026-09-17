@@ -264,7 +264,7 @@ function ActiveChampionshipCard({ s, selected, onClick, manage, onBannerChange }
       style={
         selected ? undefined : { backgroundColor: "var(--pcp-cell-bg, #1B2027)", color: "var(--pcp-cell-text, inherit)" }
       }
-      className={`text-left rounded-xl overflow-hidden border transition-colors ${
+      className={`pcp-card-hover text-left rounded-xl overflow-hidden border ${
         selected ? "bg-felt-gold/10 border-felt-gold" : "border-felt-cream/10 hover:border-felt-cream/30"
       }`}
     >
@@ -353,7 +353,7 @@ function FinishedChampionshipCard({ s, selected, onClick, manage, onBannerChange
       style={
         selected ? undefined : { backgroundColor: "var(--pcp-cell-bg, #1B2027)", color: "var(--pcp-cell-text, inherit)" }
       }
-      className={`text-left rounded-xl overflow-hidden border transition-colors ${
+      className={`pcp-card-hover text-left rounded-xl overflow-hidden border ${
         selected ? "bg-felt-gold/10 border-felt-gold" : "border-felt-cream/10 hover:border-felt-cream/30"
       }`}
     >

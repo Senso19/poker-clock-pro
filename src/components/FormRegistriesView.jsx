@@ -108,7 +108,7 @@ export default function FormRegistriesView() {
               key={r.id}
               onClick={() => setOpenId(r.id)}
               style={{ backgroundColor: "var(--pcp-cell-bg, #1B2027)", color: "var(--pcp-cell-text, inherit)" }}
-              className="text-left border border-felt-cream/10 rounded-xl p-6 hover:border-felt-cream/30 transition-colors"
+              className="pcp-card-hover text-left border border-felt-cream/10 rounded-xl p-6 hover:border-felt-cream/30"
             >
               <div className="pcp-title font-display text-2xl text-white mb-2 truncate">{r.name}</div>
               <div className="pcp-body text-sm text-felt-cream/40 mb-4">/inscription/{r.slug}</div>

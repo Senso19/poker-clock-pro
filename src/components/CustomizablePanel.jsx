@@ -212,6 +212,11 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
   if (style.rowWidth) forcedCssRules.push(`#${panelDomId} > *{max-width:${style.rowWidth}px !important; margin-left:auto !important; margin-right:auto !important;}`);
   if (style.rowHeight) forcedCssRules.push(`#${panelDomId} > *{height:${style.rowHeight}px !important; min-height:0 !important; max-height:${style.rowHeight}px !important; overflow:hidden !important;}`);
   if (style.zebra) forcedCssRules.push(`#${panelDomId} > *:nth-child(even){background-color:${style.zebraColor || "rgba(255,255,255,0.03)"} !important;}`);
+  // Espace entre les lignes. "gap" couvre les panneaux en grille ou en
+  // flex (cartes de tournoi, championnats, modèles) ; les tableaux qui
+  // espacent leurs lignes par border-spacing lisent --pcp-row-gap
+  // directement (voir la table des blindes dans StructureEditor).
+  if (style.rowGap != null) forcedCssRules.push(`#${panelDomId}{gap:${style.rowGap}px !important;}`);
 
   const livePos = dragPos || (hasFreePosition ? { x: style.posX, y: style.posY } : null);
   // resizeLive: uniquement pendant un glisser actif de la poignée, toujours
@@ -296,6 +301,7 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
           color: style.textColor || undefined,
           // Barre = le fond de la ligne entière (derrière le numéro et les
           // champs) ; cellule = le champ lui-même, posé sur cette barre.
+          "--pcp-row-gap": style.rowGap != null ? `${style.rowGap}px` : undefined,
           "--pcp-row-bg": style.rowBgColor || undefined,
           "--pcp-row-text": readableOn(style.rowBgColor),
           "--pcp-cell-bg": style.cellBgColor || undefined,
@@ -398,6 +404,17 @@ function PanelStyleEditor({ style, onChange, onClose, hasFreePosition, onResetPo
         />
       </label>
       <div className="border-t border-felt-cream/10 my-2 pt-2 text-felt-cream/50">Lignes / barres</div>
+      <label className="flex items-center justify-between mb-2">
+        Espace entre les lignes (px)
+        <input
+          type="number"
+          min="0"
+          value={style.rowGap ?? ""}
+          placeholder="auto"
+          onChange={(e) => onChange({ rowGap: e.target.value === "" ? null : Math.max(0, Number(e.target.value) || 0) })}
+          className="w-24 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
+        />
+      </label>
       <label className="flex items-center justify-between mb-2">
         Fond des barres
         <input
@@ -617,6 +634,7 @@ function PanelStyleEditor({ style, onChange, onClose, hasFreePosition, onResetPo
             posY: null,
             bgColor: null,
             textColor: null,
+            rowGap: null,
             rowBgColor: null,
             cellBgColor: null,
             cellTextColor: null,

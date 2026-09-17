@@ -1000,7 +1000,7 @@ function SubmissionRow({
   onOpenDetail,
 }) {
   return (
-    <div style={{ backgroundColor: "var(--pcp-cell-bg, #1B2027)", color: "var(--pcp-cell-text, inherit)" }} className="border border-felt-cream/10 rounded-lg px-3 py-2.5 flex items-center gap-3">
+    <div style={{ backgroundColor: "var(--pcp-cell-bg, #1B2027)", color: "var(--pcp-cell-text, inherit)" }} className="pcp-card-hover border border-felt-cream/10 rounded-lg px-3 py-2.5 flex items-center gap-3">
       {canReorder && (
         <div className="flex flex-col shrink-0">
           <button onClick={onMoveUp} className="text-felt-cream/40 hover:text-white">

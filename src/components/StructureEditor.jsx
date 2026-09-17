@@ -383,17 +383,17 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
             }`}
           >
             <div className="flex flex-wrap items-center justify-end gap-2 mb-6">
-              <button onClick={() => setInsertModalType("level")} className="text-xs px-3 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display">
+              <button onClick={() => setInsertModalType("level")} className="pcp-btn text-xs px-3 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display">
                 Insérer un niveau
               </button>
-              <button onClick={() => setInsertModalType("break")} className="text-xs px-3 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display">
+              <button onClick={() => setInsertModalType("break")} className="pcp-btn text-xs px-3 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display">
                 Insérer une pause
               </button>
-              <button onClick={handleSaveAsTemplate} className="text-xs px-3 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display">
+              <button onClick={handleSaveAsTemplate} className="pcp-btn text-xs px-3 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display">
                 Enregistrer comme modèle
               </button>
               <div className="relative">
-                <button onClick={() => setShowTemplates((v) => !v)} className="text-xs px-3 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display">
+                <button onClick={() => setShowTemplates((v) => !v)} className="pcp-btn text-xs px-3 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display">
                   Charger modèle
                 </button>
                 {showTemplates && (
@@ -423,14 +423,14 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
               <button
                 onClick={handleGenerate}
                 title="Générer la structure à partir des paramètres"
-                className="text-xs px-3 py-1.5 bg-felt-gold/90 text-felt-bg rounded-md font-display"
+                className="pcp-btn text-xs px-3 py-1.5 bg-felt-gold/90 text-felt-bg rounded-md font-display"
               >
                 🧮 Générer
               </button>
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-base border-separate" style={{ borderSpacing: "0 6px" }}>
+              <table className="w-full text-base border-separate" style={{ borderSpacing: "0 var(--pcp-row-gap, 6px)" }}>
                 <thead>
                   <tr className="text-xs uppercase tracking-wide text-felt-cream/40">
                     <th className="text-left py-3 pl-4 pr-2 w-12 text-sm">#</th>
@@ -548,7 +548,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
 
             <button
               onClick={appendLevelAtEnd}
-              className="mt-4 px-3 py-2 bg-felt-bg border border-felt-cream/10 rounded-md text-sm font-display text-felt-cream/70 hover:text-felt-cream"
+              className="pcp-btn mt-4 px-3 py-2 bg-felt-bg border border-felt-cream/10 rounded-md text-sm font-display text-felt-cream/70 hover:text-felt-cream"
             >
               + Niveau
             </button>
@@ -660,7 +660,7 @@ function IconButton({ children, onClick, alert, title }) {
       className={`w-8 h-8 rounded text-sm flex items-center justify-center ${
         alert
           ? "bg-felt-alert/20 text-felt-alert hover:bg-felt-alert/40"
-          : "bg-felt-bg text-felt-cream/60 hover:text-felt-cream border border-felt-cream/10"
+          : "pcp-btn bg-felt-bg text-felt-cream/60 hover:text-felt-cream border border-felt-cream/10"
       }`}
     >
       {children}

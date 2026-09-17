@@ -236,7 +236,7 @@ export default function StructureTemplatesManager() {
               key={t.id}
               onClick={() => setEditingStruct(t)}
               style={{ backgroundColor: "var(--pcp-cell-bg, #1B2027)", color: "var(--pcp-cell-text, inherit)" }}
-              className="border border-felt-cream/10 rounded-lg p-4 cursor-pointer hover:border-felt-cream/20 transition-colors"
+              className="pcp-card-hover border border-felt-cream/10 rounded-lg p-4 cursor-pointer hover:border-felt-cream/20"
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="pcp-title font-display text-base">{t.name}</div>
@@ -273,7 +273,7 @@ export default function StructureTemplatesManager() {
                     e.stopPropagation();
                     setEditingStruct(t);
                   }}
-                  className="flex-1 px-3 py-1.5 text-sm bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/80 hover:text-felt-cream font-display"
+                  className="pcp-btn flex-1 px-3 py-1.5 text-sm bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/80 hover:text-felt-cream font-display"
                 >
                   Modifier
                 </button>
@@ -283,7 +283,7 @@ export default function StructureTemplatesManager() {
                     openApplyStructTemplate(t);
                   }}
                   disabled={applyingId === t.id}
-                  className="flex-1 px-3 py-1.5 text-sm bg-felt-bg border border-felt-gold/30 rounded-md text-felt-gold font-display disabled:opacity-40"
+                  className="pcp-btn flex-1 px-3 py-1.5 text-sm bg-felt-bg border border-felt-gold/30 rounded-md text-felt-gold font-display disabled:opacity-40"
                 >
                   {appliedAt === t.id ? "✓ Appliqué" : "▶ Appliquer"}
                 </button>
@@ -318,7 +318,7 @@ export default function StructureTemplatesManager() {
               key={t.id}
               onClick={() => setEditingClock(t)}
               style={{ backgroundColor: "var(--pcp-cell-bg, #1B2027)", color: "var(--pcp-cell-text, inherit)" }}
-              className="border border-felt-cream/10 rounded-lg p-4 cursor-pointer hover:border-felt-cream/20 transition-colors"
+              className="pcp-card-hover border border-felt-cream/10 rounded-lg p-4 cursor-pointer hover:border-felt-cream/20"
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="pcp-title font-display text-base">{t.name}</div>
@@ -350,7 +350,7 @@ export default function StructureTemplatesManager() {
                     e.stopPropagation();
                     setEditingClock(t);
                   }}
-                  className="flex-1 px-3 py-1.5 text-sm bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/80 hover:text-felt-cream font-display"
+                  className="pcp-btn flex-1 px-3 py-1.5 text-sm bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/80 hover:text-felt-cream font-display"
                 >
                   Modifier
                 </button>
@@ -360,7 +360,7 @@ export default function StructureTemplatesManager() {
                     handleApplyClock(t);
                   }}
                   disabled={applyingId === t.id}
-                  className="flex-1 px-3 py-1.5 text-sm bg-felt-bg border border-felt-gold/30 rounded-md text-felt-gold font-display disabled:opacity-40"
+                  className="pcp-btn flex-1 px-3 py-1.5 text-sm bg-felt-bg border border-felt-gold/30 rounded-md text-felt-gold font-display disabled:opacity-40"
                 >
                   {appliedAt === t.id ? "✓ Appliqué" : "▶ Appliquer"}
                 </button>
@@ -391,7 +391,7 @@ export default function StructureTemplatesManager() {
               key={t.id}
               onClick={() => setPreviewTemplate(t)}
               style={{ backgroundColor: "var(--pcp-cell-bg, #1B2027)", color: "var(--pcp-cell-text, inherit)" }}
-              className="border border-felt-cream/10 rounded-lg p-4 cursor-pointer hover:border-felt-cream/20 transition-colors"
+              className="pcp-card-hover border border-felt-cream/10 rounded-lg p-4 cursor-pointer hover:border-felt-cream/20"
             >
               <div className="flex items-start justify-between mb-2">
                 <div className="pcp-title font-display text-base">{t.name}</div>

@@ -540,7 +540,7 @@ function TournamentCard({ t, badge, count, already, manage, canDuplicate, readOn
       // Suit "Fond des cellules" / "Texte des cellules" du panneau (🎨),
       // avec les couleurs actuelles en repli tant que rien n'est choisi.
       style={{ backgroundColor: "var(--pcp-cell-bg, #1B2027)", color: "var(--pcp-cell-text, inherit)" }}
-      className="relative border border-felt-cream/10 rounded-xl p-4 flex flex-col hover:border-felt-cream/20 transition-colors cursor-pointer"
+      className="pcp-card-hover relative border border-felt-cream/10 rounded-xl p-4 flex flex-col hover:border-felt-cream/20 cursor-pointer"
     >
       <div className="flex items-center gap-1.5 mb-1">
         <div className="pcp-title font-display text-base leading-tight truncate">{t.name}</div>
@@ -653,7 +653,7 @@ function TournamentRow({ t, badge, count, already, manage, canDuplicate, readOnl
       onClick={onOpen}
       data-pcp-card
       style={{ backgroundColor: "var(--pcp-cell-bg, #1B2027)", color: "var(--pcp-cell-text, inherit)" }}
-      className="relative flex flex-wrap items-center gap-4 border border-felt-cream/10 rounded-lg px-4 py-3 hover:border-felt-cream/20 transition-colors cursor-pointer"
+      className="pcp-card-hover relative flex flex-wrap items-center gap-4 border border-felt-cream/10 rounded-lg px-4 py-3 hover:border-felt-cream/20 cursor-pointer"
     >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
