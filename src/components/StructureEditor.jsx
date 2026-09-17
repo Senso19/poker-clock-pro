@@ -302,7 +302,8 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                 type="number"
                 value={config.expectedPlayers}
                 onChange={(e) => updateDriver({ expectedPlayers: Number(e.target.value) || 0 })}
-                className="flex-1 bg-felt-bg border border-felt-cream/10 rounded-md px-4 py-2.5 text-base text-felt-cream"
+                style={{ backgroundColor: "var(--pcp-cell-bg, #14181C)", color: "var(--pcp-cell-text, #EDEAE3)" }}
+                className="flex-1 border border-felt-cream/10 rounded-md px-4 py-2.5 text-base"
               />
             </DriverField>
             <DriverField label="Durée prévue(h)">
@@ -310,14 +311,16 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                 type="number"
                 value={config.durationHours}
                 onChange={(e) => updateDriver({ durationHours: Number(e.target.value) || 0 })}
-                className="flex-1 bg-felt-bg border border-felt-cream/10 rounded-md px-4 py-2.5 text-base text-felt-cream"
+                style={{ backgroundColor: "var(--pcp-cell-bg, #14181C)", color: "var(--pcp-cell-text, #EDEAE3)" }}
+                className="flex-1 border border-felt-cream/10 rounded-md px-4 py-2.5 text-base"
               />
             </DriverField>
             <DriverField label="Type de tournoi">
               <select
                 value={config.tournamentType}
                 onChange={(e) => updateDriver({ tournamentType: e.target.value })}
-                className="flex-1 bg-felt-bg border border-felt-cream/10 rounded-md px-4 py-2.5 text-base text-felt-cream"
+                style={{ backgroundColor: "var(--pcp-cell-bg, #14181C)", color: "var(--pcp-cell-text, #EDEAE3)" }}
+                className="flex-1 border border-felt-cream/10 rounded-md px-4 py-2.5 text-base"
               >
                 <option value="freezeout">Freezeout</option>
                 <option value="rebuy">Rebuy + Addon</option>
@@ -335,7 +338,8 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                 <select
                   value={config.anteType}
                   onChange={(e) => updateDriver({ anteType: e.target.value })}
-                  className="flex-1 bg-felt-bg border border-felt-cream/10 rounded-md px-4 py-2.5 text-base text-felt-cream"
+                  style={{ backgroundColor: "var(--pcp-cell-bg, #14181C)", color: "var(--pcp-cell-text, #EDEAE3)" }}
+                  className="flex-1 border border-felt-cream/10 rounded-md px-4 py-2.5 text-base"
                 >
                   <option value="bb">Ante de la grosse blind</option>
                   <option value="sb">Ante de la petite blind</option>
@@ -607,7 +611,8 @@ function AutoField({ label, fieldKey, config, setFieldMode, setFieldValue }) {
           value={field.value}
           disabled={isAuto}
           onChange={(e) => setFieldValue(fieldKey, Number(e.target.value) || 0)}
-          className="flex-1 bg-felt-bg border border-felt-cream/10 rounded-md px-4 py-2.5 text-base text-felt-cream disabled:opacity-60"
+          style={{ backgroundColor: "var(--pcp-cell-bg, #14181C)", color: "var(--pcp-cell-text, #EDEAE3)" }}
+          className="flex-1 border border-felt-cream/10 rounded-md px-4 py-2.5 text-base disabled:opacity-60"
         />
         <button
           onClick={() => setFieldMode(fieldKey, "auto")}

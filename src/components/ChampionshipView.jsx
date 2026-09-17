@@ -259,8 +259,13 @@ function ActiveChampionshipCard({ s, selected, onClick, manage, onBannerChange }
   return (
     <button
       onClick={onClick}
+      // Une carte sélectionnée garde son fond doré ; sinon elle suit
+      // "Fond des cellules" du panneau (🎨), avec le fond actuel en repli.
+      style={
+        selected ? undefined : { backgroundColor: "var(--pcp-cell-bg, #1B2027)", color: "var(--pcp-cell-text, inherit)" }
+      }
       className={`text-left rounded-xl overflow-hidden border transition-colors ${
-        selected ? "bg-felt-gold/10 border-felt-gold" : "bg-felt-panel border-felt-cream/10 hover:border-felt-cream/30"
+        selected ? "bg-felt-gold/10 border-felt-gold" : "border-felt-cream/10 hover:border-felt-cream/30"
       }`}
     >
       <BannerImage image={s.championship.banner_image} manage={manage} onChange={onBannerChange} />
@@ -343,8 +348,13 @@ function FinishedChampionshipCard({ s, selected, onClick, manage, onBannerChange
   return (
     <button
       onClick={onClick}
+      // Une carte sélectionnée garde son fond doré ; sinon elle suit
+      // "Fond des cellules" du panneau (🎨), avec le fond actuel en repli.
+      style={
+        selected ? undefined : { backgroundColor: "var(--pcp-cell-bg, #1B2027)", color: "var(--pcp-cell-text, inherit)" }
+      }
       className={`text-left rounded-xl overflow-hidden border transition-colors ${
-        selected ? "bg-felt-gold/10 border-felt-gold" : "bg-felt-panel border-felt-cream/10 hover:border-felt-cream/30"
+        selected ? "bg-felt-gold/10 border-felt-gold" : "border-felt-cream/10 hover:border-felt-cream/30"
       }`}
     >
       <BannerImage image={s.championship.banner_image} manage={manage} onChange={onBannerChange} />

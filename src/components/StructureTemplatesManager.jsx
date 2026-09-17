@@ -235,7 +235,8 @@ export default function StructureTemplatesManager() {
             <div
               key={t.id}
               onClick={() => setEditingStruct(t)}
-              className="bg-felt-panel border border-felt-cream/10 rounded-lg p-4 cursor-pointer hover:border-felt-cream/20 transition-colors"
+              style={{ backgroundColor: "var(--pcp-cell-bg, #1B2027)", color: "var(--pcp-cell-text, inherit)" }}
+              className="border border-felt-cream/10 rounded-lg p-4 cursor-pointer hover:border-felt-cream/20 transition-colors"
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="pcp-title font-display text-base">{t.name}</div>
@@ -316,7 +317,8 @@ export default function StructureTemplatesManager() {
             <div
               key={t.id}
               onClick={() => setEditingClock(t)}
-              className="bg-felt-panel border border-felt-cream/10 rounded-lg p-4 cursor-pointer hover:border-felt-cream/20 transition-colors"
+              style={{ backgroundColor: "var(--pcp-cell-bg, #1B2027)", color: "var(--pcp-cell-text, inherit)" }}
+              className="border border-felt-cream/10 rounded-lg p-4 cursor-pointer hover:border-felt-cream/20 transition-colors"
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="pcp-title font-display text-base">{t.name}</div>
@@ -388,7 +390,8 @@ export default function StructureTemplatesManager() {
             <div
               key={t.id}
               onClick={() => setPreviewTemplate(t)}
-              className="bg-felt-panel border border-felt-cream/10 rounded-lg p-4 cursor-pointer hover:border-felt-cream/20 transition-colors"
+              style={{ backgroundColor: "var(--pcp-cell-bg, #1B2027)", color: "var(--pcp-cell-text, inherit)" }}
+              className="border border-felt-cream/10 rounded-lg p-4 cursor-pointer hover:border-felt-cream/20 transition-colors"
             >
               <div className="flex items-start justify-between mb-2">
                 <div className="pcp-title font-display text-base">{t.name}</div>
