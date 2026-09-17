@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../lib/supabase.js";
 import { useTheme } from "../context/ThemeContext.jsx";
 import { fetchCurrentTournament } from "../lib/tournaments.js";
@@ -183,6 +183,60 @@ function mergeLayout(saved) {
 
 // Avance le niveau/temps restant d'un nombre de secondes écoulées (pour
 // rattraper l'horloge après une absence pendant qu'elle tournait).
+/**
+ * FitText — réduit son contenu juste ce qu'il faut pour qu'il tienne dans
+ * la largeur disponible, et le laisse à sa taille sinon.
+ *
+ * Sur l'horloge, la taille de police d'un panneau est fixe : quand les
+ * blinds passent de "25 50" à "5000 10000", le texte gagne des chiffres,
+ * s'élargit à police constante et finit par sortir du panneau. L'aligner
+ * à droite ne faisait que changer le côté par lequel il débordait.
+ *
+ * L'échelle est posée directement sur le nœud (pas dans un état React)
+ * pour ne pas déclencher un rendu qui redéclencherait la mesure. Et on
+ * remet transform à "none" avant de mesurer, sinon on mesurerait le
+ * contenu déjà réduit et l'échelle se dégraderait à chaque passage.
+ */
+function FitText({ children, origin = "right center", align = "right" }) {
+  const outerRef = useRef(null);
+  const innerRef = useRef(null);
+
+  useLayoutEffect(() => {
+    const outer = outerRef.current;
+    const inner = innerRef.current;
+    if (!outer || !inner) return undefined;
+    function fit() {
+      inner.style.transform = "none";
+      const available = outer.clientWidth;
+      const needed = inner.scrollWidth;
+      if (!available || !needed) return;
+      const ratio = Math.min(1, available / needed);
+      inner.style.transform = ratio === 1 ? "none" : `scale(${ratio})`;
+    }
+    fit();
+    // On n'observe QUE le conteneur : observer le contenu ferait boucler
+    // la mesure avec la mise à l'échelle qu'on vient de lui appliquer.
+    const ro = new ResizeObserver(fit);
+    ro.observe(outer);
+    return () => ro.disconnect();
+  });
+
+  // Conteneur en flex plutôt qu'un text-align : mesuré dans le navigateur,
+  // text-align ne recale PAS un bloc plus large que son conteneur — il
+  // débordait encore de 24 à 124 px à droite selon les montants. Avec
+  // justify-end, le bord droit du contenu coïncide exactement avec celui
+  // du panneau, et la mise à l'échelle le rentre par la gauche.
+  return (
+    <div ref={outerRef} className={`w-full overflow-hidden flex items-center ${JUSTIFY[align] || "justify-end"}`}>
+      <div ref={innerRef} style={{ flex: "0 0 auto", whiteSpace: "nowrap", transformOrigin: origin }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+const JUSTIFY = { left: "justify-start", center: "justify-center", right: "justify-end" };
+
 function advanceForElapsed(levelIndex, secondsLeft, elapsedSeconds, levels) {
   let idx = levelIndex;
   let left = secondsLeft;
@@ -1276,30 +1330,30 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
           <PanelBody style={panels.blinds.style} title={panels.blinds.style.customTitle || "Blinds"}>
             {currentLevel && !currentLevel.isBreak ? (
               panels.blinds.style.blindsLayout === "row" ? (
-                // justify-end + nowrap : le bloc est calé sur le bord DROIT
-                // du panneau et s'étale vers la gauche quand les montants
-                // gagnent des chiffres. Centré, "3000 6000" débordait par la
-                // droite et sortait du bandeau.
-                <div className="flex items-center justify-end gap-3 whitespace-nowrap">
-                  <div style={textStyle(panels.blinds.style)}>{currentLevel.smallBlind}</div>
-                  <div className="w-px h-6 bg-felt-cream/20 shrink-0" />
-                  <div className="flex flex-col items-center">
-                    <div style={textStyle(panels.blinds.style)}>{currentLevel.bigBlind}</div>
-                    {currentLevel.ante > 0 && (
-                      <>
-                        <div className="text-felt-cream/30 uppercase tracking-wide text-[9px] mt-1">Ante</div>
-                        <div className="text-felt-gold text-xs">{currentLevel.ante}</div>
-                      </>
-                    )}
+                <FitText>
+                  <div className="flex items-center gap-3">
+                    <div style={textStyle(panels.blinds.style)}>{currentLevel.smallBlind}</div>
+                    <div className="w-px h-6 bg-felt-cream/20 shrink-0" />
+                    <div className="flex flex-col items-center">
+                      <div style={textStyle(panels.blinds.style)}>{currentLevel.bigBlind}</div>
+                      {currentLevel.ante > 0 && (
+                        <>
+                          <div className="text-felt-cream/30 uppercase tracking-wide text-[9px] mt-1">Ante</div>
+                          <div className="text-felt-gold text-xs">{currentLevel.ante}</div>
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
+                </FitText>
               ) : (
-                <div className="flex flex-col items-end whitespace-nowrap">
-                  <div style={textStyle(panels.blinds.style)}>{currentLevel.smallBlind}</div>
-                  <div className="w-3/4 h-px bg-felt-cream/20 my-1" />
-                  <div style={textStyle(panels.blinds.style)}>{currentLevel.bigBlind}</div>
-                  {currentLevel.ante > 0 && <div className="text-felt-gold text-xs mt-1">({currentLevel.ante})</div>}
-                </div>
+                <FitText>
+                  <div className="flex flex-col items-end">
+                    <div style={textStyle(panels.blinds.style)}>{currentLevel.smallBlind}</div>
+                    <div className="w-full h-px bg-felt-cream/20 my-1" />
+                    <div style={textStyle(panels.blinds.style)}>{currentLevel.bigBlind}</div>
+                    {currentLevel.ante > 0 && <div className="text-felt-gold text-xs mt-1">({currentLevel.ante})</div>}
+                  </div>
+                </FitText>
               )
             ) : (
               <div className="text-felt-cream/50 text-sm text-center">Pause</div>
@@ -1452,24 +1506,25 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
               nextLevel.isBreak ? (
                 <div style={textStyle(panels.next.style)}>{nextLevel.breakLabel || "Pause"}</div>
               ) : panels.next.style.blindsLayout === "stack" ? (
-                <div className="flex flex-col items-end whitespace-nowrap">
-                  <div style={textStyle(panels.next.style)}>{nextLevel.smallBlind}</div>
-                  <div className="w-3/4 h-px bg-felt-cream/20 my-1" />
-                  <div style={textStyle(panels.next.style)}>{nextLevel.bigBlind}</div>
-                  {nextLevel.ante > 0 && <div className="text-felt-gold text-xs mt-1">({nextLevel.ante})</div>}
-                </div>
+                <FitText>
+                  <div className="flex flex-col items-end">
+                    <div style={textStyle(panels.next.style)}>{nextLevel.smallBlind}</div>
+                    <div className="w-full h-px bg-felt-cream/20 my-1" />
+                    <div style={textStyle(panels.next.style)}>{nextLevel.bigBlind}</div>
+                    {nextLevel.ante > 0 && <div className="text-felt-gold text-xs mt-1">({nextLevel.ante})</div>}
+                  </div>
+                </FitText>
               ) : (
-                // Même ancrage à droite que les blinds en cours, pour que
-                // les deux panneaux se comportent pareil quand les montants
-                // s'allongent.
-                <div className="flex items-center justify-end whitespace-nowrap" style={{ gap: `${panels.next.style.itemGap ?? 8}px` }}>
-                  <span style={textStyle(panels.next.style)}>{levelIndex + 2}</span>
-                  <span style={textStyle(panels.next.style)}>
-                    {nextLevel.smallBlind}/{nextLevel.bigBlind}
-                  </span>
-                  {nextLevel.ante > 0 && <span style={textStyle(panels.next.style)}>({nextLevel.ante})</span>}
-                  {nextLevel.durationMinutes && <span style={textStyle(panels.next.style)}>{nextLevel.durationMinutes} min</span>}
-                </div>
+                <FitText>
+                  <div className="flex items-center" style={{ gap: `${panels.next.style.itemGap ?? 8}px` }}>
+                    <span style={textStyle(panels.next.style)}>{levelIndex + 2}</span>
+                    <span style={textStyle(panels.next.style)}>
+                      {nextLevel.smallBlind}/{nextLevel.bigBlind}
+                    </span>
+                    {nextLevel.ante > 0 && <span style={textStyle(panels.next.style)}>({nextLevel.ante})</span>}
+                    {nextLevel.durationMinutes && <span style={textStyle(panels.next.style)}>{nextLevel.durationMinutes} min</span>}
+                  </div>
+                </FitText>
               )
             ) : (
               <div className="text-felt-cream/40 text-sm">Dernier niveau</div>
