@@ -18,9 +18,38 @@
       href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=Luckiest+Guy&family=Anton&family=Bungee&family=Righteous&family=Orbitron:wght@600;800&family=Black+Ops+One&family=Fjalla+One&family=Titan+One&family=Michroma&family=Audiowide&family=Aldrich&family=Zen+Dots&family=Chewy&family=Baloo+2:wght@600;800&display=swap"
       rel="stylesheet"
     />
+    <!-- Écran de démarrage : le navigateur l'affiche avant même d'avoir
+         chargé le bundle de l'app (sans lui, la page reste blanche). Même
+         animation "sablier" que ClubLoader, mais en CSS inline et avec
+         l'icône statique — le logo du club vit en base et n'est pas encore
+         connu à cet instant. React remplace le contenu de #root à son
+         premier rendu, ce bloc disparaît donc tout seul. -->
+    <style>
+      html, body { height: 100%; margin: 0; background: #14181C; }
+      #root { height: 100%; }
+      .boot { height: 100%; display: flex; align-items: center; justify-content: center; }
+      .boot-logo { position: relative; width: 64px; height: 64px; }
+      .boot-logo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0.2; }
+      .boot-logo .boot-sand { opacity: 1; animation: boot-sand 1.8s ease-in-out infinite; }
+      @keyframes boot-sand {
+        0% { clip-path: inset(0 0 0 0); }
+        45%, 55% { clip-path: inset(100% 0 0 0); }
+        100% { clip-path: inset(0 0 0 0); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .boot-logo .boot-sand { animation: none; }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="boot">
+        <div class="boot-logo">
+          <img src="/icon-192.png" alt="" />
+          <img src="/icon-192.png" alt="" class="boot-sand" />
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

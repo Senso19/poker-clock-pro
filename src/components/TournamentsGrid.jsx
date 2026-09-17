@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import ClubLoader from "./ClubLoader.jsx";
 import { supabase } from "../lib/supabase.js";
 import { fetchAllTournaments, deleteTournament } from "../lib/tournaments.js";
 import { useAccount } from "../context/AccountContext.jsx";
@@ -318,7 +319,7 @@ export default function TournamentsGrid({ onOpen }) {
   }
 
   if (loading) {
-    return <div className="p-6 text-felt-cream/60 font-body">Chargement…</div>;
+    return <ClubLoader className="p-10" />;
   }
 
   // Un membre de club (affilié à un club externe via son gestionnaire de

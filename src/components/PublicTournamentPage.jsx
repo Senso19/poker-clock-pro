@@ -4,6 +4,7 @@ import { fetchLevels, defaultStructure } from "../lib/levels.js";
 import { useIsMobile } from "../lib/useIsMobile.js";
 import EditableClock from "./EditableClock.jsx";
 import MobileClockView from "./MobileClockView.jsx";
+import ClubLoader from "./ClubLoader.jsx";
 
 /**
  * PublicTournamentPage — consultation d'un tournoi SANS connexion ni
@@ -51,8 +52,8 @@ export default function PublicTournamentPage({ tournamentId }) {
 
   if (loading) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-felt-bg text-felt-cream/50 font-body">
-        Chargement…
+      <div className="h-screen w-screen flex items-center justify-center bg-felt-bg">
+        <ClubLoader />
       </div>
     );
   }

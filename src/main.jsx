@@ -7,6 +7,7 @@ import { ThemeProvider } from "./context/ThemeContext.jsx";
 import { AccountProvider, useAccount } from "./context/AccountContext.jsx";
 import { EditModeProvider } from "./context/EditModeContext.jsx";
 import { ConfirmProvider } from "./context/ConfirmContext.jsx";
+import ClubLoader from "./components/ClubLoader.jsx";
 import "./lib/installPrompt.js";
 import "./index.css";
 
@@ -35,8 +36,8 @@ function Root() {
 
   if (loading) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-felt-bg text-felt-cream/50 font-body">
-        Chargement…
+      <div className="h-screen w-screen flex items-center justify-center bg-felt-bg">
+        <ClubLoader />
       </div>
     );
   }
@@ -63,8 +64,8 @@ function Root() {
 }
 
 const loadingScreen = (
-  <div className="h-screen w-screen flex items-center justify-center bg-felt-bg text-felt-cream/50 font-body">
-    Chargement…
+  <div className="h-screen w-screen flex items-center justify-center bg-felt-bg">
+    <ClubLoader />
   </div>
 );
 

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import ClubLoader from "./ClubLoader.jsx";
 import { supabase } from "../lib/supabase.js";
 import { selectTournament } from "../lib/tournaments.js";
 import { fetchLevels, defaultStructure } from "../lib/levels.js";
@@ -63,7 +64,7 @@ export default function TournamentPage({ tournamentId, onBack }) {
   }
 
   if (loading) {
-    return <div className="p-6 text-felt-cream/60 font-body">Chargement…</div>;
+    return <ClubLoader className="p-10" />;
   }
   if (!tournament) {
     return <div className="p-6 text-felt-cream/60 font-body">Tournoi introuvable.</div>;

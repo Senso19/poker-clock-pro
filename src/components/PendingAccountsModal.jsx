@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import ClubLoader from "./ClubLoader.jsx";
 import {
   fetchPendingAccounts,
   approveAccount,
@@ -106,7 +107,7 @@ export default function PendingAccountsModal({ onClose, onChanged }) {
 
         <div className="flex-1 overflow-y-auto space-y-6">
           {loading ? (
-            <div className="text-felt-cream/50 text-sm">Chargement…</div>
+            <ClubLoader size={36} label={null} />
           ) : (
             <>
               <div>

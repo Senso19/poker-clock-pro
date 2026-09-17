@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import ClubLoader from "./ClubLoader.jsx";
 import { useTheme } from "../context/ThemeContext.jsx";
 import CustomizablePanel from "./CustomizablePanel.jsx";
 import { useConfirm } from "../context/ConfirmContext.jsx";
@@ -225,7 +226,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
   }
 
   if (mode === "tournament" && loading) {
-    return <div className="p-6 text-felt-cream/60 font-body">Chargement…</div>;
+    return <ClubLoader className="p-10" />;
   }
   if (mode === "tournament" && !tournament) {
     return (

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import ClubLoader from "./ClubLoader.jsx";
 import { supabase } from "../lib/supabase.js";
 
 import { importPlayersFromFile, exportResultsToExcel } from "./SheetsSync.jsx";
@@ -730,7 +731,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   }
 
   if (loading) {
-    return <div className="p-6 text-felt-cream/60 font-body">Chargement…</div>;
+    return <ClubLoader className="p-10" />;
   }
   if (error && !tournament) {
     return <div className="p-6 text-felt-alert font-body">Erreur : {error}</div>;

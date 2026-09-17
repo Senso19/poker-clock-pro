@@ -8,6 +8,7 @@ import { useAccount } from "./context/AccountContext.jsx";
 import { canManageTournaments, canManageAccounts, canManageOwnClub } from "./lib/auth.js";
 import { useIsMobile } from "./lib/useIsMobile.js";
 import { isStandalone } from "./lib/installPrompt.js";
+import ClubLoader from "./components/ClubLoader.jsx";
 
 // Chargés à la demande (import() dynamique) : ces écrans embarquent des
 // composants lourds (horloge éditable, structure des blinds, xlsx...) qui
@@ -23,7 +24,7 @@ const EliminationView = lazy(() => import("./components/EliminationView.jsx"));
 const FormRegistriesView = lazy(() => import("./components/FormRegistriesView.jsx"));
 
 function TabFallback() {
-  return <div className="p-6 text-felt-cream/50 font-body">Chargement…</div>;
+  return <ClubLoader className="p-10" />;
 }
 
 /**

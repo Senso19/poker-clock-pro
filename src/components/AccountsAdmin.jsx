@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import ClubLoader from "./ClubLoader.jsx";
 import { Pencil, Trash2, Merge, Search, UserPlus, Mail, Download, Copy, Lock, LockOpen } from "lucide-react";
 import {
   fetchAllAccounts,
@@ -94,7 +95,7 @@ export default function AccountsAdmin() {
   }
 
   if (loading) {
-    return <div className="p-6 text-felt-cream/60 font-body">Chargement…</div>;
+    return <ClubLoader className="p-10" />;
   }
 
   const filtered = accounts

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import ClubLoader from "./ClubLoader.jsx";
 import { fetchStructureTemplates, deleteStructureTemplate, saveLevels, saveStructureConfig, saveStructureTemplate } from "../lib/levels.js";
 import { fetchClockTemplates, deleteClockTemplate, applyClockTemplateToTournament, createClockTemplate } from "../lib/clockTemplates.js";
 import { fetchAllTournaments } from "../lib/tournaments.js";
@@ -160,7 +161,7 @@ export default function StructureTemplatesManager() {
   }
 
   if (loading) {
-    return <div className="p-6 text-felt-cream/60 font-body">Chargement…</div>;
+    return <ClubLoader className="p-10" />;
   }
 
   if (editingStruct !== null) {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import ClubLoader from "./ClubLoader.jsx";
 import { fetchFormRegistries, createFormRegistry, deleteFormRegistry } from "../lib/forms.js";
 import { useConfirm } from "../context/ConfirmContext.jsx";
 import CustomizablePanel from "./CustomizablePanel.jsx";
@@ -60,7 +61,7 @@ export default function FormRegistriesView() {
   }
 
   if (loading) {
-    return <div className="p-6 text-felt-cream/60 font-body">Chargement…</div>;
+    return <ClubLoader className="p-10" />;
   }
 
   return (

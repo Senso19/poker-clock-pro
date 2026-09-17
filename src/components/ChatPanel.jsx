@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import ClubLoader from "./ClubLoader.jsx";
 import { useAccount } from "../context/AccountContext.jsx";
 import { fetchMessages, sendMessage, deleteMessage } from "../lib/chat.js";
 import { fetchClubSettings } from "../lib/auth.js";
@@ -101,7 +102,7 @@ export default function ChatPanel() {
     <div className="flex flex-col h-full min-h-0 font-body text-felt-cream">
       <div className="flex-1 min-h-0 overflow-y-auto px-1 py-2 space-y-3">
         {loading ? (
-          <div className="text-felt-cream/40 text-sm">Chargement…</div>
+          <ClubLoader size={36} label={null} />
         ) : messages.length === 0 ? (
           <div className="text-felt-cream/40 text-sm">Aucun message pour le moment. Lance la discussion !</div>
         ) : (

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import ClubLoader from "./ClubLoader.jsx";
 import { supabase } from "../lib/supabase.js";
 import {
   fetchChampionships,
@@ -139,7 +140,7 @@ export default function ChampionshipView() {
   }
 
   if (loading) {
-    return <div className="p-6 text-felt-cream/60 font-body">Chargement…</div>;
+    return <ClubLoader className="p-10" />;
   }
 
   if (summaries.length === 0 && !manage) {

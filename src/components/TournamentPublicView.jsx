@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import ClubLoader from "./ClubLoader.jsx";
 import { supabase } from "../lib/supabase.js";
 
 /**
@@ -35,7 +36,7 @@ export default function TournamentPublicView({ tournamentId, onBack }) {
     setLoading(false);
   }
 
-  if (loading) return <div className="p-6 text-felt-cream/60 font-body">Chargement…</div>;
+  if (loading) return <ClubLoader className="p-10" />;
   if (!tournament) return null;
 
   const eliminatedIds = new Set(eliminations.map((e) => e.registration_id));

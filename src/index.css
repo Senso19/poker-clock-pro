@@ -17,6 +17,34 @@ html, body, #root {
   display: none;
 }
 
+/* Chargement : logo du club en "sablier" (voir ClubLoader.jsx).
+   Le niveau descend jusqu'à vider le logo, marque un temps, puis remonte
+   pour le remplir — comme le sable d'un sablier qu'on retourne. Une copie
+   fantôme en dessous garde le logo lisible pendant qu'il est vidé.
+
+   Un seul point animé : l'encoche haute du clip-path. Elle grandit
+   (le niveau tombe), puis rétrécit (le niveau remonte). */
+@keyframes pcp-loader-sand {
+  0% { clip-path: inset(0 0 0 0); }
+  45%, 55% { clip-path: inset(100% 0 0 0); }
+  100% { clip-path: inset(0 0 0 0); }
+}
+.pcp-loader-sand {
+  animation: pcp-loader-sand 1.8s ease-in-out infinite;
+}
+
+@keyframes pcp-loader-fade {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+/* Si l'utilisateur a demandé à limiter les animations, on remplace
+   l'écoulement par un simple battement d'opacité. */
+@media (prefers-reduced-motion: reduce) {
+  .pcp-loader-sand {
+    animation-name: pcp-loader-fade;
+  }
+}
+
 /* Impression des tickets : masque tout sauf le ticket ciblé */
 @media print {
   body * {

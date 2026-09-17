@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import ClubLoader from "./ClubLoader.jsx";
 import { Copy, Plus, Trash2, ChevronUp, ChevronDown, ArrowDownAZ, Download, Settings2 } from "lucide-react";
 import {
   fetchFormRegistry,
@@ -348,7 +349,7 @@ export default function FormRegistryDetail({ registryId, onBack }) {
   }
 
   if (loading || !registry) {
-    return <div className="p-6 text-felt-cream/60 font-body">Chargement…</div>;
+    return <ClubLoader className="p-10" />;
   }
 
   const theme = registry.theme || {};

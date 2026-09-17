@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { fetchFormRegistryBySlug, submitFormEntry } from "../lib/forms.js";
 import FormWizard from "./FormWizard.jsx";
+import ClubLoader from "./ClubLoader.jsx";
 
 /**
  * PublicRegistrationForm — formulaire d'inscription public (sans connexion),
@@ -26,8 +27,8 @@ export default function PublicRegistrationForm({ slug }) {
 
   if (loading) {
     return (
-      <div style={{ minHeight: "100vh", backgroundColor: "#14181C" }} className="flex items-center justify-center text-felt-cream/50 font-body">
-        Chargement…
+      <div style={{ minHeight: "100vh", backgroundColor: "#14181C" }} className="flex items-center justify-center">
+        <ClubLoader />
       </div>
     );
   }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import ClubLoader from "./ClubLoader.jsx";
 import { UserPlus, Pencil, Trash2 } from "lucide-react";
 import { useAccount } from "../context/AccountContext.jsx";
 import { fetchClubMembers, createClubMember, adminUpdateAccount, deleteAccount } from "../lib/auth.js";
@@ -55,7 +56,7 @@ export default function ClubMembersManager() {
   }
 
   if (loading) {
-    return <div className="p-6 text-felt-cream/60 font-body">Chargement…</div>;
+    return <ClubLoader className="p-10" />;
   }
 
   return (

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import ClubLoader from "./ClubLoader.jsx";
 import { supabase } from "../lib/supabase.js";
 import { fetchCurrentTournament } from "../lib/tournaments.js";
 import { fetchMyTables } from "../lib/auth.js";
@@ -66,7 +67,7 @@ export default function EliminationView() {
     loadData(tournament.id);
   }
 
-  if (loading) return <div className="p-6 text-felt-cream/60 font-body">Chargement…</div>;
+  if (loading) return <ClubLoader className="p-10" />;
   if (!tournament) return <div className="p-6 text-felt-cream/60 font-body">Aucun tournoi actif.</div>;
 
   const eliminatedIds = new Set(eliminations.map((e) => e.registration_id));
