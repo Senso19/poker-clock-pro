@@ -67,7 +67,7 @@ export default function EliminationView() {
     loadData(tournament.id);
   }
 
-  if (loading) return <ClubLoader className="p-10" />;
+  if (loading) return <ClubLoader />;
   if (!tournament) return <div className="p-6 text-felt-cream/60 font-body">Aucun tournoi actif.</div>;
 
   const eliminatedIds = new Set(eliminations.map((e) => e.registration_id));

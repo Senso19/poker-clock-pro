@@ -731,7 +731,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   }
 
   if (loading) {
-    return <ClubLoader className="p-10" />;
+    return <ClubLoader />;
   }
   if (error && !tournament) {
     return <div className="p-6 text-felt-alert font-body">Erreur : {error}</div>;

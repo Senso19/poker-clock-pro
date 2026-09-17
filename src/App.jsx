@@ -24,7 +24,7 @@ const EliminationView = lazy(() => import("./components/EliminationView.jsx"));
 const FormRegistriesView = lazy(() => import("./components/FormRegistriesView.jsx"));
 
 function TabFallback() {
-  return <ClubLoader className="p-10" />;
+  return <ClubLoader />;
 }
 
 /**

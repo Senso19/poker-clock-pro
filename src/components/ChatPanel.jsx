@@ -102,7 +102,7 @@ export default function ChatPanel() {
     <div className="flex flex-col h-full min-h-0 font-body text-felt-cream">
       <div className="flex-1 min-h-0 overflow-y-auto px-1 py-2 space-y-3">
         {loading ? (
-          <ClubLoader size={36} label={null} />
+          <ClubLoader size={44} label={null} />
         ) : messages.length === 0 ? (
           <div className="text-felt-cream/40 text-sm">Aucun message pour le moment. Lance la discussion !</div>
         ) : (

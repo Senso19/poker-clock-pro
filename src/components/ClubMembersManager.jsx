@@ -56,7 +56,7 @@ export default function ClubMembersManager() {
   }
 
   if (loading) {
-    return <ClubLoader className="p-10" />;
+    return <ClubLoader />;
   }
 
   return (

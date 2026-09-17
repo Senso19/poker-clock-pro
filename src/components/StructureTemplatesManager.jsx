@@ -161,7 +161,7 @@ export default function StructureTemplatesManager() {
   }
 
   if (loading) {
-    return <ClubLoader className="p-10" />;
+    return <ClubLoader />;
   }
 
   if (editingStruct !== null) {

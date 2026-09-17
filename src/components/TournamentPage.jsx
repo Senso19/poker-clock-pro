@@ -64,7 +64,7 @@ export default function TournamentPage({ tournamentId, onBack }) {
   }
 
   if (loading) {
-    return <ClubLoader className="p-10" />;
+    return <ClubLoader />;
   }
   if (!tournament) {
     return <div className="p-6 text-felt-cream/60 font-body">Tournoi introuvable.</div>;

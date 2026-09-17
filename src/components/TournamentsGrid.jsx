@@ -319,7 +319,7 @@ export default function TournamentsGrid({ onOpen }) {
   }
 
   if (loading) {
-    return <ClubLoader className="p-10" />;
+    return <ClubLoader />;
   }
 
   // Un membre de club (affilié à un club externe via son gestionnaire de

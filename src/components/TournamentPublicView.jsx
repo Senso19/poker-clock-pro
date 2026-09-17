@@ -36,7 +36,7 @@ export default function TournamentPublicView({ tournamentId, onBack }) {
     setLoading(false);
   }
 
-  if (loading) return <ClubLoader className="p-10" />;
+  if (loading) return <ClubLoader />;
   if (!tournament) return null;
 
   const eliminatedIds = new Set(eliminations.map((e) => e.registration_id));

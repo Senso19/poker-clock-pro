@@ -140,7 +140,7 @@ export default function ChampionshipView() {
   }
 
   if (loading) {
-    return <ClubLoader className="p-10" />;
+    return <ClubLoader />;
   }
 
   if (summaries.length === 0 && !manage) {

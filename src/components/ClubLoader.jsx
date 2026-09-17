@@ -12,15 +12,19 @@ import { useTheme } from "../context/ThemeContext.jsx";
  * fonctionne donc aussi hors ThemeProvider (ex. formulaire d'inscription
  * public).
  */
-export default function ClubLoader({ size = 56, label = "Chargement…", className = "" }) {
+export default function ClubLoader({ size = 96, label = "Chargement…", className = "" }) {
   const { theme } = useTheme();
   const src = theme?.logoData || "/icon-192.png";
 
   return (
+    // w-full h-full : occupe toute la zone disponible pour que le logo
+    // tombe au centre de la page, et pas collé en haut. Dans un parent de
+    // hauteur automatique (une modale), h-full se résout en auto et ne
+    // change donc rien.
     <div
       role="status"
       aria-label="Chargement en cours"
-      className={`flex flex-col items-center justify-center gap-3 font-body ${className}`}
+      className={`w-full h-full flex flex-col items-center justify-center gap-3 font-body ${className}`}
     >
       <div className="relative shrink-0" style={{ width: size, height: size }}>
         {/* Copie fantôme : garde le logo lisible pendant qu'il se vide. */}

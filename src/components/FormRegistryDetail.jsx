@@ -349,7 +349,7 @@ export default function FormRegistryDetail({ registryId, onBack }) {
   }
 
   if (loading || !registry) {
-    return <ClubLoader className="p-10" />;
+    return <ClubLoader />;
   }
 
   const theme = registry.theme || {};

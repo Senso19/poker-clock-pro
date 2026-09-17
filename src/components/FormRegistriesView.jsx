@@ -61,7 +61,7 @@ export default function FormRegistriesView() {
   }
 
   if (loading) {
-    return <ClubLoader className="p-10" />;
+    return <ClubLoader />;
   }
 
   return (

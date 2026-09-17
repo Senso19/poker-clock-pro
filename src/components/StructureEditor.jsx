@@ -226,7 +226,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
   }
 
   if (mode === "tournament" && loading) {
-    return <ClubLoader className="p-10" />;
+    return <ClubLoader />;
   }
   if (mode === "tournament" && !tournament) {
     return (

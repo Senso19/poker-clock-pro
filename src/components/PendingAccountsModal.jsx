@@ -107,7 +107,7 @@ export default function PendingAccountsModal({ onClose, onChanged }) {
 
         <div className="flex-1 overflow-y-auto space-y-6">
           {loading ? (
-            <ClubLoader size={36} label={null} />
+            <ClubLoader size={44} label={null} />
           ) : (
             <>
               <div>

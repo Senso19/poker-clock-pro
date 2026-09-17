@@ -166,7 +166,7 @@ export default function ActionJournalModal({ tournamentId, playersPerTable, onCl
 
         <div className="flex-1 overflow-y-auto px-6">
           {loading ? (
-            <ClubLoader size={36} label={null} className="pb-4" />
+            <ClubLoader size={44} label={null} className="pb-4" />
           ) : events.length === 0 ? (
             <div className="text-felt-cream/50 text-sm pb-4">Aucune action enregistrée pour ce tournoi.</div>
           ) : (

@@ -95,7 +95,7 @@ export default function AccountsAdmin() {
   }
 
   if (loading) {
-    return <ClubLoader className="p-10" />;
+    return <ClubLoader />;
   }
 
   const filtered = accounts
