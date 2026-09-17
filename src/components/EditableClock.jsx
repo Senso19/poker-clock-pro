@@ -2,11 +2,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../lib/supabase.js";
 import { useTheme } from "../context/ThemeContext.jsx";
 import { fetchCurrentTournament } from "../lib/tournaments.js";
-import { saveClockState } from "../lib/clockState.js";
+import { saveClockState, secondsUntilScheduledStart, COUNTDOWN_WINDOW_HOURS } from "../lib/clockState.js";
 import { playSound, SOUND_OPTIONS } from "../lib/sounds.js";
 import { addAnnouncement, fetchRecentAnnouncements } from "../lib/announcements.js";
 import { computeFinishPositions } from "../lib/points.js";
-import { formatTime, clamp } from "../lib/format.js";
+import { formatTime, formatCountdown, clamp } from "../lib/format.js";
 import { compressImageFile, uploadImageToStorage } from "../lib/imageUtils.js";
 import EditableButton from "./EditableButton.jsx";
 
@@ -225,6 +225,10 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   const [secondsLeft, setSecondsLeft] = useState((levels[0]?.durationMinutes || 20) * 60);
   const [isRunning, setIsRunning] = useState(false);
   const [tournamentId, setTournamentId] = useState(null);
+  // Ligne du tournoi (heure programmée, horloge déjà lancée ou non) : sert
+  // au compte à rebours affiché avant le début d'un tournoi programmé.
+  const [tournamentMeta, setTournamentMeta] = useState(null);
+  const [nowTs, setNowTs] = useState(() => Date.now());
   const intervalRef = useRef(null);
   const clockStateRef = useRef({ levelIndex: 0, secondsLeft: 0, isRunning: false });
 
@@ -289,6 +293,25 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
     }, 5000);
     return () => clearInterval(t);
   }, [effectiveDesignOnly, tournamentId]);
+
+  // Tournoi encore "Programmé" avec une heure de début : on fait battre une
+  // horloge à la seconde pour le rebours, et on relit la ligne du tournoi
+  // de temps en temps — l'horloge peut être lancée depuis un autre
+  // appareil, auquel cas le rebours doit disparaître ici aussi.
+  const awaitingScheduledStart =
+    !effectiveDesignOnly && !!tournamentMeta?.scheduled_at && !tournamentMeta?.clock_started;
+  useEffect(() => {
+    if (!awaitingScheduledStart || !tournamentId) return;
+    const tick = setInterval(() => setNowTs(Date.now()), 1000);
+    const refresh = setInterval(async () => {
+      const { data } = await supabase.from("tournaments").select("*").eq("id", tournamentId).maybeSingle();
+      if (data) setTournamentMeta(data);
+    }, 30000);
+    return () => {
+      clearInterval(tick);
+      clearInterval(refresh);
+    };
+  }, [awaitingScheduledStart, tournamentId]);
 
   // Sauvegarde de secours : à chaque changement de tournoi courant ou au
   // démontage du composant (ex. changement d'onglet), on écrit l'état le
@@ -381,6 +404,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
     const t = await fetchCurrentTournament();
     if (!t) return;
     setTournamentId(t.id);
+    setTournamentMeta(t);
     // Dès qu'on connaît le tournoi, on gère sa propre disposition d'horloge
     // (plus jamais celle par défaut du club, sauf s'il n'en a pas encore).
     tournamentLayoutAppliedRef.current = true;
@@ -460,6 +484,10 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   function toggleRunning() {
     const next = !isRunning;
     setIsRunning(next);
+    // Le départ manuel fait sortir le tournoi de l'état "Programmé" (comme
+    // saveClockState le fait en base) : le compte à rebours disparaît
+    // aussitôt, sans attendre la prochaine relecture de la ligne.
+    if (next) setTournamentMeta((m) => (m ? { ...m, clock_started: true } : m));
     persistNow(levelIndex, secondsLeft, next);
   }
 
@@ -484,6 +512,10 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   }, []);
   function handleProgressClick(e) {
     if (editing) return;
+    // Pendant le compte à rebours, la barre représente l'attente avant le
+    // début programmé, pas le temps du niveau : la rendre cliquable
+    // écrirait un temps restant sans rapport.
+    if (inCountdown) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const fraction = clamp((e.clientX - rect.left) / rect.width, 0, 1);
     const total = (currentLevel?.durationMinutes || 20) * 60;
@@ -491,6 +523,12 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
     setSecondsLeft(newSecondsLeft);
     persistNow(levelIndex, newSecondsLeft, isRunning);
   }
+
+  // Secondes avant le début programmé, ou null = affichage normal du
+  // niveau. Le départ reste manuel : à 0 on revient simplement au temps du
+  // niveau 1, en attendant que quelqu'un appuie sur "Lecture".
+  const countdownSeconds = secondsUntilScheduledStart(tournamentMeta, nowTs);
+  const inCountdown = countdownSeconds != null;
 
   let elapsedSeconds = 0;
   for (let i = 0; i < levelIndex; i++) elapsedSeconds += (levels[i]?.durationMinutes || 20) * 60;
@@ -1101,13 +1139,31 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
       {!panels.timer.removed && (
         <Panel id="timer" layout={panels.timer} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Horloge" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets} onUploadSound={handleSoundUpload}>
           <div className="flex items-center justify-between text-felt-cream/50 mb-2 px-1" style={{ fontSize: `${panels.timer.style.indicatorFontSize || 11}px` }}>
-            {panels.timer.style.showElapsed !== false && <span>⏱ {formatTime(elapsedSeconds)}</span>}
-            {panels.timer.style.showNextBreak !== false && <span>☕ {hasUpcomingBreak ? formatTime(breakInSeconds) : "--:--"}</span>}
+            {inCountdown ? (
+              // Temps écoulé et prochaine pause n'ont aucun sens avant le
+              // début : on affiche l'heure de départ programmée à la place.
+              <span className="w-full text-center">
+                🕑 Départ programmé à{" "}
+                {new Date(tournamentMeta.scheduled_at).toLocaleString("fr-FR", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+            ) : (
+              <>
+                {panels.timer.style.showElapsed !== false && <span>⏱ {formatTime(elapsedSeconds)}</span>}
+                {panels.timer.style.showNextBreak !== false && <span>☕ {hasUpcomingBreak ? formatTime(breakInSeconds) : "--:--"}</span>}
+              </>
+            )}
           </div>
           <PanelBody
             style={panels.timer.style}
             title={
-              currentLevel?.isBreak
+              inCountdown
+                ? "DÉBUT DANS"
+                : currentLevel?.isBreak
                 ? currentLevel.breakLabel || "PAUSE"
                 : panels.timer.style.customTitle
                 ? panels.timer.style.customTitle.replace(/\{n\}/g, levelIndex + 1)
@@ -1118,17 +1174,25 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
               className="leading-none tabular-nums"
               style={{ ...textStyle(panels.timer.style), textAlign: panels.timer.style.centerTime ? "center" : textStyle(panels.timer.style).textAlign, width: "100%" }}
             >
-              {formatTime(secondsLeft)}
+              {inCountdown ? formatCountdown(countdownSeconds) : formatTime(secondsLeft)}
             </div>
           </PanelBody>
           <div
             onClick={handleProgressClick}
-            title="Cliquer pour ajuster le temps restant"
-            className={`mt-3 h-1.5 bg-felt-bg rounded-full overflow-hidden mx-1 ${editing ? "" : "cursor-pointer hover:h-2.5 transition-[height]"}`}
+            title={inCountdown ? "Compte à rebours avant le début programmé" : "Cliquer pour ajuster le temps restant"}
+            className={`mt-3 h-1.5 bg-felt-bg rounded-full overflow-hidden mx-1 ${
+              editing || inCountdown ? "" : "cursor-pointer hover:h-2.5 transition-[height]"
+            }`}
           >
             <div
               className="h-full bg-felt-gold pointer-events-none"
-              style={{ width: `${100 - (secondsLeft / ((currentLevel?.durationMinutes || 20) * 60)) * 100}%` }}
+              style={{
+                width: `${
+                  inCountdown
+                    ? 100 - (countdownSeconds / (COUNTDOWN_WINDOW_HOURS * 3600)) * 100
+                    : 100 - (secondsLeft / ((currentLevel?.durationMinutes || 20) * 60)) * 100
+                }%`,
+              }}
             />
           </div>
         </Panel>
