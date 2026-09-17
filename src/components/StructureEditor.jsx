@@ -451,7 +451,18 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                     return (
                       <tr
                         key={i}
-                        className={level.isNew ? "bg-felt-gold/20 ring-1 ring-inset ring-felt-gold/60" : level.isBreak ? "bg-felt-bg/40" : "bg-felt-bg/70"}
+                        // La barre de la ligne suit "Fond des barres" du
+                        // panneau (🎨). Un niveau tout juste ajouté garde
+                        // sa surbrillance dorée, qui est temporaire.
+                        style={
+                          level.isNew
+                            ? undefined
+                            : {
+                                backgroundColor: `var(--pcp-row-bg, rgba(20, 24, 28, ${level.isBreak ? 0.4 : 0.7}))`,
+                                color: "var(--pcp-row-text, inherit)",
+                              }
+                        }
+                        className={level.isNew ? "bg-felt-gold/20 ring-1 ring-inset ring-felt-gold/60" : ""}
                       >
                         <td className="py-4 pl-4 pr-2 text-felt-gold/70 rounded-l-md text-lg font-display">{i + 1}</td>
                         {level.isBreak ? (
@@ -465,7 +476,9 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                                   style={{ backgroundColor: "var(--pcp-cell-bg, #1B2027)", color: "var(--pcp-cell-text, #EDEAE3)" }}
                                   className="w-16 border border-felt-cream/10 rounded px-2 py-1.5 text-sm"
                                 />
-                                <span className="text-felt-cream/30 text-sm">({elapsed})</span>
+                                <span style={{ color: "var(--pcp-row-text, rgba(237, 234, 227, 0.3))" }} className="text-sm">
+                                  ({elapsed})
+                                </span>
                               </div>
                             </td>
                             <td colSpan={3} className="py-4 pr-3">
@@ -489,7 +502,9 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                                   style={{ backgroundColor: "var(--pcp-cell-bg, #1B2027)", color: "var(--pcp-cell-text, #EDEAE3)" }}
                                   className="w-16 border border-felt-cream/10 rounded px-2 py-1.5 text-sm"
                                 />
-                                <span className="text-felt-cream/30 text-sm">({elapsed})</span>
+                                <span style={{ color: "var(--pcp-row-text, rgba(237, 234, 227, 0.3))" }} className="text-sm">
+                                  ({elapsed})
+                                </span>
                               </div>
                             </td>
                             <td className="py-4 pr-3 text-right">

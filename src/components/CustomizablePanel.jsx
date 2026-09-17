@@ -294,6 +294,10 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
         style={{
           backgroundColor: style.bgColor || theme.panelBgColor || undefined,
           color: style.textColor || undefined,
+          // Barre = le fond de la ligne entière (derrière le numéro et les
+          // champs) ; cellule = le champ lui-même, posé sur cette barre.
+          "--pcp-row-bg": style.rowBgColor || undefined,
+          "--pcp-row-text": readableOn(style.rowBgColor),
           "--pcp-cell-bg": style.cellBgColor || undefined,
           "--pcp-cell-text": style.cellTextColor || readableOn(style.cellBgColor),
           "--pcp-banner-height": style.bannerHeight ? `${style.bannerHeight}px` : undefined,
@@ -390,6 +394,16 @@ function PanelStyleEditor({ style, onChange, onClose, hasFreePosition, onResetPo
           type="color"
           value={style.textColor || "#EDEAE3"}
           onChange={(e) => onChange({ textColor: e.target.value })}
+          className="w-8 h-6 bg-transparent cursor-pointer"
+        />
+      </label>
+      <div className="border-t border-felt-cream/10 my-2 pt-2 text-felt-cream/50">Lignes / barres</div>
+      <label className="flex items-center justify-between mb-2">
+        Fond des barres
+        <input
+          type="color"
+          value={style.rowBgColor || "#14181C"}
+          onChange={(e) => onChange({ rowBgColor: e.target.value })}
           className="w-8 h-6 bg-transparent cursor-pointer"
         />
       </label>
@@ -603,6 +617,7 @@ function PanelStyleEditor({ style, onChange, onClose, hasFreePosition, onResetPo
             posY: null,
             bgColor: null,
             textColor: null,
+            rowBgColor: null,
             cellBgColor: null,
             cellTextColor: null,
             cardWidth: null,
