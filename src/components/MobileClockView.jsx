@@ -37,9 +37,9 @@ function advanceForElapsed(levelIndex, secondsLeft, elapsedSeconds, levels) {
  * panneaux en glisser-déposer (pensés pour un écran de TV/vidéoprojecteur
  * et peu adaptés à un petit écran tactile).
  */
-export default function MobileClockView({ levels }) {
+export default function MobileClockView({ levels, canEdit: canEditOverride }) {
   const { account } = useAccount();
-  const canEdit = canControlClock(account?.role);
+  const canEdit = canEditOverride !== undefined ? canEditOverride : canControlClock(account?.role);
 
   const [tournamentId, setTournamentId] = useState(null);
   const [levelIndex, setLevelIndex] = useState(0);

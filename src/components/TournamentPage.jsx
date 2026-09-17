@@ -3,7 +3,7 @@ import { supabase } from "../lib/supabase.js";
 import { selectTournament } from "../lib/tournaments.js";
 import { fetchLevels, defaultStructure } from "../lib/levels.js";
 import { useAccount } from "../context/AccountContext.jsx";
-import { canManageTournaments, canControlClock } from "../lib/auth.js";
+import { canManageTournament, canControlClock, isClubManager } from "../lib/auth.js";
 import { useIsMobile } from "../lib/useIsMobile.js";
 import EditableClock from "./EditableClock.jsx";
 import MobileClockView from "./MobileClockView.jsx";
@@ -29,8 +29,6 @@ const TABS = [
 export default function TournamentPage({ tournamentId, onBack }) {
   const { account } = useAccount();
   const isMobile = useIsMobile();
-  const manage = canManageTournaments(account?.role);
-  const clockControl = canControlClock(account?.role);
 
   const [tab, setTab] = useState("clock");
   const [tournament, setTournament] = useState(null);
@@ -70,6 +68,14 @@ export default function TournamentPage({ tournamentId, onBack }) {
   if (!tournament) {
     return <div className="p-6 text-felt-cream/60 font-body">Tournoi introuvable.</div>;
   }
+
+  // Un gestionnaire de club gère entièrement ce tournoi s'il est marqué
+  // "interclubs", exactement comme admin/TD/floor gèrent les tournois
+  // normaux — sinon il n'a que la vue lecture, comme un joueur.
+  const manage = canManageTournament(account, tournament);
+  // Idem pour le contrôle de l'horloge : un gestionnaire de club l'a sur ses
+  // tournois interclubs, en plus des rôles à qui la matrice l'accorde déjà.
+  const clockControl = canControlClock(account?.role) || (isClubManager(account?.role) && !!tournament.is_interclub);
 
   return (
     <div className="h-full flex flex-col">
@@ -124,7 +130,11 @@ export default function TournamentPage({ tournamentId, onBack }) {
 
       <div className="flex-1 min-h-0 overflow-hidden relative">
         <div className={tab === "clock" ? "absolute inset-0" : "absolute inset-0 hidden"}>
-          {isMobile ? <MobileClockView levels={levels} /> : <EditableClock levels={levels} canEdit={manage && clockControl} />}
+          {isMobile ? (
+            <MobileClockView levels={levels} canEdit={manage && clockControl} />
+          ) : (
+            <EditableClock levels={levels} canEdit={manage && clockControl} />
+          )}
         </div>
         {tab === "structure" &&
           (manage ? (

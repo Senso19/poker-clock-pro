@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronUp, ChevronDown, Minus, User, LogOut, Bell, Trophy, Target, BarChart3, LayoutGrid, Users, MessageCircle, Mail, Settings, ClipboardList } from "lucide-react";
+import { ChevronUp, ChevronDown, Minus, User, LogOut, Bell, Trophy, Target, BarChart3, LayoutGrid, Users, MessageCircle, Mail, Settings, ClipboardList, Shield } from "lucide-react";
 import { supabase } from "../lib/supabase.js";
 import { useAccount } from "../context/AccountContext.jsx";
 import { useTheme } from "../context/ThemeContext.jsx";
 import { useEditMode } from "../context/EditModeContext.jsx";
-import { canManageTournaments, canManageAccounts, ROLE_LABELS, fetchClubSettings, fetchPendingAccounts, fetchContactMessages } from "../lib/auth.js";
+import { canManageTournaments, canManageAccounts, canManageOwnClub, ROLE_LABELS, fetchClubSettings, fetchPendingAccounts, fetchContactMessages } from "../lib/auth.js";
 import ProfileModal from "./ProfileModal.jsx";
 import ContactAdminModal from "./ContactAdminModal.jsx";
 import PendingAccountsModal from "./PendingAccountsModal.jsx";
@@ -22,6 +22,7 @@ const ITEM_DEFS = {
   championship: { icon: BarChart3, label: "Championnats" },
   templates: { icon: LayoutGrid, label: "Gérer les modèles" },
   accounts: { icon: Users, label: "Gérer les membres" },
+  myclub: { icon: Shield, label: "Mon club" },
   registrations: { icon: ClipboardList, label: "Inscriptions Festival et Open" },
   chat: { icon: MessageCircle, label: "Chat du club" },
   contact: { icon: Mail, label: "Contacter l'administrateur" },
@@ -33,6 +34,7 @@ const DEFAULT_ORDER = [
   "championship",
   "templates",
   "accounts",
+  "myclub",
   "registrations",
   "chat",
   "contact",
@@ -54,6 +56,7 @@ export default function Sidebar({ tab, setTab, onRequestLogin }) {
   const { isEditMode } = useEditMode();
   const manage = canManageTournaments(account?.role);
   const manageAccounts = canManageAccounts(account?.role);
+  const manageOwnClub = canManageOwnClub(account?.role);
   const isStaffOnly = account?.role === "floor" || account?.role === "table_captain";
   const [showProfile, setShowProfile] = useState(false);
   const [showContact, setShowContact] = useState(false);
@@ -224,6 +227,7 @@ export default function Sidebar({ tab, setTab, onRequestLogin }) {
     if (!account) return key === "tournaments" || key === "championship";
     if (key === "templates" || key === "settings" || key === "registrations") return manage;
     if (key === "accounts") return manageAccounts;
+    if (key === "myclub") return manageOwnClub;
     if (key === "eliminate") return isStaffOnly;
     return true;
   }
@@ -514,7 +518,13 @@ export default function Sidebar({ tab, setTab, onRequestLogin }) {
             </div>
           )}
           <div className="text-sm text-white font-medium truncate max-w-full">{account.pseudo}</div>
-          <div className="text-xs text-felt-cream/40 truncate">{ROLE_LABELS[account.role]}</div>
+          <div className="text-xs text-felt-cream/40 truncate">
+            {account.club_name
+              ? account.role === "club_manager"
+                ? `Gestionnaire du club ${account.club_name}`
+                : `Membre du ${account.club_name}`
+              : ROLE_LABELS[account.role]}
+          </div>
         </div>
         <div className="flex items-center justify-between px-5">
           <button

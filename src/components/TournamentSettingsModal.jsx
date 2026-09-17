@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase.js";
 import { fetchChampionships, assignTournamentToChampionship } from "../lib/points.js";
+import { useAccount } from "../context/AccountContext.jsx";
 
 /**
  * TournamentSettingsModal — "Réglages tournoi" ouvert via l'icône ⚙ à côté
@@ -9,6 +10,7 @@ import { fetchChampionships, assignTournamentToChampionship } from "../lib/point
  * knockouts / Gérer les Payouts.
  */
 export default function TournamentSettingsModal({ tournament, onClose, onSaved }) {
+  const { account } = useAccount();
   const [championships, setChampionships] = useState([]);
   const [championshipId, setChampionshipId] = useState(tournament.championship_id || "");
   const [stageLabel, setStageLabel] = useState(tournament.stage_label || "");
@@ -21,6 +23,7 @@ export default function TournamentSettingsModal({ tournament, onClose, onSaved }
   const [trackKnockouts, setTrackKnockouts] = useState(!!tournament.track_knockouts);
   const [managePayouts, setManagePayouts] = useState(!!tournament.manage_payouts);
   const [forceFinished, setForceFinished] = useState(!!tournament.force_finished);
+  const [isInterclub, setIsInterclub] = useState(!!tournament.is_interclub);
   const [publicView, setPublicView] = useState(!!tournament.public_view);
   const [linkCopied, setLinkCopied] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -75,6 +78,7 @@ export default function TournamentSettingsModal({ tournament, onClose, onSaved }
           manage_payouts: managePayouts,
           force_finished: forceFinished,
           public_view: publicView,
+          ...(account?.role === "admin" ? { is_interclub: isInterclub } : {}),
         })
         .eq("id", tournament.id);
       if (updErr) throw updErr;
@@ -200,6 +204,12 @@ export default function TournamentSettingsModal({ tournament, onClose, onSaved }
             <input type="checkbox" checked={forceFinished} onChange={(e) => setForceFinished(e.target.checked)} />
             Forcer le statut "Terminé"
           </label>
+          {account?.role === "admin" && (
+            <label className="flex items-center gap-2 text-sm text-felt-cream/80 pt-2 border-t border-felt-cream/10 mt-1">
+              <input type="checkbox" checked={isInterclub} onChange={(e) => setIsInterclub(e.target.checked)} />
+              Tournoi interclubs
+            </label>
+          )}
         </div>
 
         <div className="mt-5 pt-4 border-t border-felt-cream/10">

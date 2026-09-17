@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase.js";
 import { fetchAllTournaments, deleteTournament } from "../lib/tournaments.js";
 import { useAccount } from "../context/AccountContext.jsx";
-import { canManageTournaments, canParticipate } from "../lib/auth.js";
+import { canManageTournaments, canManageTournament, canParticipate, isClubMember } from "../lib/auth.js";
 import { fetchChampionships } from "../lib/points.js";
 import { fetchStructureTemplates, saveLevels, saveStructureConfig, fetchLevels } from "../lib/levels.js";
 import { fetchClockTemplates, applyClockTemplateToTournament } from "../lib/clockTemplates.js";
@@ -23,6 +23,7 @@ export default function TournamentsGrid({ onOpen }) {
   const confirmAction = useConfirm();
   const { account } = useAccount();
   const manage = canManageTournaments(account?.role);
+  const clubMember = isClubMember(account);
   const [tournaments, setTournaments] = useState([]);
   const [counts, setCounts] = useState({});
   const [eliminatedCounts, setEliminatedCounts] = useState({});
@@ -206,6 +207,7 @@ export default function TournamentsGrid({ onOpen }) {
           manage_players: t.manage_players,
           structure_config: t.structure_config,
           clock_layout: t.clock_layout,
+          is_interclub: t.is_interclub,
           clock_background: t.clock_background,
           max_tables: t.max_tables,
           // Volontairement pas copiés : joueurs/inscriptions (aucune ligne
@@ -264,6 +266,7 @@ export default function TournamentsGrid({ onOpen }) {
           status: "running",
           championship_id: form.championshipId || null,
           registration_open: true,
+          is_interclub: !!form.isInterclub,
         })
         .select()
         .single();
@@ -318,14 +321,18 @@ export default function TournamentsGrid({ onOpen }) {
     return <div className="p-6 text-felt-cream/60 font-body">Chargement…</div>;
   }
 
+  // Un membre de club (affilié à un club externe via son gestionnaire de
+  // club) n'a accès qu'aux tournois interclubs, en lecture seule.
+  const visibleTournaments = clubMember ? tournaments.filter((t) => t.is_interclub) : tournaments;
+
   // Actifs aujourd'hui : tournois du jour ou antérieurs, en cours ou programmés.
-  const activeToday = tournaments.filter((t) => {
+  const activeToday = visibleTournaments.filter((t) => {
     const status = tournamentStatus(t);
     return isPastOrToday(t) && (status === "running" || status === "scheduled");
   });
   const activeTodayIds = new Set(activeToday.map((t) => t.id));
   // Tous les tournois : tous les autres (programmés à venir, ou terminés quelle que soit la date).
-  const otherTournaments = tournaments.filter((t) => !activeTodayIds.has(t.id));
+  const otherTournaments = visibleTournaments.filter((t) => !activeTodayIds.has(t.id));
   const finishedTournaments = otherTournaments.filter((t) => tournamentStatus(t) === "finished");
 
   let listed = otherTournaments.filter((t) => t.name.toLowerCase().includes(search.trim().toLowerCase()));
@@ -385,7 +392,9 @@ export default function TournamentsGrid({ onOpen }) {
                 badge={statusBadge(t)}
                 count={counts[t.id] || 0}
                 already={myRegs.has(t.id)}
-                manage={manage}
+                manage={canManageTournament(account, t)}
+                canDuplicate={manage}
+                readOnly={clubMember}
                 busy={busyId === t.id}
                 menuOpen={openMenuId === t.id}
                 onOpen={() => onOpen(t.id)}
@@ -466,7 +475,9 @@ export default function TournamentsGrid({ onOpen }) {
               badge={statusBadge(t)}
               count={counts[t.id] || 0}
               already={myRegs.has(t.id)}
-              manage={manage}
+              manage={canManageTournament(account, t)}
+              canDuplicate={manage}
+              readOnly={clubMember}
               busy={busyId === t.id}
               menuOpen={openMenuId === t.id}
               onOpen={() => onOpen(t.id)}
@@ -488,7 +499,9 @@ export default function TournamentsGrid({ onOpen }) {
               badge={statusBadge(t)}
               count={counts[t.id] || 0}
               already={myRegs.has(t.id)}
-              manage={manage}
+              manage={canManageTournament(account, t)}
+              canDuplicate={manage}
+              readOnly={clubMember}
               busy={busyId === t.id}
               menuOpen={openMenuId === t.id}
               onOpen={() => onOpen(t.id)}
@@ -518,14 +531,21 @@ export default function TournamentsGrid({ onOpen }) {
   );
 }
 
-function TournamentCard({ t, badge, count, already, manage, busy, menuOpen, onOpen, onToggleRegister, onToggleMenu, onDelete, onDuplicate, onMarkFinished, winnerName }) {
+function TournamentCard({ t, badge, count, already, manage, canDuplicate, readOnly, busy, menuOpen, onOpen, onToggleRegister, onToggleMenu, onDelete, onDuplicate, onMarkFinished, winnerName }) {
   return (
     <div
       onClick={onOpen}
       data-pcp-card
       className="relative bg-felt-panel border border-felt-cream/10 rounded-xl p-4 flex flex-col hover:border-felt-cream/20 transition-colors cursor-pointer"
     >
-      <div className="pcp-title font-display text-base leading-tight mb-1 truncate">{t.name}</div>
+      <div className="flex items-center gap-1.5 mb-1">
+        <div className="pcp-title font-display text-base leading-tight truncate">{t.name}</div>
+        {t.is_interclub && (
+          <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-felt-gold/15 text-felt-gold uppercase tracking-wide">
+            Interclub
+          </span>
+        )}
+      </div>
       {winnerName && (
         <div className="flex items-center gap-1.5 text-xs text-felt-gold mb-1.5 truncate">
           <span>🏆</span>
@@ -564,7 +584,7 @@ function TournamentCard({ t, badge, count, already, manage, busy, menuOpen, onOp
         >
           Ouvrir
         </EditableButton>
-        {t.registration_open && (
+        {t.registration_open && !readOnly && (
           <EditableButton
             groupKey="tournament-card-grid"
             id="register"
@@ -599,17 +619,21 @@ function TournamentCard({ t, badge, count, already, manage, busy, menuOpen, onOp
                 onClick={(e) => e.stopPropagation()}
                 className="absolute right-0 bottom-8 z-20 bg-felt-bg border border-felt-gold/40 rounded-md shadow-lg py-1 w-36 text-sm"
               >
-                <button onClick={onDuplicate} className="w-full text-left px-3 py-2 text-felt-cream/80 hover:bg-felt-panel">
-                  📋 Dupliquer
-                </button>
+                {canDuplicate && (
+                  <button onClick={onDuplicate} className="w-full text-left px-3 py-2 text-felt-cream/80 hover:bg-felt-panel">
+                    📋 Dupliquer
+                  </button>
+                )}
                 {!t.force_finished && (
                   <button onClick={onMarkFinished} className="w-full text-left px-3 py-2 text-felt-cream/80 hover:bg-felt-panel">
                     🏁 Marquer comme fini
                   </button>
                 )}
-                <button onClick={onDelete} className="w-full text-left px-3 py-2 text-felt-alert hover:bg-felt-panel">
-                  🗑 Supprimer
-                </button>
+                {canDuplicate && (
+                  <button onClick={onDelete} className="w-full text-left px-3 py-2 text-felt-alert hover:bg-felt-panel">
+                    🗑 Supprimer
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -619,7 +643,7 @@ function TournamentCard({ t, badge, count, already, manage, busy, menuOpen, onOp
   );
 }
 
-function TournamentRow({ t, badge, count, already, manage, busy, menuOpen, onOpen, onToggleRegister, onToggleMenu, onDelete, onDuplicate, onMarkFinished, winnerName }) {
+function TournamentRow({ t, badge, count, already, manage, canDuplicate, readOnly, busy, menuOpen, onOpen, onToggleRegister, onToggleMenu, onDelete, onDuplicate, onMarkFinished, winnerName }) {
   return (
     <div
       onClick={onOpen}
@@ -627,7 +651,14 @@ function TournamentRow({ t, badge, count, already, manage, busy, menuOpen, onOpe
       className="relative flex flex-wrap items-center gap-4 bg-felt-panel border border-felt-cream/10 rounded-lg px-4 py-3 hover:border-felt-cream/20 transition-colors cursor-pointer"
     >
       <div className="min-w-0 flex-1">
-        <div className="pcp-title font-display text-white truncate">{t.name}</div>
+        <div className="flex items-center gap-1.5">
+          <div className="pcp-title font-display text-white truncate">{t.name}</div>
+          {t.is_interclub && (
+            <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-felt-gold/15 text-felt-gold uppercase tracking-wide">
+              Interclub
+            </span>
+          )}
+        </div>
         <div className="pcp-body text-xs text-felt-cream/40">
           {t.scheduled_at ? new Date(t.scheduled_at).toLocaleString("fr-FR") : new Date(t.date || t.created_at).toLocaleDateString("fr-FR")}
         </div>
@@ -660,7 +691,7 @@ function TournamentRow({ t, badge, count, already, manage, busy, menuOpen, onOpe
         >
           Ouvrir
         </EditableButton>
-        {t.registration_open && (
+        {t.registration_open && !readOnly && (
           <EditableButton
             groupKey="tournament-card-row"
             id="register"
@@ -693,17 +724,21 @@ function TournamentRow({ t, badge, count, already, manage, busy, menuOpen, onOpe
                 onClick={(e) => e.stopPropagation()}
                 className="absolute right-0 top-8 z-20 bg-felt-bg border border-felt-gold/40 rounded-md shadow-lg py-1 w-36 text-sm"
               >
-                <button onClick={onDuplicate} className="w-full text-left px-3 py-2 text-felt-cream/80 hover:bg-felt-panel">
-                  📋 Dupliquer
-                </button>
+                {canDuplicate && (
+                  <button onClick={onDuplicate} className="w-full text-left px-3 py-2 text-felt-cream/80 hover:bg-felt-panel">
+                    📋 Dupliquer
+                  </button>
+                )}
                 {!t.force_finished && (
                   <button onClick={onMarkFinished} className="w-full text-left px-3 py-2 text-felt-cream/80 hover:bg-felt-panel">
                     🏁 Marquer comme fini
                   </button>
                 )}
-                <button onClick={onDelete} className="w-full text-left px-3 py-2 text-felt-alert hover:bg-felt-panel">
-                  🗑 Supprimer
-                </button>
+                {canDuplicate && (
+                  <button onClick={onDelete} className="w-full text-left px-3 py-2 text-felt-alert hover:bg-felt-panel">
+                    🗑 Supprimer
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -719,6 +754,7 @@ function TournamentCreateForm({ championships, structureTemplates, clockTemplate
   const [championshipId, setChampionshipId] = useState("");
   const [clockTemplateId, setClockTemplateId] = useState("");
   const [structureTemplateId, setStructureTemplateId] = useState("");
+  const [isInterclub, setIsInterclub] = useState(false);
 
   return (
     <div className="flex flex-col gap-3 bg-felt-panel border border-felt-cream/10 rounded-md p-4">
@@ -785,6 +821,16 @@ function TournamentCreateForm({ championships, structureTemplates, clockTemplate
           ))}
         </select>
       </label>
+      <label className="flex items-center gap-2 text-sm text-felt-cream/80 pt-1">
+        <input type="checkbox" checked={isInterclub} onChange={(e) => setIsInterclub(e.target.checked)} />
+        Tournoi interclubs
+      </label>
+      {isInterclub && (
+        <div className="text-xs text-felt-cream/40">
+          Un gestionnaire de club pourra gérer entièrement ce tournoi et y inscrire jusqu'à {" "}
+          <span className="text-felt-gold">10 membres de son club</span>.
+        </div>
+      )}
       <button
         disabled={!name.trim() || loading}
         onClick={() =>
@@ -794,6 +840,7 @@ function TournamentCreateForm({ championships, structureTemplates, clockTemplate
             championshipId,
             clockTemplateId,
             structureTemplateId,
+            isInterclub,
           })
         }
         className="px-4 py-2 bg-felt-gold text-felt-bg rounded-md font-display disabled:opacity-40"

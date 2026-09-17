@@ -5,7 +5,7 @@ import InstallAppPrompt from "./components/InstallAppPrompt.jsx";
 import EditModeToggleButton from "./components/EditModeToggleButton.jsx";
 import { useTheme } from "./context/ThemeContext.jsx";
 import { useAccount } from "./context/AccountContext.jsx";
-import { canManageTournaments, canManageAccounts } from "./lib/auth.js";
+import { canManageTournaments, canManageAccounts, canManageOwnClub } from "./lib/auth.js";
 import { useIsMobile } from "./lib/useIsMobile.js";
 import { isStandalone } from "./lib/installPrompt.js";
 
@@ -18,6 +18,7 @@ const LayoutSettings = lazy(() => import("./components/LayoutSettings.jsx"));
 const ChampionshipView = lazy(() => import("./components/ChampionshipView.jsx"));
 const StructureTemplatesManager = lazy(() => import("./components/StructureTemplatesManager.jsx"));
 const AccountsAdmin = lazy(() => import("./components/AccountsAdmin.jsx"));
+const ClubMembersManager = lazy(() => import("./components/ClubMembersManager.jsx"));
 const EliminationView = lazy(() => import("./components/EliminationView.jsx"));
 const FormRegistriesView = lazy(() => import("./components/FormRegistriesView.jsx"));
 
@@ -36,6 +37,7 @@ export default function App({ onRequestLogin }) {
   const { account } = useAccount();
   const manage = canManageTournaments(account?.role);
   const manageAccounts = canManageAccounts(account?.role);
+  const manageOwnClub = canManageOwnClub(account?.role);
   const isStaffOnly = account?.role === "floor" || account?.role === "table_captain";
 
   const [tab, setTab] = useState(isStaffOnly ? "eliminate" : "tournaments");
@@ -87,6 +89,7 @@ export default function App({ onRequestLogin }) {
           {tab === "championship" && <ChampionshipView />}
           {tab === "templates" && manage && <StructureTemplatesManager />}
           {tab === "accounts" && manageAccounts && <AccountsAdmin />}
+          {tab === "myclub" && manageOwnClub && <ClubMembersManager />}
           {tab === "registrations" && manage && <FormRegistriesView />}
           {tab === "settings" && manage && <LayoutSettings />}
         </Suspense>

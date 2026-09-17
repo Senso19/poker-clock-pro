@@ -8,6 +8,7 @@ import {
   adminCreateAccount,
   mergeAccounts,
   fetchClubSettings,
+  setAccountClubName,
   ROLE_LABELS,
   PERMISSION_LABELS,
   DEFAULT_ROLE_PERMISSIONS,
@@ -53,7 +54,16 @@ export default function AccountsAdmin() {
   async function handleRoleChange(id, role) {
     try {
       await updateAccountRole(id, role);
-      setAccounts((list) => list.map((a) => (a.id === id ? { ...a, role } : a)));
+      setAccounts((list) => list.map((a) => (a.id === id ? { ...a, role, club_name: role === "club_manager" ? a.club_name : null } : a)));
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  async function handleClubNameChange(id, clubName) {
+    try {
+      await setAccountClubName(id, clubName);
+      setAccounts((list) => list.map((a) => (a.id === id ? { ...a, club_name: clubName?.trim() || null } : a)));
     } catch (e) {
       setError(e.message);
     }
@@ -171,7 +181,19 @@ export default function AccountsAdmin() {
                   {a.first_name} {a.last_name}
                 </div>
               )}
+              {a.club_name && a.role !== "club_manager" && (
+                <div className="pcp-body text-[11px] text-felt-cream/40 truncate italic">Membre du {a.club_name}</div>
+              )}
             </button>
+            {a.role === "club_manager" && (
+              <input
+                defaultValue={a.club_name || ""}
+                onBlur={(e) => e.target.value.trim() !== (a.club_name || "") && handleClubNameChange(a.id, e.target.value)}
+                placeholder="Nom du club affilié"
+                title="Nom du club affilié à ce gestionnaire de club"
+                className="pcp-value w-36 shrink-0 bg-felt-bg border border-felt-gold/30 rounded-md px-2 py-1.5 text-sm text-felt-cream placeholder:text-felt-cream/30"
+              />
+            )}
             <div className="flex items-center gap-3 shrink-0 ml-auto sm:ml-0">
               {a.is_owner ? (
                 <span
@@ -366,12 +388,17 @@ function AddAccountModal({ onClose, onCreated }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("player");
+  const [clubName, setClubName] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
   async function handleCreate() {
     if (!pseudo.trim() || !firstName.trim() || !lastName.trim() || !password.trim()) {
       setError("Pseudo, prénom, nom et mot de passe sont obligatoires.");
+      return;
+    }
+    if (role === "club_manager" && !clubName.trim()) {
+      setError("Le nom du club affilié est obligatoire pour un gestionnaire de club.");
       return;
     }
     setSaving(true);
@@ -384,6 +411,7 @@ function AddAccountModal({ onClose, onCreated }) {
         email: email.trim(),
         password: password.trim(),
         role,
+        clubName,
       });
       onCreated(created);
     } catch (e) {
@@ -418,6 +446,9 @@ function AddAccountModal({ onClose, onCreated }) {
               ))}
             </select>
           </label>
+          {role === "club_manager" && (
+            <Field label="Nom du club affilié" value={clubName} onChange={setClubName} placeholder="Ex : Poker Club de Brive" />
+          )}
         </div>
         {error && <div className="text-felt-alert text-sm mt-3">{error}</div>}
         <div className="flex gap-2 mt-5">
@@ -578,7 +609,11 @@ function RolePermissionsMatrix() {
   const { theme, setTheme } = useTheme();
   const perms = { ...DEFAULT_ROLE_PERMISSIONS, ...(theme.rolePermissions || {}) };
   const locked = theme.rolePermissionsLocked || {};
-  const roles = Object.keys(ROLE_LABELS).filter((r) => r !== "admin");
+  // "club_manager" n'apparaît pas ici : ses droits sont toujours
+  // circonscrits aux tournois interclubs et à son propre club (voir
+  // lib/auth.js), jamais globaux — aucune case à cocher ne doit pouvoir lui
+  // donner un droit sur tous les tournois ou tous les membres.
+  const roles = Object.keys(ROLE_LABELS).filter((r) => r !== "admin" && r !== "club_manager");
   const permKeys = Object.keys(PERMISSION_LABELS);
 
   async function persist(next) {

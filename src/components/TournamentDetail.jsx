@@ -4,7 +4,8 @@ import { supabase } from "../lib/supabase.js";
 import { importPlayersFromFile, exportResultsToExcel } from "./SheetsSync.jsx";
 import { computeTournamentPoints, fetchChampionships, computeFinishPositions } from "../lib/points.js";
 import { selectTournament } from "../lib/tournaments.js";
-import { fetchAllAccounts, assignTableCaptain, fetchTableCaptainAssignments, canParticipate } from "../lib/auth.js";
+import { fetchAllAccounts, assignTableCaptain, fetchTableCaptainAssignments, canParticipate, isClubManager, MAX_CLUB_REGS_PER_INTERCLUB } from "../lib/auth.js";
+import { useAccount } from "../context/AccountContext.jsx";
 import TicketPrint from "./TicketPrint.jsx";
 import TicketModal from "./TicketModal.jsx";
 import SeatPickerModal from "./SeatPickerModal.jsx";
@@ -27,7 +28,11 @@ import { useIsMobile } from "../lib/useIsMobile.js";
  */
 export default function TournamentDetail({ tournamentId, onBack }) {
   const confirmAction = useConfirm();
+  const { account } = useAccount();
   const isMobile = useIsMobile();
+  // Un gestionnaire de club (dans un tournoi interclubs) ne peut inscrire
+  // que les membres de son propre club, jusqu'à MAX_CLUB_REGS_PER_INTERCLUB.
+  const isClubMgr = isClubManager(account?.role);
   const [mobileSubTab, setMobileSubTab] = useState("params"); // "params" | "table" — sous-onglets mobile uniquement
   const [tournament, setTournament] = useState(null);
   const [registrations, setRegistrations] = useState([]);
@@ -102,7 +107,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   async function loadRegistrations() {
     const { data, error } = await supabase
       .from("registrations")
-      .select("*, players(id, full_name, first_name, last_name, club, pseudo), accounts(avatar_data, pseudo)")
+      .select("*, players(id, full_name, first_name, last_name, club, pseudo), accounts(avatar_data, pseudo, club_name)")
       .eq("tournament_id", tournamentId)
       .order("registered_at", { ascending: true });
     if (error) setError(error.message);
@@ -210,7 +215,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
         seat_number: null,
         stack: tournament.starting_stack,
       })
-      .select("*, players(id, full_name, first_name, last_name, club, pseudo), accounts(avatar_data, pseudo)")
+      .select("*, players(id, full_name, first_name, last_name, club, pseudo), accounts(avatar_data, pseudo, club_name)")
       .single();
     if (regErr) throw regErr;
 
@@ -251,11 +256,22 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     setOpenMenuId(null);
   }
 
+  // Nombre de membres du club du gestionnaire déjà inscrits à CE tournoi
+  // interclubs (utilisé pour plafonner à MAX_CLUB_REGS_PER_INTERCLUB).
+  function myClubRegistrationsCount() {
+    if (!isClubMgr || !account?.club_name) return 0;
+    return registrations.filter((r) => r.accounts?.club_name === account.club_name).length;
+  }
+
   // "Membre du club" = un vrai compte de l'app (pas n'importe quel nom déjà
   // tapé lors d'un tournoi précédent). On lie la registration à ce compte.
-  async function handleRegisterExisting(account) {
+  async function handleRegisterExisting(pickedAccount) {
+    if (isClubMgr && tournament?.is_interclub && myClubRegistrationsCount() >= MAX_CLUB_REGS_PER_INTERCLUB) {
+      setError(`Vous avez déjà inscrit ${MAX_CLUB_REGS_PER_INTERCLUB} membres de votre club à ce tournoi interclubs (maximum).`);
+      return;
+    }
     try {
-      await registerOnePlayer(account.pseudo, account.id);
+      await registerOnePlayer(pickedAccount.pseudo, pickedAccount.id);
       await loadRegistrations();
     } catch (e) {
       setError(e.message);
@@ -263,6 +279,10 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   }
 
   async function handleRegisterNew(name) {
+    // Un gestionnaire de club ne peut inscrire que des membres existants de
+    // son club (voir "Mon club") — jamais un joueur ajouté au vol, qui
+    // n'appartiendrait à aucun club et échapperait au plafond.
+    if (isClubMgr && tournament?.is_interclub) return;
     try {
       await registerOnePlayer(name);
       await loadRegistrations();
@@ -1150,8 +1170,14 @@ export default function TournamentDetail({ tournamentId, onBack }) {
       {showRegister && (
         <RegisterPlayerModal
           registeredCount={registrations.length}
-          members={captainAccounts.filter(canParticipate)}
+          members={captainAccounts.filter(canParticipate).filter((a) => !isClubMgr || a.club_name === account?.club_name)}
           registeredMemberIds={new Set(registrations.filter((r) => r.account_id).map((r) => r.account_id))}
+          allowNew={!(isClubMgr && tournament?.is_interclub)}
+          capNotice={
+            isClubMgr && tournament?.is_interclub
+              ? `${myClubRegistrationsCount()}/${MAX_CLUB_REGS_PER_INTERCLUB} membres de votre club inscrits`
+              : null
+          }
           onRegisterExisting={async (a) => {
             await handleRegisterExisting(a);
           }}

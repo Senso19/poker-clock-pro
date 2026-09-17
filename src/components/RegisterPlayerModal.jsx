@@ -23,6 +23,8 @@ export default function RegisterPlayerModal({
   registeredCount,
   members,
   registeredMemberIds,
+  allowNew = true,
+  capNotice = null,
   onRegisterExisting,
   onRegisterNew,
   onClose,
@@ -61,27 +63,32 @@ export default function RegisterPlayerModal({
           <div className="font-display text-lg">
             Inscrire un joueur <span className="text-felt-gold">({registeredCount})</span>
           </div>
-          <div className="text-felt-cream/50 text-sm mt-1">Choisir un membre du club ou ajouter un nouveau joueur</div>
+          <div className="text-felt-cream/50 text-sm mt-1">
+            {allowNew ? "Choisir un membre du club ou ajouter un nouveau joueur" : "Choisir un membre de votre club"}
+          </div>
+          {capNotice && <div className="text-felt-gold text-xs mt-1.5">{capNotice}</div>}
         </div>
 
-        <div className="flex border-b border-felt-cream/10 shrink-0">
-          <button
-            onClick={() => setTab("club")}
-            className={`flex-1 py-3 text-sm font-display text-center border-b-2 -mb-px ${
-              tab === "club" ? "border-felt-gold text-felt-gold" : "border-transparent text-felt-cream/50 hover:text-felt-cream"
-            }`}
-          >
-            Membre du club
-          </button>
-          <button
-            onClick={() => setTab("new")}
-            className={`flex-1 py-3 text-sm font-display text-center border-b-2 -mb-px ${
-              tab === "new" ? "border-felt-gold text-felt-gold" : "border-transparent text-felt-cream/50 hover:text-felt-cream"
-            }`}
-          >
-            Ajouter nouveau
-          </button>
-        </div>
+        {allowNew && (
+          <div className="flex border-b border-felt-cream/10 shrink-0">
+            <button
+              onClick={() => setTab("club")}
+              className={`flex-1 py-3 text-sm font-display text-center border-b-2 -mb-px ${
+                tab === "club" ? "border-felt-gold text-felt-gold" : "border-transparent text-felt-cream/50 hover:text-felt-cream"
+              }`}
+            >
+              Membre du club
+            </button>
+            <button
+              onClick={() => setTab("new")}
+              className={`flex-1 py-3 text-sm font-display text-center border-b-2 -mb-px ${
+                tab === "new" ? "border-felt-gold text-felt-gold" : "border-transparent text-felt-cream/50 hover:text-felt-cream"
+              }`}
+            >
+              Ajouter nouveau
+            </button>
+          </div>
+        )}
 
         {tab === "club" ? (
           <>

@@ -159,7 +159,21 @@ export async function updateAccountRole(id, role) {
   // librement modifiables.
   const { data: current } = await supabase.from("accounts").select("is_owner").eq("id", id).maybeSingle();
   if (current?.is_owner) throw new Error("Le rôle de ce compte ne peut pas être changé.");
-  const { error } = await supabase.from("accounts").update({ role }).eq("id", id);
+  const payload = { role };
+  // Un compte qui perd le rôle "gestionnaire de club" perd aussi son
+  // affiliation de club (le club_name n'a de sens que pour ce rôle) ; s'il
+  // le reprend ensuite, l'admin devra le renseigner à nouveau via
+  // setAccountClubName.
+  if (role !== "club_manager") payload.club_name = null;
+  const { error } = await supabase.from("accounts").update(payload).eq("id", id);
+  if (error) throw error;
+}
+
+// Nom du club affilié à un gestionnaire de club, fixé par l'administrateur
+// (voir "Gérer les membres"). Ses membres créés ensuite via "Mon club"
+// héritent automatiquement de ce nom.
+export async function setAccountClubName(id, clubName) {
+  const { error } = await supabase.from("accounts").update({ club_name: clubName?.trim() || null }).eq("id", id);
   if (error) throw error;
 }
 
@@ -170,7 +184,7 @@ export async function deleteAccount(id) {
 
 // Création d'un compte directement par l'admin (depuis "Gérer les
 // membres") : validé d'office, contrairement à une inscription publique.
-export async function adminCreateAccount({ pseudo, firstName, lastName, email, password, role, avatarData }) {
+export async function adminCreateAccount({ pseudo, firstName, lastName, email, password, role, avatarData, clubName }) {
   const { data, error } = await supabase
     .from("accounts")
     .insert({
@@ -180,6 +194,7 @@ export async function adminCreateAccount({ pseudo, firstName, lastName, email, p
       email: email || null,
       password,
       role: role || "player",
+      club_name: role === "club_manager" ? clubName?.trim() || null : null,
       avatar_data: avatarData || null,
       validated: true,
     })
@@ -303,17 +318,25 @@ export const ROLE_LABELS = {
   tournament_director: "Tournament Director",
   floor: "Floor",
   table_captain: "Chef de table",
+  club_manager: "Gestionnaire de club",
   player: "Joueur",
   invite: "Invité",
 };
 
 // Droits par défaut (comportement d'origine, avant que l'admin ne
 // personnalise la matrice). "invite" a les mêmes droits que "player".
+// "club_manager" n'apparaît pas dans cette matrice générale (voir
+// RolePermissionsMatrix) : ses droits sont volontairement tous à false ici
+// et gérés à part, de façon toujours circonscrite aux tournois interclubs
+// (voir canManageTournament / isClubManager ci-dessous), pour qu'aucune
+// case de la matrice ne puisse accidentellement lui donner un droit global
+// (créer des tournois, gérer tous les membres, etc.).
 const DEFAULT_ROLE_PERMISSIONS = {
   admin: { manageTournaments: true, manageAccounts: true, controlClock: true, eliminateAnyone: true },
   tournament_director: { manageTournaments: true, manageAccounts: false, controlClock: true, eliminateAnyone: true },
   floor: { manageTournaments: false, manageAccounts: false, controlClock: true, eliminateAnyone: true },
   table_captain: { manageTournaments: false, manageAccounts: false, controlClock: false, eliminateAnyone: false },
+  club_manager: { manageTournaments: false, manageAccounts: false, controlClock: false, eliminateAnyone: false },
   player: { manageTournaments: false, manageAccounts: false, controlClock: false, eliminateAnyone: false },
   invite: { manageTournaments: false, manageAccounts: false, controlClock: false, eliminateAnyone: false },
 };
@@ -360,6 +383,86 @@ export function canEliminateAnyone(role) {
 }
 
 export { DEFAULT_ROLE_PERMISSIONS };
+
+// --- Gestionnaire de club / tournois interclubs ---------------------------
+//
+// Un "gestionnaire de club" gère uniquement les tournois marqués "Tournoi
+// interclubs" (tournaments.is_interclub) — jamais les tournois normaux du
+// club, et il ne peut jamais en créer (la création reste réservée à
+// l'administrateur, ou à qui a la permission globale manageTournaments,
+// exactement comme avant). Il gère aussi son propre club : il peut y
+// inscrire des membres (accounts.club_name = le nom de son club, fixé par
+// l'admin) et les inscrire dans les tournois interclubs, dans la limite de
+// MAX_CLUB_REGS_PER_INTERCLUB par tournoi.
+
+export const MAX_CLUB_REGS_PER_INTERCLUB = 10;
+
+export function isClubManager(role) {
+  return role === "club_manager";
+}
+
+// Un "membre de club" est un compte affilié à un club externe (club_name
+// renseigné) mais qui n'est pas lui-même le gestionnaire de ce club — il ne
+// voit et ne participe qu'aux tournois interclubs, en lecture seule.
+export function isClubMember(account) {
+  return !!account?.club_name && !isClubManager(account?.role);
+}
+
+// Détermine si `account` peut gérer CE tournoi précis. Les rôles à
+// permission globale (admin, TD, floor selon la matrice) gèrent tous les
+// tournois comme avant ; le gestionnaire de club ne gère que les tournois
+// interclubs, quel que soit le club organisateur.
+export function canManageTournament(account, tournament) {
+  if (!account) return false;
+  if (canManageTournaments(account.role)) return true;
+  return isClubManager(account.role) && !!tournament?.is_interclub;
+}
+
+// Gestion de son propre club (inscription de membres, etc.) — réservé au
+// gestionnaire de club, distinct de canManageAccounts (admin, tous les
+// membres du site).
+export function canManageOwnClub(role) {
+  return isClubManager(role);
+}
+
+// Membres d'un club donné (créés par son gestionnaire), pour "Mon club".
+export async function fetchClubMembers(clubName) {
+  if (!clubName) return [];
+  const { data, error } = await supabase
+    .from("accounts")
+    .select("*")
+    .eq("club_name", clubName)
+    .neq("role", "club_manager")
+    .order("pseudo", { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+// Création d'un membre de club par son gestionnaire : toujours rôle
+// "player", toujours affilié au club du gestionnaire, validé d'office.
+export async function createClubMember(managerAccount, { pseudo, firstName, lastName, email, password, avatarData }) {
+  if (!managerAccount?.club_name) throw new Error("Aucun club affilié à ce compte.");
+  const { data, error } = await supabase
+    .from("accounts")
+    .insert({
+      pseudo,
+      first_name: firstName,
+      last_name: lastName,
+      email: email || null,
+      password,
+      role: "player",
+      club_name: managerAccount.club_name,
+      avatar_data: avatarData || null,
+      validated: true,
+    })
+    .select()
+    .single();
+  if (error) {
+    if (error.message?.includes("duplicate")) throw new Error("Ce pseudo est déjà pris.");
+    throw error;
+  }
+  return data;
+}
 
 // Fusionne un compte "doublon" (mergeId) dans le compte à conserver
 // (keepId) : toutes ses inscriptions, ses messages de chat et son rôle de
