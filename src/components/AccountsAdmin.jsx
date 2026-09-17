@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import ClubLoader from "./ClubLoader.jsx";
-import { Pencil, Trash2, Merge, Search, UserPlus, Mail, Download, Copy, Lock, LockOpen } from "lucide-react";
+import { Pencil, Trash2, Merge, Search, UserPlus, Mail, Download, Copy, Lock, LockOpen, Shield } from "lucide-react";
 import {
   fetchAllAccounts,
   updateAccountRole,
@@ -37,6 +37,7 @@ export default function AccountsAdmin() {
   const [mergingAccount, setMergingAccount] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
+  const [showPermissions, setShowPermissions] = useState(false);
 
   useEffect(() => {
     load();
@@ -50,24 +51,6 @@ export default function AccountsAdmin() {
       setError(e.message);
     }
     setLoading(false);
-  }
-
-  async function handleRoleChange(id, role) {
-    try {
-      await updateAccountRole(id, role);
-      setAccounts((list) => list.map((a) => (a.id === id ? { ...a, role, club_name: role === "club_manager" ? a.club_name : null } : a)));
-    } catch (e) {
-      setError(e.message);
-    }
-  }
-
-  async function handleClubNameChange(id, clubName) {
-    try {
-      await setAccountClubName(id, clubName);
-      setAccounts((list) => list.map((a) => (a.id === id ? { ...a, club_name: clubName?.trim() || null } : a)));
-    } catch (e) {
-      setError(e.message);
-    }
   }
 
   async function handleDelete(id, pseudo) {
@@ -152,6 +135,12 @@ export default function AccountsAdmin() {
           <Mail size={16} /> Inviter un membre
         </button>
         <button
+          onClick={() => setShowPermissions(true)}
+          className="flex items-center gap-1.5 px-3 py-2.5 text-sm text-felt-gold hover:text-felt-gold/80"
+        >
+          <Shield size={16} /> Droits par rôle
+        </button>
+        <button
           onClick={downloadCsv}
           className="flex items-center gap-1.5 px-3 py-2.5 text-sm text-felt-gold hover:text-felt-gold/80"
         >
@@ -166,7 +155,7 @@ export default function AccountsAdmin() {
           <div
             key={a.id}
             style={{ backgroundColor: "var(--pcp-cell-bg)", color: "var(--pcp-cell-text)" }}
-            className="flex flex-wrap items-center gap-3 py-3"
+            className="flex flex-wrap items-center gap-3 py-3 px-3 sm:px-4"
           >
             {a.avatar_data ? (
               <img src={a.avatar_data} alt="" className="w-11 h-11 rounded-full object-cover shrink-0" />
@@ -182,40 +171,12 @@ export default function AccountsAdmin() {
                   {a.first_name} {a.last_name}
                 </div>
               )}
-              {a.club_name && a.role !== "club_manager" && (
-                <div className="pcp-body text-[11px] text-felt-cream/40 truncate italic">Membre du {a.club_name}</div>
-              )}
+              <div className="pcp-body text-[11px] text-felt-cream/40 truncate">
+                {a.is_owner ? "Administrateur" : ROLE_LABELS[a.role] || a.role}
+                {a.club_name && ` — ${a.role === "club_manager" ? "gestionnaire du" : "membre du"} ${a.club_name}`}
+              </div>
             </button>
-            {a.role === "club_manager" && (
-              <input
-                defaultValue={a.club_name || ""}
-                onBlur={(e) => e.target.value.trim() !== (a.club_name || "") && handleClubNameChange(a.id, e.target.value)}
-                placeholder="Nom du club affilié"
-                title="Nom du club affilié à ce gestionnaire de club"
-                className="pcp-value w-36 shrink-0 bg-felt-bg border border-felt-gold/30 rounded-md px-2 py-1.5 text-sm text-felt-cream placeholder:text-felt-cream/30"
-              />
-            )}
             <div className="flex items-center gap-3 shrink-0 ml-auto sm:ml-0">
-              {a.is_owner ? (
-                <span
-                  title="Le rôle de ce compte (fondateur du club) ne peut pas être changé ici : donnez le rôle admin à quelqu'un d'autre puis supprimez ce compte pour transférer l'accès."
-                  className="pcp-value flex items-center gap-1.5 bg-felt-bg border border-felt-cream/10 rounded-md px-2 py-1.5 text-sm text-felt-gold shrink-0"
-                >
-                  <Lock size={13} /> Admin
-                </span>
-              ) : (
-                <select
-                  value={a.role}
-                  onChange={(e) => handleRoleChange(a.id, e.target.value)}
-                  className="pcp-value bg-felt-bg border border-felt-cream/10 rounded-md px-2 py-1.5 text-sm text-felt-gold shrink-0"
-                >
-                  {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              )}
               <div className="flex items-center gap-3 shrink-0 text-felt-cream/50">
                 <button onClick={() => setEditingAccount(a)} title="Modifier" className="hover:text-white">
                   <Pencil size={16} />
@@ -233,8 +194,15 @@ export default function AccountsAdmin() {
         {filtered.length === 0 && <div className="text-sm text-felt-cream/50 py-6">Aucun membre ne correspond.</div>}
       </CustomizablePanel>
 
-      <RolePermissionsMatrix />
       </div>
+
+      {showPermissions && (
+        <div onClick={() => setShowPermissions(false)} className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-2xl max-h-[85vh] overflow-y-auto">
+            <RolePermissionsMatrix onClose={() => setShowPermissions(false)} />
+          </div>
+        </div>
+      )}
 
       {editingAccount && (
         <EditAccountModal
@@ -470,6 +438,11 @@ function AddAccountModal({ onClose, onCreated }) {
 }
 
 function EditAccountModal({ account, onClose, onSaved }) {
+  // Le rôle et le club affilié se règlent ici depuis que la ligne de la
+  // liste ne porte plus de sélecteur : tout ce qui concerne un membre est
+  // au même endroit, sa fiche.
+  const [role, setRole] = useState(account.role || "player");
+  const [clubName, setClubName] = useState(account.club_name || "");
   const [pseudo, setPseudo] = useState(account.pseudo || "");
   const [firstName, setFirstName] = useState(account.first_name || "");
   const [lastName, setLastName] = useState(account.last_name || "");
@@ -492,6 +465,10 @@ function EditAccountModal({ account, onClose, onSaved }) {
       setError("Pseudo, prénom et nom sont obligatoires.");
       return;
     }
+    if (!account.is_owner && role === "club_manager" && !clubName.trim()) {
+      setError("Le nom du club affilié est obligatoire pour un gestionnaire de club.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -503,7 +480,24 @@ function EditAccountModal({ account, onClose, onSaved }) {
         avatarData,
         password: password.trim(),
       });
-      onSaved(updated);
+      // Le rôle du fondateur du club n'est pas modifiable (voir
+      // updateAccountRole, qui le refuse aussi côté données).
+      let nextRole = account.role;
+      let nextClub = account.club_name || null;
+      if (!account.is_owner) {
+        if (role !== account.role) {
+          // updateAccountRole remet club_name à null dès que le rôle
+          // n'est plus "gestionnaire de club".
+          await updateAccountRole(account.id, role);
+          nextRole = role;
+          nextClub = role === "club_manager" ? nextClub : null;
+        }
+        if (role === "club_manager" && clubName.trim() !== (account.club_name || "")) {
+          await setAccountClubName(account.id, clubName);
+          nextClub = clubName.trim() || null;
+        }
+      }
+      onSaved({ ...updated, role: nextRole, club_name: nextClub });
     } catch (e) {
       setError(e.message);
     }
@@ -541,6 +535,35 @@ function EditAccountModal({ account, onClose, onSaved }) {
             <Field label="Nom" value={lastName} onChange={setLastName} />
           </div>
           <Field label="Email" value={email} onChange={setEmail} placeholder="optionnel" />
+          {account.is_owner ? (
+            <div className="text-xs text-felt-cream/50">
+              Rôle
+              <div
+                title="Le rôle de ce compte (fondateur du club) ne peut pas être changé ici : donnez le rôle admin à quelqu'un d'autre puis supprimez ce compte pour transférer l'accès."
+                className="mt-1 flex items-center gap-1.5 bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-2 text-sm text-felt-gold"
+              >
+                <Lock size={13} /> Administrateur
+              </div>
+            </div>
+          ) : (
+            <label className="block text-xs text-felt-cream/50">
+              Rôle
+              <select
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                className="w-full mt-1 bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-2 text-felt-cream"
+              >
+                {Object.entries(ROLE_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {!account.is_owner && role === "club_manager" && (
+            <Field label="Nom du club affilié" value={clubName} onChange={setClubName} placeholder="Ex : Poker Club de Brive" />
+          )}
           <Field
             label="Nouveau mot de passe"
             value={password}
@@ -606,7 +629,7 @@ function Field({ label, value, onChange, placeholder, type = "text" }) {
  * rolePermissionsLocked, et lu par les fonctions can*() de lib/auth.js
  * partout dans l'app.
  */
-function RolePermissionsMatrix() {
+function RolePermissionsMatrix({ onClose }) {
   const { theme, setTheme } = useTheme();
   const perms = { ...DEFAULT_ROLE_PERMISSIONS, ...(theme.rolePermissions || {}) };
   const locked = theme.rolePermissionsLocked || {};
@@ -637,8 +660,15 @@ function RolePermissionsMatrix() {
   }
 
   return (
-    <div className="mt-8 bg-felt-panel border border-felt-cream/10 rounded-md p-4 max-w-2xl mx-auto">
-      <div className="font-display text-base mb-1">Droits par rôle</div>
+    <div className="bg-felt-panel border border-felt-cream/10 rounded-md p-4">
+      <div className="flex items-center justify-between mb-1">
+        <div className="font-display text-base">Droits par rôle</div>
+        {onClose && (
+          <button onClick={onClose} className="text-felt-cream/50 hover:text-felt-cream">
+            ✕
+          </button>
+        )}
+      </div>
       <div className="text-xs text-felt-cream/50 mb-4">
         Modifiable uniquement par l'administrateur. « Invité » a les mêmes droits que « Joueur » par défaut. Le rôle
         Administrateur a toujours tous les droits (non modifiable). Cliquez le cadenas pour figer un rôle et éviter
