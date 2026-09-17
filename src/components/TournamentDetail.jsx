@@ -923,13 +923,19 @@ export default function TournamentDetail({ tournamentId, onBack }) {
                 className="hidden"
                 id="excel-import"
               />
-              <label
-                htmlFor="excel-import"
+              {/* Un vrai bouton plutôt qu'un <label htmlFor>, pour qu'il soit
+                  personnalisable comme les autres : il ouvre le sélecteur de
+                  fichier en cliquant le champ caché ci-dessus. */}
+              <EditableButton
+                groupKey="players-toolbar"
+                id="import-excel"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={importing}
                 title="Accepte les fichiers Excel/CSV exportés d'autres apps (BlindValet, etc.) — colonnes Nom/Prénom/Player/Pseudo reconnues"
-                className="pcp-btn cursor-pointer px-3 py-1.5 text-xs bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display whitespace-nowrap"
+                className="pcp-btn px-3 py-1.5 text-xs bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream font-display whitespace-nowrap disabled:opacity-60"
               >
                 {importing ? "Import…" : "Importer Excel/CSV"}
-              </label>
+              </EditableButton>
               <EditableButton
                 groupKey="players-toolbar"
                 id="paste-list"
