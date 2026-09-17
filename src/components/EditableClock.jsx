@@ -6,7 +6,7 @@ import { saveClockState, secondsUntilScheduledStart, COUNTDOWN_WINDOW_HOURS } fr
 import { playSound, SOUND_OPTIONS } from "../lib/sounds.js";
 import { addAnnouncement, fetchRecentAnnouncements } from "../lib/announcements.js";
 import { computeFinishPositions } from "../lib/points.js";
-import { formatTime, formatCountdown, clamp } from "../lib/format.js";
+import { formatTime, formatCountdown, formatChips, clamp } from "../lib/format.js";
 import { compressImageFile, uploadImageToStorage } from "../lib/imageUtils.js";
 import EditableButton from "./EditableButton.jsx";
 
@@ -884,6 +884,10 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
         }
       : null;
   const stripeBars = bg?.bars || [];
+  // Abréviation des montants (10000 -> 10K), réglage club dans
+  // "Réglages d'affichage". chips() est utilisé partout où un montant de
+  // blinds/ante est AFFICHÉ — jamais dans un champ de saisie.
+  const chips = (v) => formatChips(v, !!theme.compactChips);
   const bgTintStyle =
     bg?.type === "image" && bg.tint?.color
       ? { backgroundColor: bg.tint.color, opacity: bg.tint.opacity ?? 0.5, mixBlendMode: "color" }
@@ -1332,14 +1336,14 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
               panels.blinds.style.blindsLayout === "row" ? (
                 <FitText>
                   <div className="flex items-center gap-3">
-                    <div style={textStyle(panels.blinds.style)}>{currentLevel.smallBlind}</div>
+                    <div style={textStyle(panels.blinds.style)}>{chips(currentLevel.smallBlind)}</div>
                     <div className="w-px h-6 bg-felt-cream/20 shrink-0" />
                     <div className="flex flex-col items-center">
-                      <div style={textStyle(panels.blinds.style)}>{currentLevel.bigBlind}</div>
+                      <div style={textStyle(panels.blinds.style)}>{chips(currentLevel.bigBlind)}</div>
                       {currentLevel.ante > 0 && (
                         <>
                           <div className="text-felt-cream/30 uppercase tracking-wide text-[9px] mt-1">Ante</div>
-                          <div className="text-felt-gold text-xs">{currentLevel.ante}</div>
+                          <div className="text-felt-gold text-xs">{chips(currentLevel.ante)}</div>
                         </>
                       )}
                     </div>
@@ -1348,10 +1352,10 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
               ) : (
                 <FitText>
                   <div className="flex flex-col items-end">
-                    <div style={textStyle(panels.blinds.style)}>{currentLevel.smallBlind}</div>
+                    <div style={textStyle(panels.blinds.style)}>{chips(currentLevel.smallBlind)}</div>
                     <div className="w-full h-px bg-felt-cream/20 my-1" />
-                    <div style={textStyle(panels.blinds.style)}>{currentLevel.bigBlind}</div>
-                    {currentLevel.ante > 0 && <div className="text-felt-gold text-xs mt-1">({currentLevel.ante})</div>}
+                    <div style={textStyle(panels.blinds.style)}>{chips(currentLevel.bigBlind)}</div>
+                    {currentLevel.ante > 0 && <div className="text-felt-gold text-xs mt-1">({chips(currentLevel.ante)})</div>}
                   </div>
                 </FitText>
               )
@@ -1398,7 +1402,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
         <Panel id="avgstack" layout={panels.avgstack} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Tapis moyen" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
           <PanelBody style={panels.avgstack.style} title={panels.avgstack.style.customTitle || "Tapis moyen"}>
             <div style={textStyle(panels.avgstack.style)}>
-              {avgStack.toLocaleString()} <span className="text-felt-gold" style={{ fontSize: `${panels.avgstack.style.fontSize * 0.5}px` }}>({avgStackBB} BB)</span>
+              {theme.compactChips ? chips(avgStack) : avgStack.toLocaleString("fr-FR")} <span className="text-felt-gold" style={{ fontSize: `${panels.avgstack.style.fontSize * 0.5}px` }}>({avgStackBB} BB)</span>
             </div>
           </PanelBody>
         </Panel>
@@ -1493,7 +1497,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
             </div>
             <div className="text-felt-cream/40 mt-1" style={{ fontSize: `${panels.players.style.titleFontSize || 10}px`, textAlign: panels.players.style.align }}>TAPIS MOYEN</div>
             <div style={{ ...textStyle(panels.players.style), fontSize: `${panels.players.style.fontSize * 0.75}px` }}>
-              {avgStack.toLocaleString()} <span className="text-felt-gold" style={{ fontSize: `${panels.players.style.fontSize * 0.4}px` }}>({avgStackBB} BB)</span>
+              {theme.compactChips ? chips(avgStack) : avgStack.toLocaleString("fr-FR")} <span className="text-felt-gold" style={{ fontSize: `${panels.players.style.fontSize * 0.4}px` }}>({avgStackBB} BB)</span>
             </div>
           </PanelBody>
         </Panel>
@@ -1508,10 +1512,10 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
               ) : panels.next.style.blindsLayout === "stack" ? (
                 <FitText>
                   <div className="flex flex-col items-end">
-                    <div style={textStyle(panels.next.style)}>{nextLevel.smallBlind}</div>
+                    <div style={textStyle(panels.next.style)}>{chips(nextLevel.smallBlind)}</div>
                     <div className="w-full h-px bg-felt-cream/20 my-1" />
-                    <div style={textStyle(panels.next.style)}>{nextLevel.bigBlind}</div>
-                    {nextLevel.ante > 0 && <div className="text-felt-gold text-xs mt-1">({nextLevel.ante})</div>}
+                    <div style={textStyle(panels.next.style)}>{chips(nextLevel.bigBlind)}</div>
+                    {nextLevel.ante > 0 && <div className="text-felt-gold text-xs mt-1">({chips(nextLevel.ante)})</div>}
                   </div>
                 </FitText>
               ) : (
@@ -1519,9 +1523,9 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
                   <div className="flex items-center" style={{ gap: `${panels.next.style.itemGap ?? 8}px` }}>
                     <span style={textStyle(panels.next.style)}>{levelIndex + 2}</span>
                     <span style={textStyle(panels.next.style)}>
-                      {nextLevel.smallBlind}/{nextLevel.bigBlind}
+                      {chips(nextLevel.smallBlind)}/{chips(nextLevel.bigBlind)}
                     </span>
-                    {nextLevel.ante > 0 && <span style={textStyle(panels.next.style)}>({nextLevel.ante})</span>}
+                    {nextLevel.ante > 0 && <span style={textStyle(panels.next.style)}>({chips(nextLevel.ante)})</span>}
                     {nextLevel.durationMinutes && <span style={textStyle(panels.next.style)}>{nextLevel.durationMinutes} min</span>}
                   </div>
                 </FitText>
@@ -1543,7 +1547,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
       {!panels.structure.removed && (
         <Panel id="structure" layout={panels.structure} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Structure des blinds" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
           {panels.structure.style.showTitle && <div className="text-felt-cream/30 uppercase tracking-wide mb-2" style={titleStyle(panels.structure.style)}>{panels.structure.style.customTitle || "Structure des blinds"}</div>}
-          <StructureContent style={panels.structure.style} levels={levels} levelIndex={levelIndex} />
+          <StructureContent style={panels.structure.style} levels={levels} levelIndex={levelIndex} chips={chips} />
         </Panel>
       )}
 
@@ -1569,7 +1573,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
             </div>
           )}
           <div key={currentCarouselType} style={{ animation: "pcp-fade 400ms ease" }}>
-            {currentCarouselType === "structure" && <StructureContent style={panels.carousel.style} levels={levels} levelIndex={levelIndex} />}
+            {currentCarouselType === "structure" && <StructureContent style={panels.carousel.style} levels={levels} levelIndex={levelIndex} chips={chips} />}
             {currentCarouselType === "eliminated" && <EliminatedContent style={panels.carousel.style} lastElimination={lastElimination} total={registrations.length} textStyle={textStyle} />}
             {currentCarouselType === "headsup" && <HeadsupContent style={panels.carousel.style} stillIn={stillIn} textStyle={textStyle} />}
             {currentCarouselType === "ranking" && <RankingContent style={panels.carousel.style} eliminations={rankedEliminations} textStyle={textStyle} />}
@@ -1738,7 +1742,9 @@ function AnnouncementsContent({ style, announcement, textStyle }) {
   );
 }
 
-function StructureContent({ style, levels, levelIndex }) {
+// chips vient du parent (réglage "Montants abrégés") plutôt que d'un
+// useTheme local : ce composant est déjà rendu deux fois par cycle.
+function StructureContent({ style, levels, levelIndex, chips }) {
   const visible = levels.slice(levelIndex, levelIndex + 5);
   return (
     <div className="space-y-1 overflow-hidden" style={{ ...style && { fontFamily: FONT_FAMILY[style.font] || FONT_FAMILY.body } }}>
@@ -1753,7 +1759,7 @@ function StructureContent({ style, levels, levelIndex }) {
             <span className="w-6 text-felt-cream/40 shrink-0">{levelIndex + i + 1}</span>
             <span className="w-10 text-felt-cream/40 shrink-0">{l.durationMinutes}'</span>
             <span className="flex-1 text-right">
-              {l.isBreak ? l.breakLabel || "Pause" : `${l.smallBlind}/${l.bigBlind}${l.ante ? ` (${l.ante})` : ""}`}
+              {l.isBreak ? l.breakLabel || "Pause" : `${chips(l.smallBlind)}/${chips(l.bigBlind)}${l.ante ? ` (${chips(l.ante)})` : ""}`}
             </span>
           </div>
         );

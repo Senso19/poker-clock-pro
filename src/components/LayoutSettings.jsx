@@ -341,6 +341,29 @@ export default function LayoutSettings() {
       </div>
 
       <div className="mb-6 bg-felt-panel border border-felt-cream/10 rounded-md px-4 py-3">
+        <div className="font-medium mb-1">Montants abrégés (10000 → 10K)</div>
+        <div className="text-xs text-felt-cream/50 mb-3">
+          Abrège les blindes, antes et tapis à l'affichage : 10000 devient « 10K », 1500 « 1,5K ». Pratique quand les
+          montants s'allongent en fin de tournoi. Les champs de saisie de la structure gardent la forme longue, et les
+          valeurs enregistrées ne changent pas.
+        </div>
+        <label className="flex items-center gap-2 text-sm text-felt-cream/70">
+          <input
+            type="checkbox"
+            checked={!!theme.compactChips}
+            onChange={(e) => {
+              // persist() n'écrit qu'en base : sans setTheme l'affichage ne
+              // suivrait pas avant un rechargement (voir les autres réglages).
+              const next = { ...theme, compactChips: e.target.checked };
+              setTheme(next);
+              persist(next);
+            }}
+          />
+          Abréger les montants
+        </label>
+      </div>
+
+      <div className="mb-6 bg-felt-panel border border-felt-cream/10 rounded-md px-4 py-3">
         <div className="font-medium mb-1">Couleur de fond des cartes</div>
         <div className="text-xs text-felt-cream/50 mb-3">
           S'applique par défaut à toutes les cartes/tableaux personnalisables du site (tournois, championnats,

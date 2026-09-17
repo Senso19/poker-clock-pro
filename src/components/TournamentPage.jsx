@@ -6,6 +6,8 @@ import { fetchLevels, defaultStructure } from "../lib/levels.js";
 import { useAccount } from "../context/AccountContext.jsx";
 import { canManageTournament, canControlClock, isClubManager } from "../lib/auth.js";
 import { useIsMobile } from "../lib/useIsMobile.js";
+import { useTheme } from "../context/ThemeContext.jsx";
+import { formatChips } from "../lib/format.js";
 import EditableClock from "./EditableClock.jsx";
 import MobileClockView from "./MobileClockView.jsx";
 import TablesView from "./TablesView.jsx";
@@ -31,6 +33,10 @@ const TABS = [
  */
 export default function TournamentPage({ tournamentId, onBack }) {
   const { account } = useAccount();
+  const { theme } = useTheme();
+  // Liste de structure en lecture seule (joueurs) : même abréviation des
+  // montants que sur l'horloge, sinon les deux écrans se contrediraient.
+  const chips = (v) => formatChips(v, !!theme.compactChips);
   const isMobile = useIsMobile();
 
   const [tab, setTab] = useState("clock");
@@ -168,7 +174,9 @@ export default function TournamentPage({ tournamentId, onBack }) {
                     <span className="text-felt-cream/40 w-8">{i + 1}</span>
                     <span className="text-felt-cream/40 w-14">{l.durationMinutes}'</span>
                     <span className="flex-1 text-right">
-                      {l.isBreak ? l.breakLabel || "Pause" : `${l.smallBlind}/${l.bigBlind}${l.ante ? ` (${l.ante})` : ""}`}
+                      {l.isBreak
+                        ? l.breakLabel || "Pause"
+                        : `${chips(l.smallBlind)}/${chips(l.bigBlind)}${l.ante ? ` (${chips(l.ante)})` : ""}`}
                     </span>
                   </div>
                 ))}

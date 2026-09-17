@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import ClubLoader from "./ClubLoader.jsx";
 import { supabase } from "../lib/supabase.js";
 import { useTheme } from "../context/ThemeContext.jsx";
+import { formatChips } from "../lib/format.js";
 import CustomizablePanel from "./CustomizablePanel.jsx";
 import EditableButton from "./EditableButton.jsx";
 import { useConfirm } from "../context/ConfirmContext.jsx";
@@ -35,6 +36,10 @@ import {
 export default function StructureEditor({ onSaved, mode = "tournament", template = null }) {
   const confirmAction = useConfirm();
   const { theme } = useTheme();
+  // Les champs de saisie gardent le nombre entier — on ne peut pas taper
+  // "10K" dans un champ numérique — mais les colonnes calculées suivent le
+  // réglage "Montants abrégés".
+  const chips = (v) => formatChips(v, !!theme.compactChips);
   const isMobile = useIsMobile();
   const [mobileSubTab, setMobileSubTab] = useState("params"); // "params" | "table" — sous-onglets mobile uniquement
   const [tournament, setTournament] = useState(null);
@@ -565,7 +570,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                             </td>
                             {config.antesEnabled && (
                               <td style={{ paddingTop: "var(--pcp-row-pad, 16px)", paddingBottom: "var(--pcp-row-pad, 16px)" }} className="pr-3 text-right text-felt-cream/60">
-                                {config.anteType === "sb" ? level.smallBlind : level.bigBlind}
+                                {chips(config.anteType === "sb" ? level.smallBlind : level.bigBlind)}
                               </td>
                             )}
                           </>
@@ -600,6 +605,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
         <InsertPositionModal
           type={insertModalType}
           levels={levels}
+          chips={chips}
           onClose={() => setInsertModalType(null)}
           onConfirm={(afterIndex) => {
             if (insertModalType === "level") addLevel(afterIndex);
@@ -612,7 +618,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
   );
 }
 
-function InsertPositionModal({ type, levels, onClose, onConfirm }) {
+function InsertPositionModal({ type, levels, chips, onClose, onConfirm }) {
   const [afterIndex, setAfterIndex] = useState(levels.length - 1);
   return (
     <div onClick={onClose} className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
@@ -629,7 +635,7 @@ function InsertPositionModal({ type, levels, onClose, onConfirm }) {
           <option value={-1}>Au début</option>
           {levels.map((l, i) => (
             <option key={i} value={i}>
-              Après le niveau {i + 1} ({l.isBreak ? l.breakLabel || "Pause" : `${l.smallBlind}/${l.bigBlind}`})
+              Après le niveau {i + 1} ({l.isBreak ? l.breakLabel || "Pause" : `${chips(l.smallBlind)}/${chips(l.bigBlind)}`})
             </option>
           ))}
         </select>

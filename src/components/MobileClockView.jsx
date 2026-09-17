@@ -3,9 +3,10 @@ import { supabase } from "../lib/supabase.js";
 import { fetchCurrentTournament } from "../lib/tournaments.js";
 import { saveClockState, secondsUntilScheduledStart, COUNTDOWN_WINDOW_HOURS } from "../lib/clockState.js";
 import { canControlClock } from "../lib/auth.js";
-import { formatTime, formatCountdown } from "../lib/format.js";
+import { formatTime, formatCountdown, formatChips } from "../lib/format.js";
 import { computeFinishPositions } from "../lib/points.js";
 import { useAccount } from "../context/AccountContext.jsx";
+import { useTheme } from "../context/ThemeContext.jsx";
 
 // Avance le niveau/temps restant d'un nombre de secondes écoulées, comme
 // dans EditableClock (pour rattraper l'horloge après une absence).
@@ -39,6 +40,10 @@ function advanceForElapsed(levelIndex, secondsLeft, elapsedSeconds, levels) {
  */
 export default function MobileClockView({ levels, canEdit: canEditOverride }) {
   const { account } = useAccount();
+  const { theme } = useTheme();
+  // Même raccourci que sur l'horloge de bureau : le réglage "Montants
+  // abrégés" vaut pour tous les affichages de jetons.
+  const chips = (v) => formatChips(v, !!theme.compactChips);
   const canEdit = canEditOverride !== undefined ? canEditOverride : canControlClock(account?.role);
 
   const [tournamentId, setTournamentId] = useState(null);
@@ -236,10 +241,10 @@ export default function MobileClockView({ levels, canEdit: canEditOverride }) {
 
       {!currentLevel.isBreak && (
         <div className="flex items-center justify-center gap-4 text-3xl font-display mb-5">
-          <span>{currentLevel.smallBlind}</span>
+          <span>{chips(currentLevel.smallBlind)}</span>
           <span className="text-felt-cream/30">/</span>
-          <span>{currentLevel.bigBlind}</span>
-          {currentLevel.ante > 0 && <span className="text-felt-gold text-lg ml-1">ante {currentLevel.ante}</span>}
+          <span>{chips(currentLevel.bigBlind)}</span>
+          {currentLevel.ante > 0 && <span className="text-felt-gold text-lg ml-1">ante {chips(currentLevel.ante)}</span>}
         </div>
       )}
 
@@ -270,7 +275,7 @@ export default function MobileClockView({ levels, canEdit: canEditOverride }) {
         <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-3 text-center">
           <div className="text-xs text-felt-cream/40 uppercase mb-1">Tapis moyen</div>
           <div className="font-display text-xl">
-            {avgStack.toLocaleString()} <span className="text-felt-gold text-sm">({avgStackBB} BB)</span>
+            {theme.compactChips ? chips(avgStack) : avgStack.toLocaleString("fr-FR")} <span className="text-felt-gold text-sm">({avgStackBB} BB)</span>
           </div>
         </div>
       </div>
@@ -281,7 +286,7 @@ export default function MobileClockView({ levels, canEdit: canEditOverride }) {
           <span className="font-display">
             {nextLevel.isBreak
               ? nextLevel.breakLabel || "Pause"
-              : `${nextLevel.smallBlind}/${nextLevel.bigBlind}${nextLevel.ante ? ` (ante ${nextLevel.ante})` : ""}`}
+              : `${chips(nextLevel.smallBlind)}/${chips(nextLevel.bigBlind)}${nextLevel.ante ? ` (ante ${chips(nextLevel.ante)})` : ""}`}
           </span>
         </div>
       )}
@@ -312,7 +317,7 @@ export default function MobileClockView({ levels, canEdit: canEditOverride }) {
               <span className="text-felt-cream/40 w-8">{i + 1}</span>
               <span className="text-felt-cream/40 w-12">{l.durationMinutes}'</span>
               <span className="flex-1 text-right">
-                {l.isBreak ? l.breakLabel || "Pause" : `${l.smallBlind}/${l.bigBlind}${l.ante ? ` (${l.ante})` : ""}`}
+                {l.isBreak ? l.breakLabel || "Pause" : `${chips(l.smallBlind)}/${chips(l.bigBlind)}${l.ante ? ` (${chips(l.ante)})` : ""}`}
               </span>
             </div>
           ))}
