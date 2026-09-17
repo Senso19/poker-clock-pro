@@ -841,7 +841,8 @@ export default function TournamentDetail({ tournamentId, onBack }) {
               <select
                 value={tournament.registration_open ? "open" : "closed"}
                 onChange={(e) => updateRegistrationOpen(e.target.value === "open")}
-                className="w-full bg-felt-panel border border-felt-cream/10 rounded-md px-3 py-2 text-sm text-felt-cream"
+                style={{ backgroundColor: "var(--pcp-cell-bg, #1B2027)", color: "var(--pcp-cell-text, #EDEAE3)" }}
+                className="w-full border border-felt-cream/10 rounded-md px-3 py-2 text-sm"
               >
                 <option value="open">Ouvertes aux joueurs</option>
                 <option value="closed">Fermées</option>
@@ -856,12 +857,17 @@ export default function TournamentDetail({ tournamentId, onBack }) {
                 {tableNumbers.map((num) => {
                   const current = tableCaptains.find((tc) => tc.table_number === num);
                   return (
-                    <div key={num} className="flex items-center gap-1 text-xs bg-felt-panel border border-felt-cream/10 rounded-md px-2 py-1.5">
+                    <div
+                      key={num}
+                      style={{ backgroundColor: "var(--pcp-cell-bg, #1B2027)", color: "var(--pcp-cell-text, inherit)" }}
+                      className="flex items-center gap-1 text-xs border border-felt-cream/10 rounded-md px-2 py-1.5"
+                    >
                       <span className="text-felt-cream/50 shrink-0">Table {num} :</span>
                       <select
                         value={current?.account_id || ""}
                         onChange={(e) => handleAssignCaptain(num, e.target.value)}
-                        className="bg-felt-bg text-felt-cream text-xs flex-1 min-w-0 rounded px-1 py-0.5 border border-felt-cream/10"
+                        style={{ backgroundColor: "var(--pcp-cell-bg, #14181C)", color: "var(--pcp-cell-text, #EDEAE3)" }}
+                        className="text-xs flex-1 min-w-0 rounded px-1 py-0.5 border border-felt-cream/10"
                       >
                         <option value="" style={{ backgroundColor: "#14181C", color: "#EDEAE3" }}>
                           —
@@ -1453,7 +1459,10 @@ function SettingField({ label, value, onChange }) {
         onChange={(e) => setLocal(e.target.value)}
         onBlur={() => onChange(local)}
         onKeyDown={(e) => e.key === "Enter" && e.target.blur()}
-        className="w-full bg-felt-panel border border-felt-cream/10 rounded-md px-4 py-2.5 text-base text-felt-cream"
+        // Suit "Fond des cellules" / "Texte des cellules" du panneau (🎨),
+        // avec les couleurs actuelles en repli tant que rien n'est choisi.
+        style={{ backgroundColor: "var(--pcp-cell-bg, #1B2027)", color: "var(--pcp-cell-text, #EDEAE3)" }}
+        className="w-full border border-felt-cream/10 rounded-md px-4 py-2.5 text-base"
       />
     </div>
   );

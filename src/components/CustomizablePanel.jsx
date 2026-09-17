@@ -24,6 +24,21 @@ import { useEditMode } from "../context/EditModeContext.jsx";
  * ciblé par les règles de style forcées, pour ne jamais être affectés
  * par les tailles/couleurs qu'on y choisit.
  */
+/**
+ * Couleur de texte lisible sur un fond donné. Sert de valeur par défaut
+ * quand l'admin choisit un fond de cellule sans choisir la couleur du
+ * texte : sans ça, un fond clair garderait le texte crème du thème sombre
+ * et deviendrait illisible. Il garde la main via "Texte des cellules".
+ */
+function readableOn(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || "");
+  if (!m) return undefined;
+  const n = parseInt(m[1], 16);
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  // Luminance perçue (coefficients ITU-R BT.601).
+  return (r * 299 + g * 587 + b * 114) / 1000 > 140 ? "#14181C" : "#EDEAE3";
+}
+
 export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", defaultMaxWidth, defaultOrder = 0, className, children }) {
   const { theme, setTheme } = useTheme();
   const { isEditMode } = useEditMode();
@@ -280,7 +295,7 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
           backgroundColor: style.bgColor || theme.panelBgColor || undefined,
           color: style.textColor || undefined,
           "--pcp-cell-bg": style.cellBgColor || undefined,
-          "--pcp-cell-text": style.cellTextColor || undefined,
+          "--pcp-cell-text": style.cellTextColor || readableOn(style.cellBgColor),
           "--pcp-banner-height": style.bannerHeight ? `${style.bannerHeight}px` : undefined,
           gridTemplateColumns: style.cardWidth ? `repeat(auto-fill, minmax(${style.cardWidth}px, 1fr))` : undefined,
           gridAutoRows: style.cardHeight ? `${style.cardHeight}px` : undefined,
