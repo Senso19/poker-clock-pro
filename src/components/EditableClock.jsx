@@ -227,6 +227,26 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   const [tournamentId, setTournamentId] = useState(null);
   // Ligne du tournoi (heure programmée, horloge déjà lancée ou non) : sert
   // au compte à rebours affiché avant le début d'un tournoi programmé.
+  // Zoom propre à l'horloge, indépendant du zoom du navigateur, et
+  // mémorisé PAR APPAREIL : l'écran de diffusion veut souvent 130 %, le
+  // portable de l'admin 100 %. Une page web ne pouvant ni détecter ni
+  // neutraliser le zoom du navigateur (Ctrl +/−), c'est cette commande
+  // qui sert à grossir l'horloge, sans toucher au reste de la page.
+  const [clockZoom, setClockZoom] = useState(() => {
+    try {
+      return Number(localStorage.getItem("pcp_clock_zoom")) || 1;
+    } catch {
+      return 1;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem("pcp_clock_zoom", String(clockZoom));
+    } catch {
+      /* navigation privée : le zoom vaut juste pour la session */
+    }
+  }, [clockZoom]);
+
   const [tournamentMeta, setTournamentMeta] = useState(null);
   const [nowTs, setNowTs] = useState(() => Date.now());
   const intervalRef = useRef(null);
@@ -851,8 +871,16 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
     saveTournamentBg({ ...tournamentBg, bars });
   }
 
+  // Le zoom grossit le CONTENU de l'horloge dans la même zone d'écran :
+  // la boîte garde la taille de son parent (width:100% se résout dans
+  // l'espace déjà zoomé), seuls les panneaux et les chiffres grandissent.
+  // À 100 % le style est exactement celui d'avant.
   return (
-    <div ref={containerRef} className="relative w-full h-full overflow-hidden" style={clockBgStyle}>
+    <div
+      ref={containerRef}
+      className="relative w-full h-full overflow-hidden"
+      style={clockZoom !== 1 ? { ...clockBgStyle, zoom: clockZoom } : clockBgStyle}
+    >
       {bgImageLayerStyle && <div className="absolute inset-0 pointer-events-none" style={bgImageLayerStyle} />}
       {bgTintStyle && <div className="absolute inset-0 pointer-events-none" style={bgTintStyle} />}
       {stripeBars.map((bar, i) => (
@@ -1116,6 +1144,31 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
             >
               💾 Enregistrer le modèle
             </button>
+          )}
+          {!templateMode && !editing && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setClockZoom((z) => Math.max(0.6, Math.round((z - 0.1) * 10) / 10))}
+                title="Réduire l'horloge"
+                className="w-7 h-7 rounded-md bg-felt-panel border border-felt-cream/10 text-felt-cream/60 hover:text-felt-cream text-xs"
+              >
+                −
+              </button>
+              <button
+                onClick={() => setClockZoom(1)}
+                title="Zoom de l'horloge — indépendant du zoom du navigateur, et propre à cet appareil"
+                className="px-2 h-7 rounded-md bg-felt-panel border border-felt-cream/10 text-felt-cream/60 hover:text-felt-cream text-xs tabular-nums"
+              >
+                {Math.round(clockZoom * 100)}%
+              </button>
+              <button
+                onClick={() => setClockZoom((z) => Math.min(2, Math.round((z + 0.1) * 10) / 10))}
+                title="Agrandir l'horloge"
+                className="w-7 h-7 rounded-md bg-felt-panel border border-felt-cream/10 text-felt-cream/60 hover:text-felt-cream text-xs"
+              >
+                +
+              </button>
+            </div>
           )}
           {!templateMode && (
             <EditableButton

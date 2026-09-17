@@ -8,6 +8,7 @@ import { canManageTournament, canControlClock, isClubManager } from "../lib/auth
 import { useIsMobile } from "../lib/useIsMobile.js";
 import EditableClock from "./EditableClock.jsx";
 import MobileClockView from "./MobileClockView.jsx";
+import TablesView from "./TablesView.jsx";
 import StructureEditor from "./StructureEditor.jsx";
 import TournamentDetail from "./TournamentDetail.jsx";
 import TournamentPublicView from "./TournamentPublicView.jsx";
@@ -17,6 +18,7 @@ const TABS = [
   { key: "clock", label: "Horloge" },
   { key: "structure", label: "Structure des blinds" },
   { key: "players", label: "Joueurs" },
+  { key: "tables", label: "Tables" },
 ];
 
 /**
@@ -173,6 +175,7 @@ export default function TournamentPage({ tournamentId, onBack }) {
               </div>
             </div>
           ))}
+        {tab === "tables" && <TablesView tournamentId={tournamentId} />}
         {tab === "players" &&
           (manage ? (
             <TournamentDetail tournamentId={tournamentId} onBack={onBack} />

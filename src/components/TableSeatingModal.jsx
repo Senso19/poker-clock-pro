@@ -28,6 +28,12 @@ export default function TableSeatingModal({
   const dragRef = useRef(null);
   const [editingStackId, setEditingStackId] = useState(null);
   const [stackDraft, setStackDraft] = useState("");
+  // Zoom du contenu et taille de la fenêtre, réglables : selon le nombre
+  // de tables on veut soit tout voir d'un coup, soit grossir un plateau
+  // pour le lire de loin. null = taille automatique d'origine.
+  const [zoom, setZoom] = useState(1);
+  const [size, setSize] = useState(null);
+  const resizeRef = useRef(null);
 
   const perTable = playersPerTable || 9;
   const maxTable = Math.max(1, ...registrations.map((r) => r.table_number || 1));
@@ -61,6 +67,29 @@ export default function TableSeatingModal({
   }
   function handleHeaderPointerUp() {
     dragRef.current = null;
+  }
+
+  function handleResizePointerDown(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const el = e.currentTarget.closest("[data-seating-window]");
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    resizeRef.current = { startX: e.clientX, startY: e.clientY, w: r.width, h: r.height };
+    function onMove(ev) {
+      const { startX, startY, w, h } = resizeRef.current;
+      setSize({
+        w: Math.max(420, Math.round(w + (ev.clientX - startX))),
+        h: Math.max(280, Math.round(h + (ev.clientY - startY))),
+      });
+    }
+    function onUp() {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      resizeRef.current = null;
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
   }
 
   function handlePlayerPointerDown(e, regId) {
@@ -105,7 +134,11 @@ export default function TableSeatingModal({
   return (
     <div className="fixed inset-0 z-50 pointer-events-none">
       <div
-        style={{ transform: `translate(${pos.x}px, ${pos.y}px)` }}
+        data-seating-window
+        style={{
+          transform: `translate(${pos.x}px, ${pos.y}px)`,
+          ...(size ? { width: size.w, height: size.h, maxHeight: "none" } : {}),
+        }}
         className="absolute top-8 left-1/2 -translate-x-1/2 pointer-events-auto bg-felt-panel border border-felt-gold/30 rounded-lg shadow-2xl w-[min(96vw,1400px)] max-h-[90vh] flex flex-col"
       >
         <div
@@ -115,12 +148,41 @@ export default function TableSeatingModal({
           className="flex items-center justify-between px-5 py-3 border-b border-felt-cream/10 cursor-move select-none shrink-0"
         >
           <div className="font-display text-xl text-felt-cream">⠿ Vue des tables</div>
+          <div onPointerDown={(e) => e.stopPropagation()} className="flex items-center gap-1 ml-auto mr-3 text-sm">
+            <button
+              onClick={() => setZoom((z) => Math.max(0.5, Math.round((z - 0.1) * 10) / 10))}
+              title="Réduire"
+              className="w-7 h-7 rounded bg-felt-bg border border-felt-cream/10 text-felt-cream/70 hover:text-felt-cream"
+            >
+              −
+            </button>
+            <button
+              onClick={() => {
+                setZoom(1);
+                setSize(null);
+              }}
+              title="Taille et zoom d'origine"
+              className="px-2 h-7 rounded bg-felt-bg border border-felt-cream/10 text-xs text-felt-cream/70 hover:text-felt-cream tabular-nums"
+            >
+              {Math.round(zoom * 100)}%
+            </button>
+            <button
+              onClick={() => setZoom((z) => Math.min(2, Math.round((z + 0.1) * 10) / 10))}
+              title="Agrandir"
+              className="w-7 h-7 rounded bg-felt-bg border border-felt-cream/10 text-felt-cream/70 hover:text-felt-cream"
+            >
+              +
+            </button>
+          </div>
           <button onPointerDown={(e) => e.stopPropagation()} onClick={onClose} className="text-felt-cream/50 hover:text-felt-cream px-2">
             ✕
           </button>
         </div>
 
-        <div className="overflow-y-auto p-5 font-body text-felt-cream">
+        {/* zoom CSS plutôt qu'une mise à l'échelle par transform : le
+            contenu se réagence vraiment (les plateaux se replacent en
+            colonnes), au lieu d'être étiré et de déborder. */}
+        <div style={{ zoom }} className="flex-1 min-h-0 overflow-y-auto p-5 font-body text-felt-cream">
           {duplicates.size > 0 && (
             <div className="flex flex-wrap items-center justify-between gap-3 text-sm mb-4 bg-felt-alert/10 border border-felt-alert/30 rounded-md px-3 py-2.5">
               <span className="text-felt-alert">
@@ -213,6 +275,16 @@ export default function TableSeatingModal({
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Poignée de redimensionnement, coin bas-droit. */}
+        <div
+          onPointerDown={handleResizePointerDown}
+          title="Redimensionner la fenêtre"
+          style={{ touchAction: "none" }}
+          className="absolute -bottom-1 -right-1 w-5 h-5 cursor-nwse-resize text-felt-gold/60 hover:text-felt-gold flex items-end justify-end pr-1 pb-0.5 select-none"
+        >
+          ◢
         </div>
       </div>
     </div>
