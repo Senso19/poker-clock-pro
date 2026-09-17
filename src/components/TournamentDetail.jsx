@@ -17,6 +17,7 @@ import CustomizablePanel from "./CustomizablePanel.jsx";
 import EditableButton from "./EditableButton.jsx";
 import { useConfirm } from "../context/ConfirmContext.jsx";
 import { logEvent } from "../lib/events.js";
+import { sortByPlayerLabel } from "../lib/players.js";
 import { addAnnouncement } from "../lib/announcements.js";
 import { useIsMobile } from "../lib/useIsMobile.js";
 
@@ -106,11 +107,6 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     setLoading(false);
   }
 
-  // Nom affiché d'une inscription, source unique pour le tri et l'affichage.
-  function registrationLabel(r) {
-    return r.players?.pseudo || r.accounts?.pseudo || r.players?.full_name || "";
-  }
-
   async function loadRegistrations() {
     const { data, error } = await supabase
       .from("registrations")
@@ -122,9 +118,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     // le libellé vient de plusieurs tables jointes (pseudo du joueur, à
     // défaut celui du compte, à défaut le nom complet), et localeCompare
     // gère les accents, que l'ordre SQL par défaut classe mal.
-    setRegistrations(
-      (data || []).slice().sort((a, b) => registrationLabel(a).localeCompare(registrationLabel(b), "fr", { sensitivity: "base" }))
-    );
+    setRegistrations(sortByPlayerLabel(data));
   }
 
   async function loadEliminations() {

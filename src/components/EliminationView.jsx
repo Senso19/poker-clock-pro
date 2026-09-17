@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import ClubLoader from "./ClubLoader.jsx";
 import { supabase } from "../lib/supabase.js";
+import { sortByPlayerLabel } from "../lib/players.js";
 import { fetchCurrentTournament } from "../lib/tournaments.js";
 import { fetchMyTables } from "../lib/auth.js";
 import { useAccount } from "../context/AccountContext.jsx";
@@ -40,15 +41,16 @@ export default function EliminationView() {
   async function loadData(tournamentId) {
     const { data: regs } = await supabase
       .from("registrations")
-      .select("*, players(full_name)")
-      .eq("tournament_id", tournamentId)
-      .order("table_number", { ascending: true });
+      // pseudo en plus du nom complet : c'est lui qui sert de libellé et
+      // de clé de tri, il manquait à cette requête.
+      .select("*, players(full_name, pseudo), accounts(pseudo)")
+      .eq("tournament_id", tournamentId);
     const { data: elims } = await supabase
       .from("eliminations")
       .select("*")
       .eq("tournament_id", tournamentId)
       .eq("undone", false);
-    setRegistrations(regs || []);
+    setRegistrations(sortByPlayerLabel(regs));
     setEliminations(elims || []);
   }
 

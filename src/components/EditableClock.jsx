@@ -1276,9 +1276,13 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
           <PanelBody style={panels.blinds.style} title={panels.blinds.style.customTitle || "Blinds"}>
             {currentLevel && !currentLevel.isBreak ? (
               panels.blinds.style.blindsLayout === "row" ? (
-                <div className="flex items-center justify-center gap-3">
+                // justify-end + nowrap : le bloc est calé sur le bord DROIT
+                // du panneau et s'étale vers la gauche quand les montants
+                // gagnent des chiffres. Centré, "3000 6000" débordait par la
+                // droite et sortait du bandeau.
+                <div className="flex items-center justify-end gap-3 whitespace-nowrap">
                   <div style={textStyle(panels.blinds.style)}>{currentLevel.smallBlind}</div>
-                  <div className="w-px h-6 bg-felt-cream/20" />
+                  <div className="w-px h-6 bg-felt-cream/20 shrink-0" />
                   <div className="flex flex-col items-center">
                     <div style={textStyle(panels.blinds.style)}>{currentLevel.bigBlind}</div>
                     {currentLevel.ante > 0 && (
@@ -1290,7 +1294,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col items-center">
+                <div className="flex flex-col items-end whitespace-nowrap">
                   <div style={textStyle(panels.blinds.style)}>{currentLevel.smallBlind}</div>
                   <div className="w-3/4 h-px bg-felt-cream/20 my-1" />
                   <div style={textStyle(panels.blinds.style)}>{currentLevel.bigBlind}</div>
@@ -1448,14 +1452,17 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
               nextLevel.isBreak ? (
                 <div style={textStyle(panels.next.style)}>{nextLevel.breakLabel || "Pause"}</div>
               ) : panels.next.style.blindsLayout === "stack" ? (
-                <div className="flex flex-col items-center">
+                <div className="flex flex-col items-end whitespace-nowrap">
                   <div style={textStyle(panels.next.style)}>{nextLevel.smallBlind}</div>
                   <div className="w-3/4 h-px bg-felt-cream/20 my-1" />
                   <div style={textStyle(panels.next.style)}>{nextLevel.bigBlind}</div>
                   {nextLevel.ante > 0 && <div className="text-felt-gold text-xs mt-1">({nextLevel.ante})</div>}
                 </div>
               ) : (
-                <div className="flex items-center justify-center" style={{ gap: `${panels.next.style.itemGap ?? 8}px` }}>
+                // Même ancrage à droite que les blinds en cours, pour que
+                // les deux panneaux se comportent pareil quand les montants
+                // s'allongent.
+                <div className="flex items-center justify-end whitespace-nowrap" style={{ gap: `${panels.next.style.itemGap ?? 8}px` }}>
                   <span style={textStyle(panels.next.style)}>{levelIndex + 2}</span>
                   <span style={textStyle(panels.next.style)}>
                     {nextLevel.smallBlind}/{nextLevel.bigBlind}

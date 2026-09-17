@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../lib/supabase.js";
 import ClubLoader from "./ClubLoader.jsx";
 import CustomizablePanel from "./CustomizablePanel.jsx";
+import { playerLabel } from "../lib/players.js";
 
 /**
  * TablesView — onglet "Tables" : les joueurs regroupés par table, une
@@ -43,8 +44,6 @@ export default function TablesView({ tournamentId }) {
 
   if (loading) return <ClubLoader />;
 
-  const label = (r) => r.players?.pseudo || r.accounts?.pseudo || r.players?.full_name || "?";
-
   // Les joueurs sans table sont regroupés à part plutôt que masqués : un
   // joueur non placé est justement ce qu'on cherche à repérer sur cet écran.
   const seated = registrations.filter((r) => r.table_number);
@@ -57,7 +56,14 @@ export default function TablesView({ tournamentId }) {
 
   return (
     <div className="p-4 sm:p-6 font-body text-white h-full overflow-y-auto">
-      <CustomizablePanel panelKey="tables-view" defaultWidth="1 1 100%" className="space-y-6">
+      {/* Plusieurs cartes par rangée, et elles suivent les réglages 🎨 du
+          tableau (fond des cellules, espacement, survol) comme partout
+          ailleurs dans l'app. */}
+      <CustomizablePanel
+        panelKey="tables-view"
+        defaultWidth="1 1 100%"
+        className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-6 items-start"
+      >
         {tableNumbers.map((num, i) => {
           const players = seated
             .filter((r) => r.table_number === num)
@@ -70,7 +76,6 @@ export default function TablesView({ tournamentId }) {
               subtitle={`${enJeu} en jeu / ${players.length}`}
               players={players}
               eliminatedIds={eliminatedIds}
-              label={label}
               alterne={i % 2 === 1}
             />
           );
@@ -82,7 +87,6 @@ export default function TablesView({ tournamentId }) {
             subtitle={`${unseated.length} joueur${unseated.length > 1 ? "s" : ""} à placer`}
             players={unseated}
             eliminatedIds={eliminatedIds}
-            label={label}
             alerte
           />
         )}
@@ -91,7 +95,7 @@ export default function TablesView({ tournamentId }) {
   );
 }
 
-function TableCard({ title, subtitle, players, eliminatedIds, label, alterne, alerte }) {
+function TableCard({ title, subtitle, players, eliminatedIds, alterne, alerte }) {
   return (
     <div
       // Teinte alternée d'une table à l'autre. Les deux fonds suivent
@@ -105,14 +109,14 @@ function TableCard({ title, subtitle, players, eliminatedIds, label, alterne, al
           : "var(--pcp-cell-bg, #1B2027)",
         color: "var(--pcp-cell-text, inherit)",
       }}
-      className={`rounded-xl border p-4 sm:p-5 ${alerte ? "border-felt-alert/40" : "border-felt-cream/10"}`}
+      className={`pcp-card-hover rounded-xl border p-4 sm:p-5 ${alerte ? "border-felt-alert/40" : "border-felt-cream/10"}`}
     >
       <div className="flex items-baseline justify-between mb-3">
         <div className="pcp-title font-display text-lg sm:text-xl text-felt-gold">{title}</div>
         <div className="pcp-body text-xs text-felt-cream/40">{subtitle}</div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5">
         {players.map((r) => {
           const out = eliminatedIds.has(r.id);
           return (
@@ -124,10 +128,10 @@ function TableCard({ title, subtitle, players, eliminatedIds, label, alterne, al
                 <img src={r.accounts.avatar_data} alt="" className="w-7 h-7 rounded-full object-cover shrink-0" />
               ) : (
                 <span className="w-7 h-7 rounded-full bg-felt-bg/60 flex items-center justify-center text-[11px] text-felt-cream/40 shrink-0">
-                  {label(r)[0]?.toUpperCase()}
+                  {playerLabel(r)[0]?.toUpperCase() || "?"}
                 </span>
               )}
-              <span className={`pcp-body flex-1 min-w-0 truncate ${out ? "line-through" : ""}`}>{label(r)}</span>
+              <span className={`pcp-body flex-1 min-w-0 truncate ${out ? "line-through" : ""}`}>{playerLabel(r) || "?"}</span>
               <span className="pcp-value shrink-0 text-sm text-felt-cream/50 tabular-nums">
                 {(r.stack ?? 0).toLocaleString("fr-FR")}
               </span>

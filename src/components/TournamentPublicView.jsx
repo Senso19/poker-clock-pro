@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import ClubLoader from "./ClubLoader.jsx";
 import { supabase } from "../lib/supabase.js";
+import { sortByPlayerLabel } from "../lib/players.js";
 
 /**
  * TournamentPublicView — consultation en lecture seule d'un tournoi pour
@@ -22,16 +23,17 @@ export default function TournamentPublicView({ tournamentId, onBack }) {
     const { data: t } = await supabase.from("tournaments").select("*").eq("id", tournamentId).single();
     const { data: regs } = await supabase
       .from("registrations")
-      .select("*, players(full_name)")
-      .eq("tournament_id", tournamentId)
-      .order("table_number", { ascending: true });
+      // pseudo en plus du nom complet : c'est lui qui sert de libellé et
+      // de clé de tri, il manquait à cette requête.
+      .select("*, players(full_name, pseudo), accounts(pseudo)")
+      .eq("tournament_id", tournamentId);
     const { data: elims } = await supabase
       .from("eliminations")
       .select("registration_id")
       .eq("tournament_id", tournamentId)
       .eq("undone", false);
     setTournament(t);
-    setRegistrations(regs || []);
+    setRegistrations(sortByPlayerLabel(regs));
     setEliminations(elims || []);
     setLoading(false);
   }
