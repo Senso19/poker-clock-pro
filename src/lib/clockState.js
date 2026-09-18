@@ -46,3 +46,35 @@ export function secondsUntilScheduledStart(tournament, now = Date.now()) {
   if (seconds <= 0 || seconds > COUNTDOWN_WINDOW_HOURS * 3600) return null;
   return Math.ceil(seconds);
 }
+
+/**
+ * advanceForElapsed — rattrape l'horloge après une absence.
+ *
+ * L'état enregistré donne un niveau et un temps restant à un instant T.
+ * Au retour, on consomme le temps écoulé niveau par niveau pour retrouver
+ * où l'horloge en serait si personne n'avait quitté la page.
+ *
+ * Était recopié à l'identique dans l'horloge de bureau et l'horloge
+ * mobile : deux versions d'un calcul dont le résultat doit justement être
+ * le même sur les deux écrans.
+ */
+export function advanceForElapsed(levelIndex, secondsLeft, elapsedSeconds, levels) {
+  let idx = levelIndex;
+  let left = secondsLeft;
+  let remaining = Math.round(elapsedSeconds);
+  while (remaining > 0 && idx < levels.length) {
+    if (remaining < left) {
+      left -= remaining;
+      remaining = 0;
+    } else {
+      remaining -= left;
+      idx += 1;
+      left = (levels[idx]?.durationMinutes || 20) * 60;
+    }
+  }
+  if (idx >= levels.length) {
+    idx = Math.max(0, levels.length - 1);
+    left = 0;
+  }
+  return { levelIndex: idx, secondsLeft: left };
+}

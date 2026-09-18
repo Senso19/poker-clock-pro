@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { saveClubTheme } from "../lib/clubSettings.js";
 import { ChevronUp, ChevronDown, Minus, User, LogOut, Bell, Trophy, Target, BarChart3, LayoutGrid, Users, MessageCircle, Mail, Settings, ClipboardList, Shield } from "lucide-react";
 import { supabase } from "../lib/supabase.js";
 import { useAccount } from "../context/AccountContext.jsx";
@@ -170,10 +171,7 @@ export default function Sidebar({ tab, setTab, onRequestLogin }) {
   async function persistSidebarConfig(nextCfg) {
     const nextTheme = { ...theme, sidebarConfig: nextCfg };
     setTheme(nextTheme);
-    const { data: existing } = await supabase.from("club_settings").select("id").limit(1).maybeSingle();
-    const payload = { club_name: "19PokerClub", theme: nextTheme };
-    if (existing) await supabase.from("club_settings").update(payload).eq("id", existing.id);
-    else await supabase.from("club_settings").insert(payload);
+    await saveClubTheme(nextTheme);
   }
   function moveItem(key, dir) {
     const idx = order.indexOf(key);

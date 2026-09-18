@@ -1,4 +1,5 @@
 import { supabase } from "./supabase.js";
+import { upsertClubSettings } from "./clubSettings.js";
 
 /**
  * auth.js — comptes joueurs avec rôles (admin, tournament_director, floor,
@@ -241,39 +242,25 @@ export async function fetchClubSettings() {
 }
 
 export async function setRegistrationCode(code) {
-  const { data: existing } = await supabase.from("club_settings").select("id").limit(1).maybeSingle();
-  const payload = { club_name: "19PokerClub", registration_code: code };
-  const { error } = existing
-    ? await supabase.from("club_settings").update(payload).eq("id", existing.id)
-    : await supabase.from("club_settings").insert(payload);
+  await upsertClubSettings({ registration_code: code });
   if (error) throw error;
 }
 
 export async function setChatSettings(maxLength, cooldownSeconds) {
-  const { data: existing } = await supabase.from("club_settings").select("id").limit(1).maybeSingle();
-  const payload = {
-    club_name: "19PokerClub",
+  await upsertClubSettings({
     chat_max_length: Math.max(1, Number(maxLength) || 200),
     chat_cooldown_seconds: Math.max(0, Number(cooldownSeconds) || 0),
-  };
-  const { error } = existing
-    ? await supabase.from("club_settings").update(payload).eq("id", existing.id)
-    : await supabase.from("club_settings").insert(payload);
+  });
   if (error) throw error;
 }
 
 // Message live diffusé sur le panneau "Annonces" de l'horloge (texte libre,
 // modifiable par l'admin/TD/floor depuis le panneau lui-même).
 export async function setLiveAnnouncement(text) {
-  const { data: existing } = await supabase.from("club_settings").select("id").limit(1).maybeSingle();
-  const payload = {
-    club_name: "19PokerClub",
+  await upsertClubSettings({
     live_announcement: text || null,
     live_announcement_updated_at: new Date().toISOString(),
-  };
-  const { error } = existing
-    ? await supabase.from("club_settings").update(payload).eq("id", existing.id)
-    : await supabase.from("club_settings").insert(payload);
+  });
   if (error) throw error;
 }
 

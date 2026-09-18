@@ -1,8 +1,9 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { saveClubTheme } from "../lib/clubSettings.js";
 import { supabase } from "../lib/supabase.js";
 import { useTheme } from "../context/ThemeContext.jsx";
 import { fetchCurrentTournament } from "../lib/tournaments.js";
-import { saveClockState, secondsUntilScheduledStart, COUNTDOWN_WINDOW_HOURS } from "../lib/clockState.js";
+import { saveClockState, secondsUntilScheduledStart, COUNTDOWN_WINDOW_HOURS, advanceForElapsed } from "../lib/clockState.js";
 import { playSound, SOUND_OPTIONS } from "../lib/sounds.js";
 import { addAnnouncement, fetchRecentAnnouncements } from "../lib/announcements.js";
 import { computeFinishPositions } from "../lib/points.js";
@@ -292,26 +293,6 @@ function FitText({ children, origin = "right center", align = "right" }) {
 
 const JUSTIFY = { left: "justify-start", center: "justify-center", right: "justify-end" };
 
-function advanceForElapsed(levelIndex, secondsLeft, elapsedSeconds, levels) {
-  let idx = levelIndex;
-  let left = secondsLeft;
-  let remaining = Math.round(elapsedSeconds);
-  while (remaining > 0 && idx < levels.length) {
-    if (remaining < left) {
-      left -= remaining;
-      remaining = 0;
-    } else {
-      remaining -= left;
-      idx += 1;
-      left = (levels[idx]?.durationMinutes || 20) * 60;
-    }
-  }
-  if (idx >= levels.length) {
-    idx = Math.max(0, levels.length - 1);
-    left = 0;
-  }
-  return { levelIndex: idx, secondsLeft: left };
-}
 
 export default function EditableClock({ levels, canEdit, designOnly = false, templateMode = false, initialLayout = null, onSaveLayout = null }) {
   const { theme, setTheme } = useTheme();
@@ -835,10 +816,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
     }
     const nextTheme = { ...theme, layout: { ...nextPanels, images: nextImages, designSize: nextDesign } };
     setTheme(nextTheme);
-    const { data: existing } = await supabase.from("club_settings").select("id").limit(1).maybeSingle();
-    const payload = { club_name: "19PokerClub", theme: nextTheme };
-    if (existing) await supabase.from("club_settings").update(payload).eq("id", existing.id);
-    else await supabase.from("club_settings").insert(payload);
+    await saveClubTheme(nextTheme);
   }
 
   function movePanel(id, x, y) {

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { supabase } from "../lib/supabase.js";
+import { saveClubTheme } from "../lib/clubSettings.js";
 import { clamp } from "../lib/format.js";
 import { useTheme } from "../context/ThemeContext.jsx";
 import { useIsMobile } from "../lib/useIsMobile.js";
@@ -90,10 +90,7 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
   const largeurReglee = isMobile ? null : style.width;
 
   async function persist(nextTheme) {
-    const { data: existing } = await supabase.from("club_settings").select("id").limit(1).maybeSingle();
-    const payload = { club_name: "19PokerClub", theme: nextTheme };
-    if (existing) await supabase.from("club_settings").update(payload).eq("id", existing.id);
-    else await supabase.from("club_settings").insert(payload);
+    await saveClubTheme(nextTheme);
   }
 
   function update(patch) {

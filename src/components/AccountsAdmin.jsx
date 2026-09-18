@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { saveClubTheme } from "../lib/clubSettings.js";
 import ClubLoader from "./ClubLoader.jsx";
 import { Pencil, Trash2, Merge, Search, UserPlus, Mail, Download, Copy, Lock, LockOpen, Shield } from "lucide-react";
 import {
@@ -642,10 +643,7 @@ function RolePermissionsMatrix({ onClose }) {
 
   async function persist(next) {
     setTheme(next);
-    const { data: existing } = await supabase.from("club_settings").select("id").limit(1).maybeSingle();
-    const payload = { club_name: "19PokerClub", theme: next };
-    if (existing) await supabase.from("club_settings").update(payload).eq("id", existing.id);
-    else await supabase.from("club_settings").insert(payload);
+    await saveClubTheme(next);
   }
 
   function toggle(role, key) {

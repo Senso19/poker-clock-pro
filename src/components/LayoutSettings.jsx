@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabase.js";
+import { saveClubTheme } from "../lib/clubSettings.js";
 import { useTheme } from "../context/ThemeContext.jsx";
 import { fetchClubSettings, setRegistrationCode, setChatSettings } from "../lib/auth.js";
 import { compressImageFile, uploadImageToStorage } from "../lib/imageUtils.js";
@@ -146,19 +146,12 @@ export default function LayoutSettings() {
   async function persist(next) {
     setSaving(true);
     setError(null);
-    const { data: existing } = await supabase
-      .from("club_settings")
-      .select("id")
-      .limit(1)
-      .maybeSingle();
-
-    const payload = { club_name: "19PokerClub", theme: next };
-    const { error } = existing
-      ? await supabase.from("club_settings").update(payload).eq("id", existing.id)
-      : await supabase.from("club_settings").insert(payload);
-
-    if (error) setError(error.message);
-    else setSavedAt(new Date());
+    try {
+      await saveClubTheme(next);
+      setSavedAt(new Date());
+    } catch (e) {
+      setError(e.message);
+    }
     setSaving(false);
   }
 

@@ -1,18 +1,6 @@
 import { useState } from "react";
 import CustomizablePanel from "./CustomizablePanel.jsx";
 
-const AVATAR_COLORS = ["#C9A15A", "#8C3A3A", "#3A6B8C", "#3A8C5E", "#8C5A3A", "#6B3A8C"];
-function avatarColor(name) {
-  let hash = 0;
-  for (let i = 0; i < (name || "").length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
-function initials(name) {
-  if (!name) return "?";
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
-  return (parts[0][0] + parts[1][0]).toUpperCase();
-}
 
 /**
  * ChampionshipDetailPage — page dédiée d'un championnat façon BlindValet :

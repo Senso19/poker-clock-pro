@@ -9,7 +9,7 @@ GitHub → Vercel).
 
 ## Modules (V1 complète)
 
-1. **Tournament Clock** (`src/components/TournamentClock.jsx`)
+1. **Tournament Clock** (`src/components/EditableClock.jsx`, `MobileClockView.jsx`)
    Horloge de niveaux (SB/BB/ante), pause/lecture, son de fin de niveau,
    passage auto au niveau suivant, mode plein écran / écran de diffusion.
 
@@ -22,7 +22,7 @@ GitHub → Vercel).
    Inscriptions, rebuys, add-ons, éliminations, classement en direct,
    répartition des tables (table balancing).
 
-4. **Prizepool & Payouts** (`src/lib/payouts.js`)
+4. **Prizepool & Payouts** (calculé dans `src/lib/points.js`)
    Calcul automatique du prizepool (buy-ins + rebuys + add-ons - rake),
    répartition par palier configurable, gestion bounties optionnelle.
 
@@ -46,7 +46,7 @@ GitHub → Vercel).
 ## Base de données (Supabase)
 
 Voir `supabase/schema.sql`. Tables : `tournaments`, `blind_levels`,
-`players`, `registrations`, `eliminations`, `payouts`, `club_settings`.
+`players`, `registrations`, `eliminations`, `club_settings`.
 
 ## Déploiement
 

@@ -1,35 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase.js";
 import { fetchCurrentTournament } from "../lib/tournaments.js";
-import { saveClockState, secondsUntilScheduledStart, COUNTDOWN_WINDOW_HOURS } from "../lib/clockState.js";
+import { saveClockState, secondsUntilScheduledStart, COUNTDOWN_WINDOW_HOURS, advanceForElapsed } from "../lib/clockState.js";
 import { canControlClock } from "../lib/auth.js";
 import { formatTime, formatCountdown, formatChips } from "../lib/format.js";
 import { computeFinishPositions } from "../lib/points.js";
 import { useAccount } from "../context/AccountContext.jsx";
 import { useTheme } from "../context/ThemeContext.jsx";
 
-// Avance le niveau/temps restant d'un nombre de secondes écoulées, comme
-// dans EditableClock (pour rattraper l'horloge après une absence).
-function advanceForElapsed(levelIndex, secondsLeft, elapsedSeconds, levels) {
-  let idx = levelIndex;
-  let left = secondsLeft;
-  let remaining = Math.round(elapsedSeconds);
-  while (remaining > 0 && idx < levels.length) {
-    if (remaining < left) {
-      left -= remaining;
-      remaining = 0;
-    } else {
-      remaining -= left;
-      idx += 1;
-      left = (levels[idx]?.durationMinutes || 20) * 60;
-    }
-  }
-  if (idx >= levels.length) {
-    idx = Math.max(0, levels.length - 1);
-    left = 0;
-  }
-  return { levelIndex: idx, secondsLeft: left };
-}
 
 
 /**
