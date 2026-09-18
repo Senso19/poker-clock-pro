@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ClubLoader from "./ClubLoader.jsx";
 import { supabase } from "../lib/supabase.js";
 import { useTheme } from "../context/ThemeContext.jsx";
@@ -53,6 +53,10 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
   const [templates, setTemplates] = useState([]);
   const [showTemplates, setShowTemplates] = useState(false);
   const [insertModalType, setInsertModalType] = useState(null); // null | "level" | "break"
+  // Empreinte de la structure telle qu'elle est en base, et état de
+  // l'enregistrement automatique affiché à côté du bouton.
+  const dernierEnregistreRef = useRef(null);
+  const [autoEtat, setAutoEtat] = useState("idle"); // "idle" | "encours" | "ok" | "erreur"
 
   useEffect(() => {
     if (mode === "tournament") {
@@ -69,9 +73,14 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
       setTournament(t);
       if (t) {
         const existing = await fetchLevels(t.id);
-        setLevels(existing.length > 0 ? existing : defaultStructure());
+        const niveaux = existing.length > 0 ? existing : defaultStructure();
         const cfg = await fetchStructureConfig(t.id);
+        setLevels(niveaux);
         setConfig(cfg || defaultStructureConfig());
+        // Empreinte de ce qui se trouve réellement en base : l'auto-
+        // enregistrement s'y compare et ne réécrit rien tant que le
+        // contenu est identique — à l'ouverture de l'écran, notamment.
+        dernierEnregistreRef.current = JSON.stringify({ levels: niveaux, config: cfg || defaultStructureConfig() });
       }
     } catch (e) {
       setError(e.message);
@@ -163,13 +172,71 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
     });
   }
 
-  async function handleSave() {
-    setError(null);
-    const cleanLevels = levels.map(({ isNew, ...l }) => {
+  // Niveaux prêts pour la base : le drapeau isNew disparaît et l'ante est
+  // recalculé quand il est dérivé des blindes.
+  function niveauxNettoyes() {
+    return levels.map(({ isNew, ...l }) => {
       if (l.isBreak) return l;
       const ante = config.antesEnabled ? Number(config.anteType === "sb" ? l.smallBlind : l.bigBlind) || 0 : 0;
       return { ...l, ante };
     });
+  }
+
+  /**
+   * Enregistrement automatique de la structure.
+   *
+   * Volontairement limité aux niveaux et aux réglages : handleSave fait
+   * aussi applyManualStartingStack, qui REMPLACE le tapis de tous les
+   * joueurs inscrits après confirmation. Déclencher ça tout seul pendant
+   * qu'on tape effacerait les tapis réels d'un tournoi en cours — le
+   * crédit des joueurs reste donc sur le bouton.
+   *
+   * Temporisé : saveLevels supprime toute la structure puis la réinsère.
+   * Sauver à chaque frappe voudrait dire une dizaine de cycles
+   * supprimer/réinsérer pour taper "30000".
+   */
+  useEffect(() => {
+    if (mode !== "tournament" || !tournament) return undefined;
+
+    const cleanLevels = niveauxNettoyes();
+    const instantane = JSON.stringify({ levels: cleanLevels, config });
+    // Rien n'a bougé par rapport à la base : ni au chargement de l'écran,
+    // ni quand une valeur est retapée à l'identique.
+    if (instantane === dernierEnregistreRef.current) return undefined;
+
+    const t = setTimeout(async () => {
+      setAutoEtat("encours");
+      try {
+        await saveLevels(tournament.id, cleanLevels);
+        await saveStructureConfig(tournament.id, config);
+        dernierEnregistreRef.current = instantane;
+        setSavedAt(new Date());
+        setAutoEtat("ok");
+        onSaved?.();
+      } catch (e) {
+        setError(e.message);
+        setAutoEtat("erreur");
+      }
+    }, 1200);
+
+    // Chaque nouvelle frappe annule l'enregistrement en attente : on
+    // n'écrit qu'une fois, quand la saisie s'arrête.
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [levels, config, tournament, mode]);
+
+  // Le tapis de départ saisi à la main n'est pas encore celui du tournoi :
+  // il reste quelque chose à appliquer, et seul un clic peut le faire —
+  // ça remplace le tapis des joueurs déjà inscrits.
+  const tapisManuelAAppliquer =
+    mode === "tournament" &&
+    config.fields?.startingStack?.mode === "manual" &&
+    Number(config.fields.startingStack.value) > 0 &&
+    Number(config.fields.startingStack.value) !== tournament?.starting_stack;
+
+  async function handleSave() {
+    setError(null);
+    const cleanLevels = niveauxNettoyes();
     if (mode === "template") {
       if (!name.trim()) {
         setError("Merci de donner un nom au modèle.");
@@ -191,6 +258,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
     try {
       await saveLevels(tournament.id, cleanLevels);
       await saveStructureConfig(tournament.id, config);
+      dernierEnregistreRef.current = JSON.stringify({ levels: cleanLevels, config });
       await applyManualStartingStack();
       setSavedAt(new Date());
       onSaved?.();
@@ -297,14 +365,37 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
             </div>
           )}
           <div className="flex items-center gap-3">
-            {savedAt && <span className="text-felt-cream/40 text-xs">Sauvegardé à {savedAt.toLocaleTimeString()}</span>}
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="px-4 py-2 bg-felt-gold text-felt-bg rounded-md font-display text-sm disabled:opacity-40"
-            >
-              {saving ? "Sauvegarde…" : "💾 Sauvegarder"}
-            </button>
+            {/* La structure part toute seule ; ce témoin évite de se
+                demander si c'est bien parti. */}
+            <span className={`text-xs text-felt-cream/40 tabular-nums ${mode === "template" ? "hidden" : ""}`}>
+              {autoEtat === "encours"
+                ? "Enregistrement…"
+                : autoEtat === "erreur"
+                ? "Échec de l'enregistrement"
+                : savedAt
+                ? `Enregistré à ${savedAt.toLocaleTimeString()}`
+                : "Enregistrement automatique"}
+            </span>
+            {/* En mode modèle il n'y a pas d'auto-enregistrement — un
+                modèle a un nom et se crée explicitement. Sur un tournoi, le
+                bouton ne sert plus qu'à ce qui ne peut pas être
+                automatique : créditer les joueurs déjà inscrits du tapis de
+                départ saisi à la main. */}
+            {(mode === "template" || tapisManuelAAppliquer) && (
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="px-4 py-2 bg-felt-gold text-felt-bg rounded-md font-display text-sm disabled:opacity-40"
+              >
+                {saving
+                  ? mode === "template"
+                    ? "Sauvegarde…"
+                    : "Application…"
+                  : mode === "template"
+                  ? "💾 Sauvegarder"
+                  : "Appliquer le tapis de départ"}
+              </button>
+            )}
           </div>
         </div>
 

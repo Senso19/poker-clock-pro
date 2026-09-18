@@ -23,18 +23,20 @@ export async function fetchLevels(tournamentId) {
   }));
 }
 
-// Remplace toute la structure existante par la liste fournie (ordre = position)
+/**
+ * Remplace toute la structure existante par la liste fournie (ordre =
+ * position), en UNE transaction côté Postgres.
+ *
+ * C'était auparavant un DELETE puis un INSERT en deux allers-retours.
+ * Entre les deux, la table est vide : une coupure réseau à cet instant
+ * laissait le tournoi sans structure. Négligeable tant qu'on enregistrait
+ * à la main, beaucoup moins depuis que l'éditeur enregistre tout seul à
+ * chaque pause de saisie, pendant un tournoi en cours.
+ */
 export async function saveLevels(tournamentId, levels) {
-  const { error: delErr } = await supabase
-    .from("blind_levels")
-    .delete()
-    .eq("tournament_id", tournamentId);
-  if (delErr) throw delErr;
-
-  if (levels.length === 0) return;
-
+  // Pas de tournament_id par ligne : la fonction le reçoit en paramètre et
+  // l'applique à toutes, ce qui interdit d'écrire dans un autre tournoi.
   const rows = levels.map((l, i) => ({
-    tournament_id: tournamentId,
     position: i,
     small_blind: l.isBreak ? 0 : Number(l.smallBlind) || 0,
     big_blind: l.isBreak ? 0 : Number(l.bigBlind) || 0,
@@ -44,8 +46,11 @@ export async function saveLevels(tournamentId, levels) {
     break_label: l.isBreak ? l.breakLabel || "Pause" : null,
   }));
 
-  const { error: insErr } = await supabase.from("blind_levels").insert(rows);
-  if (insErr) throw insErr;
+  const { error } = await supabase.rpc("remplacer_structure_blinds", {
+    p_tournament_id: tournamentId,
+    p_rows: rows,
+  });
+  if (error) throw error;
 }
 
 export function defaultStructure() {
