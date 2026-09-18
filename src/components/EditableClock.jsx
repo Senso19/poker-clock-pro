@@ -2528,15 +2528,14 @@ function MovesContent({ style, moves, textStyle }) {
       className="w-full h-full flex flex-col justify-center overflow-hidden"
       style={{ gap: `${ANNOUNCEMENT_GAP}px` }}
     >
-      {n === 0 ? (
-        <div className="text-felt-cream/30 text-sm text-center">Aucun déplacement en cours.</div>
-      ) : (
-        moves.map((m) => (
-          <FitText key={m.id} align={style.align || "center"} origin="center">
-            <span style={{ ...textStyle(style), fontSize: `${taille}px`, lineHeight: 1.2 }}>{m.text}</span>
-          </FitText>
-        ))
-      )}
+      {/* Rien à afficher = rien du tout. Un "aucun déplacement en cours"
+          en permanence sur l'écran de la salle n'apprend rien à personne,
+          et ce panneau passe le plus clair de son temps vide. */}
+      {moves.map((m) => (
+        <FitText key={m.id} align={style.align || "center"} origin="center">
+          <span style={{ ...textStyle(style), fontSize: `${taille}px`, lineHeight: 1.2 }}>{m.text}</span>
+        </FitText>
+      ))}
     </div>
   );
 }
