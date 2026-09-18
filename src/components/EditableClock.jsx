@@ -336,6 +336,9 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   // au zoom manuel, qui reste un réglage propre à chaque appareil.
   const clockScale = useClockScale(containerRef, designSize);
   const toolbarDrag = useRef(null);
+  // Empreinte de la disposition actuellement affichée, pour repérer qu'un
+  // autre appareil l'a modifiée sans relire les ~884 kB à chaque sondage.
+  const layoutFingerprintRef = useRef(null);
 
   const [levelIndex, setLevelIndex] = useState(0);
   const [secondsLeft, setSecondsLeft] = useState((levels[0]?.durationMinutes || 20) * 60);
@@ -407,12 +410,16 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   // Sonde légère : rafraîchit inscriptions/éliminations toutes les 5s, sans
   // toucher à l'état de l'horloge (pour que les panneaux Élimination,
   // Classement, Joueurs, etc. se mettent à jour pendant que le tournoi tourne).
+  // Elle porte aussi la mise à jour de la DISPOSITION : une taille, une
+  // couleur ou une position de panneau changée depuis un autre appareil
+  // arrive ici dans les 5 secondes, comme le reste.
   // Désactivée en mode conception (designOnly) : cet onglet ne doit jamais
   // interagir avec un tournoi réel.
   useEffect(() => {
     if (effectiveDesignOnly || !tournamentId) return;
     const t = setInterval(() => {
       fetchRegsAndElims(tournamentId);
+      syncLayoutIfChanged(tournamentId).catch(() => {});
     }, 5000);
     return () => clearInterval(t);
   }, [effectiveDesignOnly, tournamentId]);
@@ -537,6 +544,44 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
     setEliminations(elims || []);
   }
 
+  /**
+   * Relit la disposition si — et seulement si — un autre appareil l'a
+   * modifiée. On sonde une empreinte de 32 octets (colonne générée côté
+   * Postgres) plutôt que la disposition elle-même, qui pèse ~884 kB une
+   * fois les images embarquées : la sonder toutes les 5 secondes sur
+   * chaque écran de la salle aurait été intenable.
+   *
+   * Rien n'est appliqué pendant qu'on réorganise ici : la disposition en
+   * cours de manipulation ne doit pas être écrasée par la version encore
+   * en base. (editingRef est déclarée plus bas et tenue à jour pendant le
+   * rendu ; elle est donc prête quand l'intervalle appelle cette fonction.)
+   */
+  async function syncLayoutIfChanged(tId) {
+    if (editingRef.current) return;
+    const { data: sonde } = await supabase
+      .from("tournaments")
+      .select("clock_layout_fingerprint")
+      .eq("id", tId)
+      .maybeSingle();
+    const empreinte = sonde?.clock_layout_fingerprint ?? null;
+    if (!empreinte || empreinte === layoutFingerprintRef.current) return;
+
+    const { data } = await supabase
+      .from("tournaments")
+      .select("clock_layout, clock_background")
+      .eq("id", tId)
+      .maybeSingle();
+    if (!data) return;
+    layoutFingerprintRef.current = empreinte;
+    if (data.clock_layout) {
+      const m = mergeLayout(data.clock_layout);
+      setPanels(m.panels);
+      setImages(m.images);
+      setDesignSize(m.designSize);
+    }
+    setTournamentBg(data.clock_background || null);
+  }
+
   async function initTournament() {
     const t = await fetchCurrentTournament();
     if (!t) return;
@@ -545,6 +590,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
     // Dès qu'on connaît le tournoi, on gère sa propre disposition d'horloge
     // (plus jamais celle par défaut du club, sauf s'il n'en a pas encore).
     tournamentLayoutAppliedRef.current = true;
+    layoutFingerprintRef.current = t.clock_layout_fingerprint ?? null;
     if (t.clock_layout) {
       const m = mergeLayout(t.clock_layout);
       setPanels(m.panels);
@@ -757,8 +803,19 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
       // Disposition propre à CE tournoi (n'affecte pas les autres tournois
       // ni la disposition par défaut du club).
       const layout = { ...nextPanels, images: nextImages, designSize: nextDesign };
-      const { error } = await supabase.from("tournaments").update({ clock_layout: layout }).eq("id", tournamentId);
-      if (!error) return;
+      // On récupère la nouvelle empreinte dans le même aller-retour : sans
+      // ça, la sonde de 5s verrait « la disposition a changé » et relirait
+      // nos propres 884 kB juste après les avoir écrits.
+      const { data, error } = await supabase
+        .from("tournaments")
+        .update({ clock_layout: layout })
+        .eq("id", tournamentId)
+        .select("clock_layout_fingerprint")
+        .maybeSingle();
+      if (!error) {
+        if (data?.clock_layout_fingerprint) layoutFingerprintRef.current = data.clock_layout_fingerprint;
+        return;
+      }
     }
     const nextTheme = { ...theme, layout: { ...nextPanels, images: nextImages, designSize: nextDesign } };
     setTheme(nextTheme);
