@@ -5,6 +5,8 @@ import { avatarColor, initials } from "../lib/avatars.js";
 import {
   fetchChampionships,
   createChampionship,
+  updateChampionship,
+  setChampionshipFinished,
   deleteChampionship,
   fetchChampionshipStandings,
   evaluateFormula,
@@ -64,6 +66,8 @@ export default function ChampionshipView() {
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [recalculating, setRecalculating] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -117,6 +121,42 @@ export default function ChampionshipView() {
     setCreating(false);
   }
 
+  async function handleUpdate(id, form) {
+    setCreating(true);
+    try {
+      await updateChampionship(id, form);
+      setEditingId(null);
+      await load();
+    } catch (e) {
+      setError(e.message);
+    }
+    setCreating(false);
+  }
+
+  // Le classement n'est stocké nulle part : "Recalculer" le relit depuis
+  // les résultats des étapes. C'est ce qu'on fait après avoir corrigé une
+  // formule, ou annulé une élimination sur une étape déjà jouée.
+  async function handleRecalculate(id) {
+    setRecalculating(true);
+    try {
+      const frais = await fetchChampionshipStandings(id);
+      setSummaries((list) => list.map((s) => (s.championship.id === id ? frais : s)));
+    } catch (e) {
+      setError(e.message);
+    }
+    setRecalculating(false);
+  }
+
+  async function handleToggleFinished(id, finished) {
+    if (finished && !(await confirmAction("Marquer ce championnat comme terminé ? Il rejoindra les championnats terminés. Tu pourras le rouvrir."))) return;
+    try {
+      await setChampionshipFinished(id, finished);
+      await load();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
   async function handleDelete(id) {
     if (!(await confirmAction("Supprimer ce championnat ? Les tournois qui y sont rattachés seront simplement détachés (pas supprimés)."))) return;
     try {
@@ -142,6 +182,20 @@ export default function ChampionshipView() {
         <ChampionshipEditor
           onCancel={summaries.length > 0 ? () => setShowCreate(false) : null}
           onCreate={handleCreate}
+          loading={creating}
+        />
+      </div>
+    );
+  }
+
+  const enCoursDeModification = summaries.find((s) => s.championship.id === editingId);
+  if (enCoursDeModification) {
+    return (
+      <div className="h-full overflow-y-auto">
+        <ChampionshipEditor
+          initial={enCoursDeModification.championship}
+          onCancel={() => setEditingId(null)}
+          onCreate={(form) => handleUpdate(editingId, form)}
           loading={creating}
         />
       </div>
@@ -175,6 +229,10 @@ export default function ChampionshipView() {
         onBack={() => setSelectedId(null)}
         onDelete={() => handleDelete(selected.championship.id)}
         onTogglePublic={(value) => handleTogglePublic(selected.championship.id, value)}
+        onEdit={() => setEditingId(selected.championship.id)}
+        onRecalculate={() => handleRecalculate(selected.championship.id)}
+        recalculating={recalculating}
+        onToggleFinished={() => handleToggleFinished(selected.championship.id, !selected.championship.finished_at)}
       />
     );
   }
@@ -384,13 +442,20 @@ function FinishedChampionshipCard({ s, selected, onClick, manage, onBannerChange
   );
 }
 
-function ChampionshipEditor({ onCreate, onCancel, loading }) {
-  const [name, setName] = useState("");
-  const [formulaText, setFormulaText] = useState(DEFAULT_FORMULA);
-  const [bestStages, setBestStages] = useState("");
-  const [countRebuys, setCountRebuys] = useState(false);
+/**
+ * ChampionshipEditor — création ET modification d'un championnat. Les
+ * réglages (formule en tête) n'étaient réglables qu'à la création : une
+ * formule mal tapée obligeait à supprimer le championnat et à tout
+ * recommencer. "initial" pré-remplit le formulaire pour une modification.
+ */
+function ChampionshipEditor({ onCreate, onCancel, loading, initial = null }) {
+  const modification = !!initial;
+  const [name, setName] = useState(initial?.name || "");
+  const [formulaText, setFormulaText] = useState(initial?.formula_text || DEFAULT_FORMULA);
+  const [bestStages, setBestStages] = useState(initial?.best_stages_count ?? "");
+  const [countRebuys, setCountRebuys] = useState(!!initial?.count_rebuys_in_ranking);
   const [previewPlayers, setPreviewPlayers] = useState(20);
-  const [bannerImage, setBannerImage] = useState(null);
+  const [bannerImage, setBannerImage] = useState(initial?.banner_image || null);
 
   async function handleBannerFile(e) {
     const file = e.target.files?.[0];
@@ -433,7 +498,7 @@ function ChampionshipEditor({ onCreate, onCancel, loading }) {
     <div className="p-4 sm:p-6 font-body text-felt-cream grid grid-cols-1 lg:grid-cols-2 gap-8">
       <div>
         <div className="font-display text-xl mb-4">
-          {onCancel ? "Nouveau championnat" : "Créer ton premier championnat"}
+          {modification ? "Réglages du championnat" : onCancel ? "Nouveau championnat" : "Créer ton premier championnat"}
         </div>
 
         <label className="block text-xs text-felt-cream/50 mb-1">Nom du championnat</label>
@@ -516,7 +581,7 @@ function ChampionshipEditor({ onCreate, onCancel, loading }) {
             }
             className="px-4 py-2 bg-felt-gold text-felt-bg rounded-md font-display disabled:opacity-40"
           >
-            {loading ? "Création…" : "Confirmer"}
+            {loading ? "Enregistrement…" : modification ? "Enregistrer" : "Confirmer"}
           </button>
         </div>
       </div>

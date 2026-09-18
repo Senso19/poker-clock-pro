@@ -88,6 +88,40 @@ export async function createChampionship({ name, formulaText, bestStagesCount = 
   return data;
 }
 
+/**
+ * Modification d'un championnat existant : nom, formule, nombre
+ * d'étapes comptées, prise en compte des réentrées, bandeau.
+ *
+ * Changer la formule ne réécrit rien : les points ne sont stockés nulle
+ * part, ils se recalculent à chaque lecture du classement à partir des
+ * résultats des étapes. Une correction de formule s'applique donc
+ * rétroactivement à tout le championnat, ce qui est bien le but.
+ */
+export async function updateChampionship(id, { name, formulaText, bestStagesCount, countRebuysInRanking, bannerImage }) {
+  const patch = {};
+  if (name !== undefined) patch.name = name;
+  if (formulaText !== undefined) patch.formula_text = formulaText || DEFAULT_FORMULA;
+  if (bestStagesCount !== undefined) patch.best_stages_count = bestStagesCount;
+  if (countRebuysInRanking !== undefined) patch.count_rebuys_in_ranking = countRebuysInRanking;
+  if (bannerImage !== undefined) patch.banner_image = bannerImage;
+  const { error } = await supabase.from("championships").update(patch).eq("id", id);
+  if (error) throw error;
+}
+
+/**
+ * Clôture (ou réouverture) explicite d'un championnat. Sans cette date, on
+ * ne pouvait que DEVINER qu'un championnat était fini — il n'y a plus
+ * d'étape à venir —, ce qui rangeait parmi les terminés un championnat
+ * dont la prochaine date n'était simplement pas encore programmée.
+ */
+export async function setChampionshipFinished(id, finished) {
+  const { error } = await supabase
+    .from("championships")
+    .update({ finished_at: finished ? new Date().toISOString() : null })
+    .eq("id", id);
+  if (error) throw error;
+}
+
 export async function updateChampionshipBanner(id, bannerImage) {
   const { error } = await supabase.from("championships").update({ banner_image: bannerImage }).eq("id", id);
   if (error) throw error;
@@ -243,7 +277,9 @@ export async function fetchChampionshipStandings(championshipId) {
     top3: results.slice(0, 3),
     previousStage: finishedStages[0] || null,
     nextStage: upcomingStages[0] || null,
-    isActive: upcomingStages.length > 0 || finishedStages.length < stages.length,
+    // Une clôture explicite prime sur la déduction "il reste des étapes
+    // à venir" : c'est l'organisateur qui sait si son championnat est fini.
+    isActive: champ.finished_at ? false : upcomingStages.length > 0 || finishedStages.length < stages.length,
     dateRange,
   };
 }

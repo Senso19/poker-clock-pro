@@ -1,5 +1,6 @@
 import { useState } from "react";
 import CustomizablePanel from "./CustomizablePanel.jsx";
+import { avatarColor, initials } from "../lib/avatars.js";
 
 
 /**
@@ -7,9 +8,41 @@ import CustomizablePanel from "./CustomizablePanel.jsx";
  * retour, titre, classement complet avec avatar/nom/nombre de tournois/
  * points, chaque ligne dépliable pour voir le détail par étape.
  */
-export default function ChampionshipDetailPage({ summary, manage, onBack, onDelete, onTogglePublic }) {
+export default function ChampionshipDetailPage({
+  summary,
+  manage,
+  onBack,
+  onDelete,
+  onTogglePublic,
+  onEdit,
+  onRecalculate,
+  recalculating,
+  onToggleFinished,
+}) {
   const [expandedId, setExpandedId] = useState(null);
   const { championship, standings } = summary;
+  const termine = !!championship.finished_at;
+
+  /**
+   * Le classement, en CSV — de quoi l'ouvrir dans un tableur, l'afficher
+   * ou l'envoyer aux joueurs. Séparateur point-virgule et BOM UTF-8 :
+   * c'est ce qu'attend Excel en français, sinon les accents sortent en
+   * charabia et tout atterrit dans une seule colonne.
+   */
+  function telechargerCsv() {
+    const echapper = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const lignes = [
+      ["Place", "Joueur", "Tournois", "Points"].map(echapper).join(";"),
+      ...standings.map((s, i) => [i + 1, s.name, s.stagePoints.length, s.totalPoints].map(echapper).join(";")),
+    ];
+    const blob = new Blob(["\ufeff" + lignes.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${championship.name.replace(/[^\w\d-]+/g, "_")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   return (
     <div className="h-full overflow-y-auto font-body text-white">
@@ -33,13 +66,44 @@ export default function ChampionshipDetailPage({ summary, manage, onBack, onDele
           </label>
         )}
         {manage && (
-          <button onClick={onDelete} className="text-felt-alert/70 hover:text-felt-alert text-sm shrink-0">
-            🗑 Supprimer
+          <button onClick={onEdit} title="Réglages du championnat (formule, étapes comptées…)" className="text-felt-cream/50 hover:text-felt-gold text-lg shrink-0">
+            ⚙
+          </button>
+        )}
+        {manage && (
+          <button onClick={onDelete} title="Supprimer ce championnat" className="text-felt-alert/70 hover:text-felt-alert text-lg shrink-0">
+            🗑
           </button>
         )}
       </CustomizablePanel>
 
       <div className="p-4 sm:p-6">
+        {/* Les actions du championnat, groupées sous le titre : régler la
+            formule, clore la saison, relire le classement, l'emporter. */}
+        <CustomizablePanel panelKey="championship-detail-actions" defaultWidth="1 1 768px" defaultMaxWidth="768px" className="flex flex-wrap items-center gap-x-6 gap-y-2 mb-5">
+          {manage && (
+            <button onClick={onToggleFinished} className="flex items-center gap-2 text-sm text-felt-cream/70 hover:text-felt-gold">
+              <span>🏆</span> {termine ? "Rouvrir le championnat" : "Terminer le championnat"}
+            </button>
+          )}
+          <button
+            onClick={onRecalculate}
+            disabled={recalculating}
+            title="Relit les résultats de toutes les étapes et recalcule les points"
+            className="flex items-center gap-2 text-sm text-felt-cream/70 hover:text-felt-gold disabled:opacity-40"
+          >
+            <span>↻</span> {recalculating ? "Recalcul…" : "Recalculer"}
+          </button>
+          <button
+            onClick={telechargerCsv}
+            disabled={standings.length === 0}
+            className="flex items-center gap-2 text-sm text-felt-cream/70 hover:text-felt-gold disabled:opacity-40"
+          >
+            <span>⤓</span> Télécharger (CSV)
+          </button>
+          {termine && <span className="text-xs text-felt-gold/70">Championnat terminé</span>}
+        </CustomizablePanel>
+
         <CustomizablePanel panelKey="championship-detail-meta" defaultWidth="1 1 768px" defaultMaxWidth="768px" className="mb-6">
           <div className="pcp-body text-base text-felt-cream/60 mb-6">
             {summary.stageCount} tournois · {summary.playerCount} joueurs ·{" "}
