@@ -19,6 +19,8 @@ import { useConfirm } from "../context/ConfirmContext.jsx";
 import { logEvent } from "../lib/events.js";
 import { eliminatePlayer } from "../lib/eliminations.js";
 import EliminationPicker from "./EliminationPicker.jsx";
+import ToastStack from "./ToastStack.jsx";
+import TableMovesDialog from "./TableMovesDialog.jsx";
 import { playerLabel, sortByPlayerLabel } from "../lib/players.js";
 import { addAnnouncement } from "../lib/announcements.js";
 import { useIsMobile } from "../lib/useIsMobile.js";
@@ -67,8 +69,11 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   // y a deux heures dont le siège n'a jamais été libéré.
   const [dataReady, setDataReady] = useState(false);
   const [winnerAnnounce, setWinnerAnnounce] = useState(null);
-  const [showBreakSuggestion, setShowBreakSuggestion] = useState(false);
-  const [showRebalanceSuggestion, setShowRebalanceSuggestion] = useState(false);
+  // Messages du bas de page. Deux familles : les propositions
+  // (équilibrage, casse), qui restent tant qu'elles ont lieu d'être et
+  // s'ouvrent au clic ; et les comptes rendus de déplacement, qui
+  // s'effacent tout seuls.
+  const [toasts, setToasts] = useState([]);
   const [balancing, setBalancing] = useState(false);
   const [captainAccounts, setCaptainAccounts] = useState([]);
   const [tableCaptains, setTableCaptains] = useState([]);
@@ -668,16 +673,39 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     // point de comparaison aux suivantes.
     if (!dataReady) return;
 
-    const needsBreak = computeBreakMoves().length > 0;
-    if (needsBreak && !wasNeedingBreakRef.current && !breakProposal && !showBreakSuggestion) {
-      setShowBreakSuggestion(true);
+    const breakMoves = computeBreakMoves();
+    const needsBreak = breakMoves.length > 0;
+    if (needsBreak && !wasNeedingBreakRef.current && !breakProposal) {
+      poserToast({
+        id: "casse",
+        accent: true,
+        text: `💥 La table casse : ${breakMoves[0].fromTable}`,
+        onClick: () => {
+          retirerToast("casse");
+          const moves = computeBreakMoves();
+          if (moves.length > 0) setBreakProposal(moves);
+        },
+      });
     }
+    // Le message disparaît de lui-même quand la situation se résout
+    // autrement (une élimination, un déplacement manuel).
+    if (!needsBreak) retirerToast("casse");
     wasNeedingBreakRef.current = needsBreak;
 
     const needsRebalance = computeRebalanceMoves().length > 0;
-    if (needsRebalance && !wasNeedingRebalanceRef.current && !rebalanceProposal && !showRebalanceSuggestion && !needsBreak) {
-      setShowRebalanceSuggestion(true);
+    if (needsRebalance && !wasNeedingRebalanceRef.current && !rebalanceProposal && !needsBreak) {
+      poserToast({
+        id: "equilibrage",
+        accent: true,
+        text: "⚖ Équilibrage recommandé — toucher pour voir le déplacement",
+        onClick: () => {
+          retirerToast("equilibrage");
+          const moves = computeRebalanceMoves();
+          if (moves.length > 0) setRebalanceProposal(moves);
+        },
+      });
     }
+    if (!needsRebalance || needsBreak) retirerToast("equilibrage");
     wasNeedingRebalanceRef.current = needsRebalance;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [registrations, eliminations, dataReady]);
@@ -722,6 +750,16 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [registrations, eliminations]);
 
+  // Identifiant stable pour une proposition, afin de ne jamais empiler
+  // deux fois le même message tant qu'il est à l'écran.
+  function poserToast(t) {
+    setToasts((prev) => (prev.some((x) => x.id === t.id) ? prev : [...prev, t]));
+    if (t.duree) setTimeout(() => retirerToast(t.id), t.duree);
+  }
+  function retirerToast(id) {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }
+
   async function applyMoves(moves, kind, label) {
     setBalancing(true);
     setError(null);
@@ -734,11 +772,16 @@ export default function TournamentDetail({ tournamentId, onBack }) {
       );
       logEvent(tournamentId, kind, label, { before });
       moves.forEach((m) => {
-        addAnnouncement(
-          tournamentId,
-          `${m.reg.players?.pseudo || m.reg.players?.full_name} déplacé Table ${m.toTable} Siège ${m.toSeat}`,
-          "move"
-        );
+        const nom = playerLabel(m.reg) || m.reg.players?.full_name;
+        addAnnouncement(tournamentId, `${nom} déplacé Table ${m.toTable} Siège ${m.toSeat}`, "move");
+        // Un message par joueur déplacé : c'est ce qu'on lit à voix haute
+        // à la table. Il s'efface seul après vingt secondes, le temps de
+        // faire passer le joueur.
+        poserToast({
+          id: `deplacement-${m.reg.id}-${Date.now()}`,
+          text: `${nom} : (Table ${m.toTable} · Place ${m.toSeat})`,
+          duree: 20000,
+        });
       });
       await loadRegistrations();
     } catch (e) {
@@ -1348,121 +1391,24 @@ export default function TournamentDetail({ tournamentId, onBack }) {
           </div>
         </div>
       )}
-      {showBreakSuggestion && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setShowBreakSuggestion(false)}>
-          <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-            <div className="font-display text-base mb-2">💥 Casser une table</div>
-            <div className="text-sm text-felt-cream/60 mb-4">
-              Il y a assez de sièges libres ailleurs pour casser la table la plus haute. Voulez-vous la casser
-              maintenant ?
-            </div>
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setShowBreakSuggestion(false)} className="px-3 py-1.5 text-sm text-felt-cream/60 hover:text-felt-cream">
-                Annuler
-              </button>
-              <button
-                onClick={() => {
-                  setShowBreakSuggestion(false);
-                  const moves = computeBreakMoves();
-                  if (moves.length > 0) setBreakProposal(moves);
-                }}
-                className="px-4 py-1.5 text-sm bg-felt-gold text-felt-bg rounded-md font-display"
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {showRebalanceSuggestion && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setShowRebalanceSuggestion(false)}>
-          <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-5 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-            <div className="font-display text-base mb-2">⚖ Équilibrage recommandé</div>
-            <div className="text-sm text-felt-cream/60 mb-4">
-              L'écart entre la table la plus et la moins garnie n'est plus optimal. Voulez-vous déplacer un joueur
-              maintenant ?
-            </div>
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setShowRebalanceSuggestion(false)} className="px-3 py-1.5 text-sm text-felt-cream/60 hover:text-felt-cream">
-                Annuler
-              </button>
-              <button
-                onClick={() => {
-                  setShowRebalanceSuggestion(false);
-                  const moves = computeRebalanceMoves();
-                  if (moves.length > 0) setRebalanceProposal(moves);
-                }}
-                className="px-4 py-1.5 text-sm bg-felt-gold text-felt-bg rounded-md font-display"
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       {breakProposal && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setBreakProposal(null)}>
-          <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-5 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <div className="font-display text-base mb-1">💥 Casser une table — déplacements proposés</div>
-            <div className="text-xs text-felt-cream/50 mb-3">
-              {breakProposal.length} joueur{breakProposal.length > 1 ? "s" : ""} concerné{breakProposal.length > 1 ? "s" : ""}.
-            </div>
-            <div className="max-h-72 overflow-y-auto space-y-1 mb-4">
-              {breakProposal.map((m) => (
-                <div key={m.reg.id} className="flex items-center justify-between text-sm bg-felt-bg/60 rounded px-3 py-2">
-                  <span className="truncate">{m.reg.players?.full_name || m.reg.players?.pseudo}</span>
-                  <span className="text-felt-cream/40 text-xs whitespace-nowrap ml-2">
-                    T{m.fromTable || "-"}/S{m.fromSeat || "-"} → T{m.toTable}/S{m.toSeat}
-                  </span>
-                </div>
-              ))}
-            </div>
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setBreakProposal(null)} className="px-3 py-1.5 text-sm text-felt-cream/60 hover:text-felt-cream">
-                Annuler
-              </button>
-              <button
-                onClick={applyBreakProposal}
-                disabled={balancing}
-                className="px-4 py-1.5 text-sm bg-felt-gold text-felt-bg rounded-md font-display disabled:opacity-40"
-              >
-                {balancing ? "Application…" : "OK"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <TableMovesDialog
+          kind="break"
+          moves={breakProposal}
+          tableNumber={breakProposal[0]?.fromTable}
+          busy={balancing}
+          onConfirm={applyBreakProposal}
+          onClose={() => setBreakProposal(null)}
+        />
       )}
       {rebalanceProposal && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setRebalanceProposal(null)}>
-          <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-5 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <div className="font-display text-base mb-1">⚖ Équilibrage — déplacement proposé</div>
-            <div className="text-xs text-felt-cream/50 mb-3">
-              {rebalanceProposal.length} joueur{rebalanceProposal.length > 1 ? "s" : ""} concerné{rebalanceProposal.length > 1 ? "s" : ""}.
-            </div>
-            <div className="max-h-72 overflow-y-auto space-y-1 mb-4">
-              {rebalanceProposal.map((m) => (
-                <div key={m.reg.id} className="flex items-center justify-between text-sm bg-felt-bg/60 rounded px-3 py-2">
-                  <span className="truncate">{m.reg.players?.full_name || m.reg.players?.pseudo}</span>
-                  <span className="text-felt-cream/40 text-xs whitespace-nowrap ml-2">
-                    T{m.fromTable || "-"}/S{m.fromSeat || "-"} → T{m.toTable}/S{m.toSeat}
-                  </span>
-                </div>
-              ))}
-            </div>
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setRebalanceProposal(null)} className="px-3 py-1.5 text-sm text-felt-cream/60 hover:text-felt-cream">
-                Annuler
-              </button>
-              <button
-                onClick={applyRebalanceProposal}
-                disabled={balancing}
-                className="px-4 py-1.5 text-sm bg-felt-gold text-felt-bg rounded-md font-display disabled:opacity-40"
-              >
-                {balancing ? "Application…" : "OK"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <TableMovesDialog
+          kind="balance"
+          moves={rebalanceProposal}
+          busy={balancing}
+          onConfirm={applyRebalanceProposal}
+          onClose={() => setRebalanceProposal(null)}
+        />
       )}
       {showPasteImport && (
         <PasteImportModal
@@ -1474,6 +1420,8 @@ export default function TournamentDetail({ tournamentId, onBack }) {
           }}
         />
       )}
+
+      <ToastStack toasts={toasts} onDismiss={retirerToast} />
     </div>
   );
 }
