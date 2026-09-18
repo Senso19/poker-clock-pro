@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { usePolling } from "../lib/usePolling.js";
 import ClubLoader from "./ClubLoader.jsx";
 import { supabase } from "../lib/supabase.js";
 import { selectTournament } from "../lib/tournaments.js";
@@ -67,11 +68,7 @@ export default function TournamentPage({ tournamentId, onBack }) {
   // où la page a été ouverte, et une modification faite en pleine partie
   // (ici ou depuis un autre appareil) n'apparaissait jamais à l'écran.
   // "silent" évite de repasser par l'écran de chargement à chaque tour.
-  useEffect(() => {
-    const t = setInterval(() => load({ silent: true }), 10000);
-    return () => clearInterval(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tournamentId]);
+  usePolling(() => load({ silent: true }), 10000, { immediat: false });
 
   // Revenir sur l'onglet Horloge doit montrer l'état à jour tout de suite,
   // sans attendre le prochain tour de rafraîchissement.

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePolling } from "../lib/usePolling.js";
 import { supabase } from "../lib/supabase.js";
 import ClubLoader from "./ClubLoader.jsx";
 import CustomizablePanel from "./CustomizablePanel.jsx";
@@ -51,11 +52,12 @@ export default function TablesView({ tournamentId, manage = false }) {
     [tournamentId]
   );
 
+  // Premier chargement non silencieux (il affiche le loader), puis
+  // sondage silencieux tant que l'onglet est à l'écran.
   useEffect(() => {
     load();
-    const t = setInterval(() => load({ silent: true }), 8000);
-    return () => clearInterval(t);
   }, [load]);
+  usePolling(() => load({ silent: true }), 8000, { immediat: false });
 
   // Un clic n'importe où ailleurs referme le menu ⋮ ouvert, comme dans
   // l'onglet Joueurs.

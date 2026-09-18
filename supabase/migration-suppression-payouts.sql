@@ -1,0 +1,16 @@
+-- Suppression de la table payouts (obsolète)
+-- ------------------------------------------------------------------
+-- Appliquée le 2026-09-18 sur le projet 19PokerClub.
+--
+-- 0 ligne, 0 octet de données, et plus aucune référence dans le code :
+-- src/lib/payouts.js a été supprimé au même check-up, le calcul des gains
+-- vit dans points.js à partir du prizepool du tournoi.
+--
+-- Les trois autres tables vides repérées lors du check-up sont
+-- VOLONTAIREMENT CONSERVÉES. Elles sont vides mais chacune a du code
+-- actif qui la lit et l'écrit — les supprimer casserait une
+-- fonctionnalité :
+--   * chat_messages             -> le panneau de discussion
+--   * contact_messages          -> la cloche de contact admin
+--   * table_captain_assignments -> les chefs de table
+drop table if exists payouts;

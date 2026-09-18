@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { usePolling } from "../lib/usePolling.js";
 import { saveClubTheme } from "../lib/clubSettings.js";
 import { ChevronUp, ChevronDown, Minus, User, LogOut, Bell, Trophy, Target, BarChart3, LayoutGrid, Users, MessageCircle, Mail, Settings, ClipboardList, Shield } from "lucide-react";
 import { supabase } from "../lib/supabase.js";
@@ -98,13 +99,7 @@ export default function Sidebar({ tab, setTab, onRequestLogin }) {
       .catch(() => {});
   }
 
-  useEffect(() => {
-    if (!manage) return;
-    refreshPendingCount();
-    const t = setInterval(refreshPendingCount, 20000);
-    return () => clearInterval(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [manage]);
+  usePolling(refreshPendingCount, 20000, { actif: manage });
 
   useEffect(() => {
     try {

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { usePolling } from "../lib/usePolling.js";
 import ClubLoader from "./ClubLoader.jsx";
 import { supabase } from "../lib/supabase.js";
 
@@ -107,16 +108,15 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     suspendreSondeRef.current = !!(breakProposal || rebalanceProposal || balancing || importing || shuffling);
   }, [breakProposal, rebalanceProposal, balancing, importing, shuffling]);
 
-  useEffect(() => {
-    if (!tournamentId) return undefined;
-    const t = setInterval(() => {
+  usePolling(
+    () => {
       if (suspendreSondeRef.current) return;
       loadRegistrations({ silent: true });
       loadEliminations({ silent: true });
-    }, 5000);
-    return () => clearInterval(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tournamentId]);
+    },
+    5000,
+    { actif: !!tournamentId, immediat: false }
+  );
 
   // Ferme le menu ⋮ d'un joueur dès qu'on clique ailleurs sur la page.
   useEffect(() => {

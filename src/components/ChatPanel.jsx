@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { usePolling } from "../lib/usePolling.js";
 import ClubLoader from "./ClubLoader.jsx";
 import { useAccount } from "../context/AccountContext.jsx";
 import { fetchMessages, sendMessage, deleteMessage } from "../lib/chat.js";
@@ -30,16 +31,30 @@ export default function ChatPanel() {
   const bottomRef = useRef(null);
 
   useEffect(() => {
-    load();
     fetchClubSettings()
       .then((s) => {
         setMaxLength(s?.chat_max_length || DEFAULT_MAX_LENGTH);
         setCooldownSeconds(s?.chat_cooldown_seconds || 0);
       })
       .catch(() => {});
-    const t = setInterval(load, 3000);
-    return () => clearInterval(t);
   }, []);
+
+  // Le panneau vit dans la barre latérale : il est monté en permanence,
+  // même quand la barre est repliée ou qu'on est sur un autre écran. Il
+  // sondait donc les messages toutes les 3 secondes en continu — 26 800
+  // lectures relevées sur une table vide. On ne sonde que lorsqu'il est
+  // réellement visible à l'écran.
+  const [visible, setVisible] = useState(false);
+  const zoneRef = useRef(null);
+  useEffect(() => {
+    const el = zoneRef.current;
+    if (!el) return undefined;
+    const obs = new IntersectionObserver(([e]) => setVisible(e.isIntersecting), { threshold: 0.01 });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  usePolling(load, 3000, { actif: visible });
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -99,7 +114,7 @@ export default function ChatPanel() {
   const blockedFor = remainingCooldown();
 
   return (
-    <div className="flex flex-col h-full min-h-0 font-body text-felt-cream">
+    <div ref={zoneRef} className="flex flex-col h-full min-h-0 font-body text-felt-cream">
       <div className="flex-1 min-h-0 overflow-y-auto px-1 py-2 space-y-3">
         {loading ? (
           <ClubLoader size={44} label={null} />
