@@ -2082,7 +2082,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
       <style>{`
         @keyframes pcp-fade { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }
         @keyframes pcp-scroll-left { from { transform: translateX(100%); } to { transform: translateX(-100%); } }
-        .animate-pcp-scroll-left { animation: pcp-scroll-left 14s linear infinite; }
+        .animate-pcp-scroll-left { animation-name: pcp-scroll-left; animation-timing-function: linear; animation-iteration-count: infinite; }
       `}</style>
     </div>
   );
@@ -2350,12 +2350,28 @@ function AnnouncementsContent({ style, announcements, textStyle, showDrawHint })
  * voir AnnouncementsContent.
  */
 function AnnouncementLine({ text, style, textStyle, fontSize }) {
+  // Figée, la ligne ne traverse plus l'écran : on la rentre alors dans la
+  // largeur du panneau plutôt que de la couper au bord.
+  if (style.figerTexte) {
+    return (
+      <div className="w-full shrink-0">
+        <FitText align={style.align || "center"} origin="center">
+          <span style={{ ...textStyle(style), fontSize: `${fontSize}px`, lineHeight: 1.2 }}>{text}</span>
+        </FitText>
+      </div>
+    );
+  }
   return (
     <div
       className="w-full overflow-hidden whitespace-nowrap shrink-0"
       style={{ ...textStyle(style), fontSize: `${fontSize}px`, lineHeight: 1.2, textAlign: style.align || "center" }}
     >
-      <span className="inline-block animate-pcp-scroll-left">{text}</span>
+      <span
+        className="inline-block animate-pcp-scroll-left"
+        style={{ animationDuration: `${Math.max(2, style.dureeTexte || 14)}s` }}
+      >
+        {text}
+      </span>
     </div>
   );
 }
@@ -2373,7 +2389,7 @@ function AnnouncementLine({ text, style, textStyle, fontSize }) {
  * Si la liste tient entièrement dans le panneau, rien ne bouge : il n'y a
  * rien à révéler, et une liste qui gigote pour rien est juste fatigante.
  */
-function ListeDefilante({ pauseHautMs = 0, dureeMs = 20000, pauseBasMs = 3000, children }) {
+function ListeDefilante({ pauseHautMs = 0, dureeMs = 20000, vitessePxParSec = 0, fige = false, pauseBasMs = 3000, children }) {
   const vueRef = useRef(null);
   const listeRef = useRef(null);
   const [debordement, setDebordement] = useState(0);
@@ -2399,11 +2415,17 @@ function ListeDefilante({ pauseHautMs = 0, dureeMs = 20000, pauseBasMs = 3000, c
   useEffect(() => {
     const liste = listeRef.current;
     if (!liste) return undefined;
-    if (debordement <= 0) {
+    // Figé, ou rien qui dépasse : la liste reste en haut, sans animation.
+    if (fige || debordement <= 0) {
       liste.style.transition = "none";
       liste.style.transform = "translateY(0)";
       return undefined;
     }
+    // Deux façons de régler le rythme. À vitesse constante, une longue
+    // liste défile plus longtemps qu'une courte (même allure de lecture) ;
+    // à durée fixe, toutes prennent le même temps, donc une longue défile
+    // plus vite. Les deux se défendent selon ce qu'on affiche.
+    const duree = vitessePxParSec > 0 ? (debordement / vitessePxParSec) * 1000 : dureeMs;
     let minuterie = null;
     let arrete = false;
     const enHaut = () => {
@@ -2414,16 +2436,16 @@ function ListeDefilante({ pauseHautMs = 0, dureeMs = 20000, pauseBasMs = 3000, c
     };
     const descendre = () => {
       if (arrete) return;
-      liste.style.transition = `transform ${dureeMs}ms linear`;
+      liste.style.transition = `transform ${duree}ms linear`;
       liste.style.transform = `translateY(-${debordement}px)`;
-      minuterie = setTimeout(enHaut, dureeMs + pauseBasMs);
+      minuterie = setTimeout(enHaut, duree + pauseBasMs);
     };
     enHaut();
     return () => {
       arrete = true;
       clearTimeout(minuterie);
     };
-  }, [debordement, pauseHautMs, dureeMs, pauseBasMs]);
+  }, [debordement, pauseHautMs, dureeMs, vitessePxParSec, fige, pauseBasMs]);
 
   return (
     <div ref={vueRef} className="w-full h-full overflow-hidden">
@@ -2442,6 +2464,8 @@ function reglagesDefilement(style, pauseParDefaut = 0) {
   return {
     pauseHautMs: Math.max(0, style.pauseHaut ?? pauseParDefaut) * 1000,
     dureeMs: Math.max(1, style.dureeDefilement || 20) * 1000,
+    vitessePxParSec: style.rythmeDefilement === "vitesse" ? Math.max(4, style.vitesseDefilement || 24) : 0,
+    fige: !!style.figerTexte,
   };
 }
 
@@ -2941,27 +2965,74 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
         <>
           <div className="border-t border-felt-cream/10 my-2 pt-2 text-felt-cream/50">Défilement</div>
           <label className="flex items-center justify-between mb-2">
+            Figer le texte (ne rien faire défiler)
+            <input type="checkbox" checked={!!style.figerTexte} onChange={(e) => onChange({ figerTexte: e.target.checked })} />
+          </label>
+          <label className="flex items-center justify-between mb-2">
             Arrêt en haut (s)
             <input
               type="number"
               min="0"
+              disabled={!!style.figerTexte}
               value={style.pauseHaut ?? 60}
               onChange={(e) => onChange({ pauseHaut: Math.max(0, Number(e.target.value) || 0) })}
-              className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-1 py-0.5 text-felt-cream"
+              className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-1 py-0.5 text-felt-cream disabled:opacity-30"
             />
           </label>
           <label className="flex items-center justify-between mb-2">
-            Durée de la descente (s)
-            <input
-              type="number"
-              min="1"
-              value={style.dureeDefilement || 20}
-              onChange={(e) => onChange({ dureeDefilement: Math.max(1, Number(e.target.value) || 20) })}
-              className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-1 py-0.5 text-felt-cream"
-            />
+            Rythme de la descente
+            <select
+              disabled={!!style.figerTexte}
+              value={style.rythmeDefilement || "duree"}
+              onChange={(e) => onChange({ rythmeDefilement: e.target.value })}
+              className="bg-felt-panel border border-felt-cream/10 rounded px-1 py-0.5 text-felt-cream disabled:opacity-30"
+            >
+              <option value="duree">Durée fixe</option>
+              <option value="vitesse">Vitesse constante</option>
+            </select>
           </label>
+          {(style.rythmeDefilement || "duree") === "duree" ? (
+            <label className="flex items-center justify-between mb-2">
+              Durée de la descente (s)
+              <input
+                type="number"
+                min="1"
+                disabled={!!style.figerTexte}
+                value={style.dureeDefilement || 20}
+                onChange={(e) => onChange({ dureeDefilement: Math.max(1, Number(e.target.value) || 20) })}
+                className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-1 py-0.5 text-felt-cream disabled:opacity-30"
+              />
+            </label>
+          ) : (
+            <label className="flex items-center justify-between mb-2">
+              Rapidité (pixels par seconde)
+              <input
+                type="number"
+                min="4"
+                disabled={!!style.figerTexte}
+                value={style.vitesseDefilement || 24}
+                onChange={(e) => onChange({ vitesseDefilement: Math.max(4, Number(e.target.value) || 24) })}
+                className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-1 py-0.5 text-felt-cream disabled:opacity-30"
+              />
+            </label>
+          )}
+          {defaultTitle === "Annonces" && (
+            <label className="flex items-center justify-between mb-2">
+              Durée d'un passage du texte (s)
+              <input
+                type="number"
+                min="2"
+                disabled={!!style.figerTexte}
+                value={style.dureeTexte || 14}
+                onChange={(e) => onChange({ dureeTexte: Math.max(2, Number(e.target.value) || 14) })}
+                className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-1 py-0.5 text-felt-cream disabled:opacity-30"
+              />
+            </label>
+          )}
           <div className="text-[11px] text-felt-cream/35 mb-2">
-            Arrêt à 0 = pas de pause en haut. La liste ne défile que si elle dépasse du panneau.
+            Arrêt à 0 = pas de pause en haut. À durée fixe, une longue liste défile plus vite pour tenir dans le temps
+            donné ; à vitesse constante, elle défile plus longtemps. La liste ne défile que si elle dépasse du panneau.
+            {defaultTitle === "Annonces" && " La durée d'un passage règle le texte qui traverse l'écran de droite à gauche."}
           </div>
         </>
       )}
