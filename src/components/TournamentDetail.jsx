@@ -59,6 +59,11 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   const [shuffling, setShuffling] = useState(false);
   const [breakProposal, setBreakProposal] = useState(null);
   const [rebalanceProposal, setRebalanceProposal] = useState(null);
+  // Les suggestions d'équilibrage ne doivent pas se prononcer avant que
+  // les éliminations soient connues : tant qu'elles manquent, TOUS les
+  // inscrits encore assis comptent comme en jeu, y compris ceux sortis il
+  // y a deux heures dont le siège n'a jamais été libéré.
+  const [dataReady, setDataReady] = useState(false);
   const [winnerAnnounce, setWinnerAnnounce] = useState(null);
   const [showBreakSuggestion, setShowBreakSuggestion] = useState(false);
   const [showRebalanceSuggestion, setShowRebalanceSuggestion] = useState(false);
@@ -90,6 +95,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
 
   async function loadEverything() {
     setLoading(true);
+    setDataReady(false);
     try {
       const { data: t, error: tErr } = await supabase
         .from("tournaments")
@@ -98,8 +104,11 @@ export default function TournamentDetail({ tournamentId, onBack }) {
         .single();
       if (tErr) throw tErr;
       setTournament(t);
-      await loadRegistrations();
-      await loadEliminations();
+      // En parallèle plutôt qu'à la suite : enchaînés, il existait un
+      // rendu intermédiaire où les inscriptions étaient là et les
+      // éliminations pas encore.
+      await Promise.all([loadRegistrations(), loadEliminations()]);
+      setDataReady(true);
       fetchTableCaptainAssignments(tournamentId).then(setTableCaptains).catch(() => {});
     } catch (e) {
       setError(e.message);
@@ -603,6 +612,11 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   const wasNeedingBreakRef = useRef(false);
   const wasNeedingRebalanceRef = useRef(false);
   useEffect(() => {
+    // Tant que tout n'est pas chargé, on ne calcule rien ET on ne touche
+    // pas aux refs : sinon la première mesure, faussée, servirait de
+    // point de comparaison aux suivantes.
+    if (!dataReady) return;
+
     const needsBreak = computeBreakMoves().length > 0;
     if (needsBreak && !wasNeedingBreakRef.current && !breakProposal && !showBreakSuggestion) {
       setShowBreakSuggestion(true);
@@ -615,7 +629,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     }
     wasNeedingRebalanceRef.current = needsRebalance;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [registrations, eliminations]);
+  }, [registrations, eliminations, dataReady]);
 
   // Détection des seuils d'ante (moitié ante si <6 joueurs sur une table,
   // maintien des antes en tête-à-tête) : dès que l'un devient éligible
