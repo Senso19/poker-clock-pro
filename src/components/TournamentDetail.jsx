@@ -92,6 +92,32 @@ export default function TournamentDetail({ tournamentId, onBack }) {
       .then(({ data }) => setClubPlayers(data || []));
   }, [tournamentId]);
 
+  // Sonde silencieuse, comme l'horloge et l'onglet Tables. Sans elle, cet
+  // écran ne relisait ses données qu'au montage : une élimination faite
+  // depuis l'onglet Tables, depuis le téléphone d'un chef de table ou
+  // depuis un autre appareil n'y arrivait jamais. C'est aussi pour ça que
+  // la proposition d'équilibrage n'apparaissait qu'en changeant d'onglet —
+  // le changement remonte le composant, et le remontage relit tout.
+  const suspendreSondeRef = useRef(false);
+  useEffect(() => {
+    // On ne relit pas pendant qu'une proposition est affichée : les
+    // déplacements montrés ont été calculés sur l'état courant, et les
+    // voir bouger sous les yeux n'aiderait personne. Ni pendant une
+    // écriture en masse, pour ne pas lire un état à moitié appliqué.
+    suspendreSondeRef.current = !!(breakProposal || rebalanceProposal || balancing || importing || shuffling);
+  }, [breakProposal, rebalanceProposal, balancing, importing, shuffling]);
+
+  useEffect(() => {
+    if (!tournamentId) return undefined;
+    const t = setInterval(() => {
+      if (suspendreSondeRef.current) return;
+      loadRegistrations({ silent: true });
+      loadEliminations({ silent: true });
+    }, 5000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tournamentId]);
+
   // Ferme le menu ⋮ d'un joueur dès qu'on clique ailleurs sur la page.
   useEffect(() => {
     if (!openMenuId) return;
@@ -123,13 +149,15 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     setLoading(false);
   }
 
-  async function loadRegistrations() {
+  async function loadRegistrations({ silent = false } = {}) {
     const { data, error } = await supabase
       .from("registrations")
       .select("*, players(id, full_name, first_name, last_name, club, pseudo), accounts(avatar_data, pseudo, club_name)")
       .eq("tournament_id", tournamentId)
       .order("registered_at", { ascending: true });
-    if (error) setError(error.message);
+    // Une sonde silencieuse ne fait pas surgir un bandeau d'erreur pour une
+    // coupure réseau d'une seconde : elle réessaiera cinq secondes plus tard.
+    if (error && !silent) setError(error.message);
     // Tri alphabétique sur le nom affiché. Il se fait ici et pas en SQL :
     // le libellé vient de plusieurs tables jointes (pseudo du joueur, à
     // défaut celui du compte, à défaut le nom complet), et localeCompare
@@ -137,14 +165,14 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     setRegistrations(sortByPlayerLabel(data));
   }
 
-  async function loadEliminations() {
+  async function loadEliminations({ silent = false } = {}) {
     const { data, error } = await supabase
       .from("eliminations")
       .select("*")
       .eq("tournament_id", tournamentId)
       .eq("undone", false)
       .order("eliminated_at", { ascending: true });
-    if (error) setError(error.message);
+    if (error && !silent) setError(error.message);
     setEliminations(data || []);
   }
 
@@ -757,7 +785,11 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     if (t.duree) setTimeout(() => retirerToast(t.id), t.duree);
   }
   function retirerToast(id) {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+    // On renvoie prev tel quel quand il n'y a rien à retirer : la sonde
+    // appelle cette fonction toutes les 5 secondes pour les propositions
+    // qui n'ont plus lieu d'être, et un nouveau tableau à chaque passage
+    // provoquerait un rendu pour rien.
+    setToasts((prev) => (prev.some((t) => t.id === id) ? prev.filter((t) => t.id !== id) : prev));
   }
 
   async function applyMoves(moves, kind, label) {
