@@ -7,19 +7,23 @@ import {
   fetchContactMessages,
   markContactMessageRead,
   deleteContactMessage,
+  fetchPasswordResetRequests,
+  reinitialiserMotDePasse,
+  ignorerDemandeReinitialisation,
 } from "../lib/auth.js";
 import { useConfirm } from "../context/ConfirmContext.jsx";
 
 /**
- * PendingAccountsModal — cloche de notifications de l'admin/TD : deux
- * sections, les nouvelles inscriptions en attente de validation, et les
- * messages "Contacter l'administrateur" reçus (gérés directement dans
- * l'app, sans e-mail).
+ * PendingAccountsModal — cloche de notifications de l'admin/TD : les
+ * nouvelles inscriptions en attente de validation, les mots de passe
+ * oubliés à redonner, et les messages "Contacter l'administrateur" reçus.
+ * Tout se règle dans l'app, sans e-mail.
  */
 export default function PendingAccountsModal({ onClose, onChanged }) {
   const confirmAction = useConfirm();
   const [pending, setPending] = useState([]);
   const [messages, setMessages] = useState([]);
+  const [resets, setResets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState(null);
@@ -33,6 +37,7 @@ export default function PendingAccountsModal({ onClose, onChanged }) {
     setLoading(true);
     try {
       setPending(await fetchPendingAccounts());
+      setResets(await fetchPasswordResetRequests());
       setMessages(await fetchContactMessages());
     } catch (e) {
       setError(e.message);
@@ -70,6 +75,32 @@ export default function PendingAccountsModal({ onClose, onChanged }) {
     try {
       await markContactMessageRead(id);
       setMessages((list) => list.map((m) => (m.id === id ? { ...m, status: "read" } : m)));
+      onChanged?.();
+    } catch (e) {
+      setError(e.message);
+    }
+    setBusyId(null);
+  }
+
+  async function handleReset(compte, motDePasse) {
+    setBusyId(compte.id);
+    setError(null);
+    try {
+      await reinitialiserMotDePasse(compte.id, motDePasse);
+      setResets((list) => list.filter((a) => a.id !== compte.id));
+      onChanged?.();
+    } catch (e) {
+      setError(e.message);
+    }
+    setBusyId(null);
+  }
+
+  async function handleIgnoreReset(compte) {
+    if (!(await confirmAction(`Écarter la demande de ${compte.pseudo} sans changer son mot de passe ?`))) return;
+    setBusyId(compte.id);
+    try {
+      await ignorerDemandeReinitialisation(compte.id);
+      setResets((list) => list.filter((a) => a.id !== compte.id));
       onChanged?.();
     } catch (e) {
       setError(e.message);
@@ -156,6 +187,27 @@ export default function PendingAccountsModal({ onClose, onChanged }) {
               </div>
 
               <div>
+                <div className="text-xs font-display uppercase tracking-widest text-felt-cream/40 mb-2">
+                  Mots de passe oubliés
+                </div>
+                {resets.length === 0 ? (
+                  <div className="text-felt-cream/50 text-sm">Aucune demande.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {resets.map((a) => (
+                      <DemandeMotDePasse
+                        key={a.id}
+                        compte={a}
+                        busy={busyId === a.id}
+                        onValider={(mdp) => handleReset(a, mdp)}
+                        onIgnorer={() => handleIgnoreReset(a)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div>
                 <div className="text-xs font-display uppercase tracking-widest text-felt-cream/40 mb-2">Messages reçus</div>
                 {messages.length === 0 ? (
                   <div className="text-felt-cream/50 text-sm">Aucun message.</div>
@@ -207,6 +259,60 @@ export default function PendingAccountsModal({ onClose, onChanged }) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Une demande de mot de passe oublié. L'administrateur saisit le nouveau
+ * mot de passe ici même, puis le transmet au joueur de vive voix ou par
+ * message — l'application n'en envoie aucun.
+ */
+function DemandeMotDePasse({ compte, busy, onValider, onIgnorer }) {
+  const [motDePasse, setMotDePasse] = useState("");
+  const demande = compte.password_reset_requested_at
+    ? new Date(compte.password_reset_requested_at).toLocaleString("fr-FR", {
+        day: "2-digit",
+        month: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "";
+  return (
+    <div className="bg-felt-bg border border-felt-gold/40 rounded-md px-3 py-2.5">
+      <div className="flex items-baseline gap-2">
+        <div className="text-white truncate flex-1">{compte.pseudo}</div>
+        <div className="text-[11px] text-felt-cream/40 shrink-0">{demande}</div>
+      </div>
+      <div className="text-xs text-felt-cream/40 truncate mb-2">
+        {compte.first_name} {compte.last_name}
+        {compte.email ? ` · ${compte.email}` : ""}
+      </div>
+      <div className="flex gap-2">
+        <input
+          value={motDePasse}
+          onChange={(e) => setMotDePasse(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && motDePasse.trim() && onValider(motDePasse)}
+          placeholder="Nouveau mot de passe"
+          className="flex-1 min-w-0 bg-felt-panel border border-felt-cream/10 rounded-md px-2 py-1.5 text-sm text-felt-cream placeholder:text-felt-cream/40"
+        />
+        <button
+          onClick={() => onValider(motDePasse)}
+          disabled={busy || !motDePasse.trim()}
+          className="px-3 py-1.5 bg-felt-gold text-felt-bg rounded-md font-display text-sm disabled:opacity-40 shrink-0"
+        >
+          Enregistrer
+        </button>
+        <button
+          onClick={onIgnorer}
+          disabled={busy}
+          title="Écarter la demande"
+          className="w-8 rounded-md bg-felt-bg border border-felt-cream/20 text-felt-cream/50 hover:text-felt-cream shrink-0 disabled:opacity-40"
+        >
+          ✕
+        </button>
+      </div>
+      <div className="text-[11px] text-felt-cream/35 mt-1.5">À transmettre au joueur : l'app n'envoie pas d'e-mail.</div>
     </div>
   );
 }

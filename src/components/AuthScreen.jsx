@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { signup, login } from "../lib/auth.js";
+import { signup, login, demanderReinitialisationMotDePasse } from "../lib/auth.js";
 import { useAccount } from "../context/AccountContext.jsx";
 import AvatarCropper from "./AvatarCropper.jsx";
 
@@ -9,34 +9,112 @@ import AvatarCropper from "./AvatarCropper.jsx";
  */
 export default function AuthScreen() {
   const { refresh } = useAccount();
-  const [mode, setMode] = useState("login"); // login | signup
+  const [mode, setMode] = useState("login"); // login | signup | oubli
+
+  const sousTitre = {
+    login: "Connecte-toi à ton compte",
+    signup: "Crée ton compte joueur",
+    oubli: "Demander un nouveau mot de passe",
+  };
 
   return (
     <div className="min-h-screen w-full bg-felt-bg font-body text-felt-cream flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">
         <div className="font-display text-2xl text-center mb-1">19PokerClub</div>
-        <div className="text-center text-felt-cream/50 text-sm mb-6">
-          {mode === "login" ? "Connecte-toi à ton compte" : "Crée ton compte joueur"}
-        </div>
+        <div className="text-center text-felt-cream/50 text-sm mb-6">{sousTitre[mode]}</div>
 
-        {mode === "login" ? (
-          <LoginForm onSuccess={refresh} />
-        ) : (
-          <SignupForm onSuccess={refresh} />
+        {mode === "login" && <LoginForm onSuccess={refresh} onForgot={() => setMode("oubli")} />}
+        {mode === "signup" && <SignupForm onSuccess={refresh} />}
+        {mode === "oubli" && <ForgotPasswordForm onDone={() => setMode("login")} />}
+
+        {mode !== "oubli" && (
+          <button
+            onClick={() => setMode(mode === "login" ? "signup" : "login")}
+            className="w-full text-center text-sm text-felt-cream/50 hover:text-felt-cream mt-4"
+          >
+            {mode === "login" ? "Pas encore de compte ? Créer un compte" : "Déjà un compte ? Se connecter"}
+          </button>
         )}
-
-        <button
-          onClick={() => setMode(mode === "login" ? "signup" : "login")}
-          className="w-full text-center text-sm text-felt-cream/50 hover:text-felt-cream mt-4"
-        >
-          {mode === "login" ? "Pas encore de compte ? Créer un compte" : "Déjà un compte ? Se connecter"}
-        </button>
       </div>
     </div>
   );
 }
 
-function LoginForm({ onSuccess }) {
+/**
+ * ForgotPasswordForm — le joueur demande, un administrateur agit.
+ *
+ * L'application n'envoie aucun e-mail : la demande arrive dans la cloche
+ * de notifications du club, un administrateur pose le nouveau mot de
+ * passe et le transmet au joueur. Rien n'est demandé au joueur ici, donc
+ * rien à deviner pour s'emparer d'un compte.
+ *
+ * La confirmation est la même que le pseudo existe ou non : cette page ne
+ * doit pas permettre de savoir qui est inscrit au club.
+ */
+function ForgotPasswordForm({ onDone }) {
+  const [pseudo, setPseudo] = useState("");
+  const [envoye, setEnvoye] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  async function envoyer() {
+    if (!pseudo.trim()) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await demanderReinitialisationMotDePasse(pseudo);
+      setEnvoye(true);
+    } catch (e) {
+      setError(e.message);
+    }
+    setLoading(false);
+  }
+
+  if (envoye) {
+    return (
+      <div className="flex flex-col gap-3 text-center">
+        <div className="text-3xl">✉</div>
+        <div className="text-sm text-felt-cream/70">
+          Ta demande est partie au 19PokerClub. Un administrateur va te poser un nouveau mot de passe et te le
+          transmettre.
+        </div>
+        <button onClick={onDone} className="px-4 py-3 bg-felt-gold text-felt-bg rounded-md font-display">
+          Retour à la connexion
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="text-xs text-felt-cream/50">
+        Indique ton pseudo : un administrateur du club recevra la demande, changera ton mot de passe et te le
+        communiquera.
+      </div>
+      <input
+        value={pseudo}
+        onChange={(e) => setPseudo(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && envoyer()}
+        placeholder="Pseudo"
+        autoFocus
+        className="bg-felt-panel border border-felt-cream/10 rounded-md px-3 py-2 text-felt-cream placeholder:text-felt-cream/40"
+      />
+      {error && <div className="text-felt-alert text-sm">{error}</div>}
+      <button
+        onClick={envoyer}
+        disabled={loading || !pseudo.trim()}
+        className="px-4 py-3 bg-felt-gold text-felt-bg rounded-md font-display disabled:opacity-40"
+      >
+        {loading ? "Envoi…" : "Envoyer la demande"}
+      </button>
+      <button onClick={onDone} className="w-full text-center text-sm text-felt-cream/50 hover:text-felt-cream">
+        Retour à la connexion
+      </button>
+    </div>
+  );
+}
+
+function LoginForm({ onSuccess, onForgot }) {
   const [pseudo, setPseudo] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
@@ -79,6 +157,9 @@ function LoginForm({ onSuccess }) {
         className="px-4 py-3 bg-felt-gold text-felt-bg rounded-md font-display disabled:opacity-40"
       >
         {loading ? "Connexion…" : "Se connecter"}
+      </button>
+      <button onClick={onForgot} className="text-center text-sm text-felt-cream/50 hover:text-felt-cream">
+        Mot de passe oublié ?
       </button>
     </div>
   );

@@ -6,7 +6,7 @@ import { supabase } from "../lib/supabase.js";
 import { useAccount } from "../context/AccountContext.jsx";
 import { useTheme } from "../context/ThemeContext.jsx";
 import { useEditMode } from "../context/EditModeContext.jsx";
-import { canManageTournaments, canManageAccounts, canManageOwnClub, ROLE_LABELS, fetchClubSettings, fetchPendingAccounts, fetchContactMessages } from "../lib/auth.js";
+import { canManageTournaments, canManageAccounts, canManageOwnClub, ROLE_LABELS, fetchClubSettings, fetchPendingAccounts, fetchContactMessages, fetchPasswordResetRequests } from "../lib/auth.js";
 import ProfileModal from "./ProfileModal.jsx";
 import ContactAdminModal from "./ContactAdminModal.jsx";
 import PendingAccountsModal from "./PendingAccountsModal.jsx";
@@ -91,10 +91,10 @@ export default function Sidebar({ tab, setTab, onRequestLogin }) {
 
   function refreshPendingCount() {
     if (!manage) return;
-    Promise.all([fetchPendingAccounts(), fetchContactMessages()])
-      .then(([accounts, messages]) => {
+    Promise.all([fetchPendingAccounts(), fetchContactMessages(), fetchPasswordResetRequests()])
+      .then(([accounts, messages, resets]) => {
         const unreadMessages = messages.filter((m) => m.status === "new").length;
-        setPendingCount(accounts.length + unreadMessages);
+        setPendingCount(accounts.length + unreadMessages + resets.length);
       })
       .catch(() => {});
   }

@@ -87,6 +87,64 @@ export async function login(pseudo, password) {
   return data;
 }
 
+/**
+ * « Mot de passe oublié » : le joueur demande, l'administrateur agit.
+ *
+ * On ne dit JAMAIS si le pseudo existe — sinon cette page servirait à
+ * savoir qui est inscrit au club. La fonction réussit silencieusement
+ * dans tous les cas ; seul un pseudo réel pose une demande.
+ *
+ * Une seule demande en attente par compte : redemander ne fait que
+ * rafraîchir la date, ça n'empile rien dans les notifications.
+ */
+export async function demanderReinitialisationMotDePasse(pseudo) {
+  const { data } = await supabase.from("accounts").select("id").ilike("pseudo", (pseudo || "").trim()).maybeSingle();
+  if (!data) return;
+  await supabase
+    .from("accounts")
+    .update({ password_reset_requested_at: new Date().toISOString() })
+    .eq("id", data.id);
+}
+
+/** Les demandes en attente, les plus anciennes d'abord. */
+export async function fetchPasswordResetRequests() {
+  const { data, error } = await supabase
+    .from("accounts")
+    .select("id, pseudo, first_name, last_name, email, password_reset_requested_at")
+    .not("password_reset_requested_at", "is", null)
+    .order("password_reset_requested_at", { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+/**
+ * L'administrateur pose le nouveau mot de passe et clôt la demande. Il
+ * reste à le transmettre au joueur — l'application n'envoie pas d'e-mail.
+ */
+export async function reinitialiserMotDePasse(accountId, nouveauMotDePasse) {
+  if (!nouveauMotDePasse || nouveauMotDePasse.trim().length < 4) {
+    throw new Error("Le mot de passe doit faire au moins 4 caractères.");
+  }
+  const { error } = await supabase
+    .from("accounts")
+    .update({
+      password: nouveauMotDePasse.trim(),
+      password_reset_at: new Date().toISOString(),
+      password_reset_requested_at: null,
+    })
+    .eq("id", accountId);
+  if (error) throw error;
+}
+
+/** Écarter une demande sans rien changer (joueur qui a retrouvé son mot de passe). */
+export async function ignorerDemandeReinitialisation(accountId) {
+  const { error } = await supabase
+    .from("accounts")
+    .update({ password_reset_requested_at: null })
+    .eq("id", accountId);
+  if (error) throw error;
+}
+
 export function logout() {
   storeAccountId(null);
 }
