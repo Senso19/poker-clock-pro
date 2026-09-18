@@ -29,7 +29,7 @@ const DEFAULT_PANELS = {
   },
   controls: {
     x: 2, y: 33, w: 34, h: 9, removed: false,
-    style: { ...BASE_STYLE, align: "center", showTitle: false, buttonSize: "md", buttonLayout: "row", buttonAlign: "center", buttonColor: "#C9A15A" },
+    style: { ...BASE_STYLE, align: "center", showTitle: false, buttonSize: "md", buttonLayout: "row", buttonAlign: "center", buttonColor: "#F77515" },
   },
   blinds: { x: 38, y: 2, w: 16, h: 34, removed: false, style: { ...BASE_STYLE, fontSize: 30, align: "center" } },
   players: { x: 56, y: 2, w: 20, h: 16, removed: false, style: { ...BASE_STYLE, fontSize: 30, align: "center" } },
@@ -55,7 +55,7 @@ const DEFAULT_PANELS = {
   },
   progress: {
     x: 2, y: 33, w: 34, h: 5, removed: true,
-    style: { ...BASE_STYLE, showTitle: false, align: "center", fontSize: 12, barColor: "#C9A15A", barThickness: 10, transparent: true },
+    style: { ...BASE_STYLE, showTitle: false, align: "center", fontSize: 12, barColor: "#F77515", barThickness: 10, transparent: true },
   },
   seatdraw: {
     x: 50, y: 74, w: 48, h: 24, removed: true,
@@ -1257,7 +1257,10 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
 
   function addStripeBar() {
     const base = tournamentBg || { type: "color", value: "#14181C", bars: [] };
-    const colors = ["#C9A15A", "#1E6FEB", "#D85A30", "#639922"];
+    // L'orange du club en tête, puis l'ancien doré — celui qui l'aimait
+    // peut toujours le remettre — et deux couleurs franches pour distinguer
+    // plusieurs barres d'un coup d'œil.
+    const colors = ["#F77515", "#C9A15A", "#1E6FEB", "#639922"];
     const nextColor = colors[(base.bars?.length || 0) % colors.length];
     const bars = [...(base.bars || []), { color: nextColor, opacity: 1, width: 40, x: 10 + (base.bars?.length || 0) * 15 }];
     saveTournamentBg({ ...base, bars });
@@ -1300,7 +1303,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
           style={{
             left: `${bar.x ?? 0}%`,
             width: `${bar.width ?? 40}px`,
-            backgroundColor: hexToRgba(bar.color || "#C9A15A", bar.opacity ?? 1),
+            backgroundColor: hexToRgba(bar.color || "#F77515", bar.opacity ?? 1),
           }}
         />
       ))}
@@ -1485,7 +1488,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
                             <div className="flex items-center gap-2 mb-1.5">
                               <input
                                 type="color"
-                                value={bar.color || "#C9A15A"}
+                                value={bar.color || "#F77515"}
                                 onChange={(e) => updateStripeBar(i, { color: e.target.value })}
                                 className="w-7 h-6 bg-transparent cursor-pointer shrink-0"
                               />
@@ -1700,7 +1703,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
             >
               <div
                 className="h-full pointer-events-none rounded-full"
-                style={{ width: `${progressPercent}%`, backgroundColor: panels.progress.style.barColor || "#C9A15A" }}
+                style={{ width: `${progressPercent}%`, backgroundColor: panels.progress.style.barColor || "#F77515" }}
               />
             </div>
           </div>
@@ -2114,7 +2117,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
  * la longueur se calculent sur la taille de police du panneau, et la
  * couleur est l'or du club plutôt qu'un gris transparent.
  */
-const BLIND_SEPARATOR_COLOR = "#C9A15A";
+const BLIND_SEPARATOR_COLOR = "#F77515";
 const BLIND_SEPARATOR_GLYPHS = { slash: "/", dash: "\u2013", dot: "\u2022" };
 
 function BlindSeparator({ style, vertical }) {
@@ -2686,7 +2689,7 @@ function StructureContent({ style, levels, levelIndex, chips }) {
           <div
             key={levelIndex + i}
             className={`flex items-center gap-3 px-2 py-1.5 rounded ${isCurrent ? "bg-felt-gold/15" : ""}`}
-            style={{ color: isCurrent ? "#C9A15A" : style.color, fontSize: `${isCurrent ? style.fontSize * 1.15 : style.fontSize * 0.85}px` }}
+            style={{ color: isCurrent ? "#F77515" : style.color, fontSize: `${isCurrent ? style.fontSize * 1.15 : style.fontSize * 0.85}px` }}
           >
             <span className="w-6 text-felt-cream/40 shrink-0">{levelIndex + i + 1}</span>
             <span className="w-10 text-felt-cream/40 shrink-0">{l.durationMinutes}'</span>
@@ -3244,7 +3247,7 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
             Couleur
             <input
               type="color"
-              value={style.barColor || "#C9A15A"}
+              value={style.barColor || "#F77515"}
               onChange={(e) => onChange({ barColor: e.target.value })}
               className="w-8 h-6 bg-transparent cursor-pointer"
             />
@@ -3431,7 +3434,7 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
       )}
       <label className="flex items-center justify-between mb-2">
         Couleur du titre
-        <input type="color" value={style.titleColor || "#C9A15A"} onChange={(e) => onChange({ titleColor: e.target.value })} className="w-8 h-6 bg-transparent cursor-pointer" />
+        <input type="color" value={style.titleColor || "#F77515"} onChange={(e) => onChange({ titleColor: e.target.value })} className="w-8 h-6 bg-transparent cursor-pointer" />
       </label>
       <label className="flex items-center justify-between mb-2">
         Police du titre
@@ -3644,7 +3647,7 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
           </label>
           <label className="flex items-center justify-between">
             Couleur du bouton principal
-            <input type="color" value={style.buttonColor || "#C9A15A"} onChange={(e) => onChange({ buttonColor: e.target.value })} className="w-8 h-6 bg-transparent cursor-pointer" />
+            <input type="color" value={style.buttonColor || "#F77515"} onChange={(e) => onChange({ buttonColor: e.target.value })} className="w-8 h-6 bg-transparent cursor-pointer" />
           </label>
         </>
       )}

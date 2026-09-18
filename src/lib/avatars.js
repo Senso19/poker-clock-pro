@@ -6,7 +6,7 @@
  * liste. Les trois écrans qui en avaient besoin en portaient chacun leur
  * copie — donc trois palettes à tenir en phase à la main.
  */
-export const AVATAR_COLORS = ["#C9A15A", "#8C3A3A", "#3A6B8C", "#3A8C5E", "#8C5A3A", "#6B3A8C"];
+export const AVATAR_COLORS = ["#F77515", "#8C3A3A", "#3A6B8C", "#3A8C5E", "#8C5A3A", "#6B3A8C"];
 
 export function avatarColor(name) {
   let hash = 0;

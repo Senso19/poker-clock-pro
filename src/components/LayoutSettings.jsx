@@ -604,7 +604,7 @@ export default function LayoutSettings() {
         <div className="flex items-center gap-3">
           <input
             type="color"
-            value={theme.sidebarDividerColor || "#C9A15A"}
+            value={theme.sidebarDividerColor || "#F77515"}
             onChange={(e) => updateSidebarDividerColor(e.target.value)}
             className="w-10 h-10 rounded-md border-2 border-felt-cream/10 bg-transparent cursor-pointer"
           />

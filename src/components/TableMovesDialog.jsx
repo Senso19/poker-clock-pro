@@ -90,7 +90,7 @@ function IllustrationCasse() {
         <ellipse cx="32" cy="26" rx="24" ry="9" />
         <path d="M32 35v16M20 55h24" />
       </g>
-      <path d="M44 2 32 22h8L30 42l20-24h-9z" fill="#C9A15A" />
+      <path d="M44 2 32 22h8L30 42l20-24h-9z" fill="#F77515" />
     </svg>
   );
 }
@@ -107,7 +107,7 @@ function IllustrationBalance() {
         <path d="M32 12v40M22 54h20" />
         <path d="M9 14l46 10" />
       </g>
-      <g fill="none" stroke="#C9A15A" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      <g fill="none" stroke="#F77515" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
         <path d="M2 16a9 7 0 0 0 14 0zM48 26a9 7 0 0 0 14 0z" />
       </g>
     </svg>

@@ -154,7 +154,7 @@ export default function EditableButton({ groupKey, id, children, className, wrap
             </label>
             <label className="flex items-center justify-between mb-2">
               Fond
-              <input type="color" value={style.bgColor || "#C9A15A"} onChange={(e) => update({ bgColor: e.target.value })} className="w-8 h-6 bg-transparent cursor-pointer" />
+              <input type="color" value={style.bgColor || "#F77515"} onChange={(e) => update({ bgColor: e.target.value })} className="w-8 h-6 bg-transparent cursor-pointer" />
             </label>
             <label className="flex items-center justify-between mb-2">
               Texte
@@ -168,7 +168,7 @@ export default function EditableButton({ groupKey, id, children, className, wrap
               Couleur du contour
               <input
                 type="color"
-                value={style.borderColor || "#C9A15A"}
+                value={style.borderColor || "#F77515"}
                 onChange={(e) => update({ borderColor: e.target.value })}
                 className="w-8 h-6 bg-transparent cursor-pointer"
               />

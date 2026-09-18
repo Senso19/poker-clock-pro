@@ -9,7 +9,7 @@ const SUBMIT_TARGET = "__submit__";
  * (aperçu, aucune soumission réelle).
  */
 export default function FormWizard({ pages, theme: rawTheme, isOpen = true, onSubmit, banner = null }) {
-  const theme = { ...{ bgColor: "#14181C", accentColor: "#C9A15A", cardColor: "#1B2027", textColor: "#EDEAE3" }, ...(rawTheme || {}) };
+  const theme = { ...{ bgColor: "#14181C", accentColor: "#F77515", cardColor: "#1B2027", textColor: "#EDEAE3" }, ...(rawTheme || {}) };
   const [currentPageId, setCurrentPageId] = useState(pages?.[0]?.id || null);
   const [history, setHistory] = useState([]);
   const [values, setValues] = useState({});

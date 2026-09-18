@@ -371,10 +371,18 @@ function SizeColorRow({ label, sizeValue, colorValue, onSizeChange, onColorChang
  * simplement pas proposé — et un panneau qui gagne un jour une de ces
  * classes voit son réglage apparaître sans que personne ait à y penser.
  */
+// Ce qu'un panneau a déjà su montrer, retenu pour la durée de la page.
+// Beaucoup de panneaux affichent une liste : sans tournoi, sans table ou
+// sous un filtre qui ne rend rien, ils n'ont momentanément ni ligne ni
+// texte. Recalculer à sec ferait disparaître les réglages correspondants
+// — sous les yeux de qui est en train de s'en servir si la fenêtre est
+// ouverte. On n'oublie donc jamais une capacité déjà vue.
+const capacitesConnues = new Map();
+
 function capacitesDuPanneau(panelDomId) {
   const el = typeof document !== "undefined" ? document.getElementById(panelDomId) : null;
   // Panneau pas encore monté : on ne cache rien plutôt que de cacher à tort.
-  if (!el) return null;
+  if (!el) return capacitesConnues.get(panelDomId) || null;
   const a = (sel) => !!el.querySelector(sel);
   let grille = false;
   try {
@@ -382,7 +390,7 @@ function capacitesDuPanneau(panelDomId) {
   } catch {
     /* ignore */
   }
-  return {
+  const vues = {
     titre: a(".pcp-title"),
     corps: a(".pcp-body"),
     valeur: a(".pcp-value"),
@@ -394,6 +402,10 @@ function capacitesDuPanneau(panelDomId) {
     barres: a("[data-pcp-barres]"),
     grille,
   };
+  const avant = capacitesConnues.get(panelDomId);
+  const cumul = avant ? Object.fromEntries(Object.entries(vues).map(([k, v]) => [k, v || !!avant[k]])) : vues;
+  capacitesConnues.set(panelDomId, cumul);
+  return cumul;
 }
 
 function PanelStyleEditor({ style, onChange, onClose, hasFreePosition, onResetPosition, capacites }) {
@@ -626,7 +638,7 @@ function PanelStyleEditor({ style, onChange, onClose, hasFreePosition, onResetPo
         Fond des boutons
         <input
           type="color"
-          value={style.btnBgColor || "#C9A15A"}
+          value={style.btnBgColor || "#F77515"}
           onChange={(e) => onChange({ btnBgColor: e.target.value })}
           className="w-8 h-6 bg-transparent cursor-pointer"
         />

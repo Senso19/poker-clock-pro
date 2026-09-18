@@ -11,7 +11,7 @@ import { computeSeatAssignment } from "./seating.js";
 export function defaultTheme() {
   return {
     bgColor: "#14181C",
-    accentColor: "#C9A15A",
+    accentColor: "#F77515",
     cardColor: "#1B2027",
     textColor: "#EDEAE3",
     title: "Inscription",
