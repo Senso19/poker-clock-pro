@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { saveClubTheme } from "../lib/clubSettings.js";
 import { useTheme } from "../context/ThemeContext.jsx";
 import { fetchClubSettings, setRegistrationCode, setChatSettings } from "../lib/auth.js";
-import { compressImageFile, uploadImageToStorage } from "../lib/imageUtils.js";
+import { uploadImageToStorage } from "../lib/imageUtils.js";
+import { compterImagesEnBase64, migrerImagesVersStockage } from "../lib/mediaMigration.js";
 
 const PRESETS = [
   { name: "Feutre (défaut)", value: "#14181C" },
@@ -76,11 +77,34 @@ export default function LayoutSettings() {
     await persist(next);
   }
 
+  // Reprise des images stockées en base64 dans les colonnes JSON. Elle se
+  // lance à la main : c'est une opération lourde (envoi de plusieurs Mo)
+  // et il vaut mieux la faire au calme qu'au milieu d'un tournoi.
+  const [reprise, setReprise] = useState(null); // null | "encours" | résultat
+  const [lignesAReprendre, setLignesAReprendre] = useState(0);
+
+  useEffect(() => {
+    compterImagesEnBase64().then(setLignesAReprendre).catch(() => {});
+  }, []);
+
+  async function lancerReprise() {
+    setReprise("encours");
+    try {
+      const res = await migrerImagesVersStockage();
+      setReprise(res);
+      setLignesAReprendre(await compterImagesEnBase64());
+    } catch (e) {
+      setReprise({ images: 0, octets: 0, erreurs: [e.message] });
+    }
+  }
+
   async function handleLogoUpload(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const dataUrl = await compressImageFile(file, { maxSize: 300 });
-    const next = { ...theme, logoData: dataUrl };
+    // Vers le bucket et non en base64 : ce logo vit dans club_settings.theme,
+    // qui est relu et réécrit en entier au moindre réglage d'affichage.
+    const url = await uploadImageToStorage(file, { maxSize: 300, folder: "logos" });
+    const next = { ...theme, logoData: url };
     setTheme(next);
     await persist(next);
   }
@@ -94,8 +118,10 @@ export default function LayoutSettings() {
   async function handlePartnerLogoUpload(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const dataUrl = await compressImageFile(file, { maxSize: 300 });
-    const next = { ...theme, partnerLogoData: dataUrl };
+    // Vers le bucket et non en base64 : ce logo vit dans club_settings.theme,
+    // qui est relu et réécrit en entier au moindre réglage d'affichage.
+    const url = await uploadImageToStorage(file, { maxSize: 300, folder: "logos" });
+    const next = { ...theme, partnerLogoData: url };
     setTheme(next);
     await persist(next);
   }
@@ -355,6 +381,43 @@ export default function LayoutSettings() {
           Abréger les montants
         </label>
       </div>
+
+      {(lignesAReprendre > 0 || reprise) && (
+        <div className="mb-6 bg-felt-panel border border-felt-cream/10 rounded-md px-4 py-3">
+          <div className="font-medium mb-1">Alléger la base</div>
+          <div className="text-xs text-felt-cream/50 mb-3">
+            Des images sont encore enregistrées à l'intérieur des réglages, en texte. Elles sont relues et
+            réécrites en entier au moindre changement — un simple déplacement de panneau réécrit près d'un
+            mégaoctet. Les déplacer vers le stockage de fichiers ne change rien à l'affichage, mais allège
+            durablement chaque enregistrement. À faire au calme, pas pendant un tournoi.
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={lancerReprise}
+              disabled={reprise === "encours" || lignesAReprendre === 0}
+              className="px-4 py-2 bg-felt-gold text-felt-bg rounded-md font-display text-sm disabled:opacity-40"
+            >
+              {reprise === "encours" ? "Déplacement…" : "Déplacer les images"}
+            </button>
+            <span className="text-xs text-felt-cream/50">
+              {reprise === "encours"
+                ? "Ne fermez pas la page."
+                : reprise
+                ? `${reprise.images} image${reprise.images > 1 ? "s" : ""} déplacée${reprise.images > 1 ? "s" : ""}` +
+                  ` (${Math.round(reprise.octets / 1024)} ko retirés de la base)` +
+                  (reprise.erreurs?.length ? ` — ${reprise.erreurs.length} erreur(s)` : "")
+                : `${lignesAReprendre} enregistrement${lignesAReprendre > 1 ? "s" : ""} concerné${lignesAReprendre > 1 ? "s" : ""}`}
+            </span>
+          </div>
+          {reprise?.erreurs?.length > 0 && (
+            <ul className="mt-2 text-xs text-felt-alert list-disc pl-5">
+              {reprise.erreurs.map((e, i) => (
+                <li key={i}>{e}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       <div className="mb-6 bg-felt-panel border border-felt-cream/10 rounded-md px-4 py-3">
         <div className="font-medium mb-1">Couleur de fond des cartes</div>

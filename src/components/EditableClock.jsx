@@ -8,7 +8,7 @@ import { playSound, SOUND_OPTIONS } from "../lib/sounds.js";
 import { addAnnouncement, fetchRecentAnnouncements } from "../lib/announcements.js";
 import { computeFinishPositions } from "../lib/points.js";
 import { formatTime, formatCountdown, formatChips, clamp } from "../lib/format.js";
-import { compressImageFile, uploadImageToStorage } from "../lib/imageUtils.js";
+import { uploadImageToStorage } from "../lib/imageUtils.js";
 import EditableButton from "./EditableButton.jsx";
 
 /**

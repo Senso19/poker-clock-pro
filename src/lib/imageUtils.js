@@ -51,8 +51,18 @@ export function compressImageFile(file, { maxSize = 640, quality = 0.82 } = {}) 
  * pas la peine pour elles.
  */
 export async function uploadImageToStorage(file, { maxSize = 1200, quality = 0.82, folder = "misc" } = {}) {
-  const { supabase } = await import("./supabase.js");
   const dataUrl = await compressImageFile(file, { maxSize, quality });
+  return uploadDataUrlToStorage(dataUrl, folder);
+}
+
+/**
+ * uploadDataUrlToStorage — envoie une image DÉJÀ en base64 dans le bucket
+ * et renvoie son URL publique. Sert à deux choses : l'envoi normal
+ * ci-dessus (qui compresse d'abord), et la reprise des images déjà
+ * stockées en base64 dans les colonnes JSON (voir mediaMigration.js).
+ */
+export async function uploadDataUrlToStorage(dataUrl, folder = "misc") {
+  const { supabase } = await import("./supabase.js");
   const blob = await (await fetch(dataUrl)).blob();
   const ext = blob.type === "image/png" ? "png" : "jpg";
   const path = `${folder}/${Date.now()}-${Math.round(Math.random() * 1e6)}.${ext}`;
