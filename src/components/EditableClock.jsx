@@ -2019,8 +2019,8 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
       )}
 
       {!panels.moves.removed && (
-        <Panel id="moves" layout={panels.moves} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Déplacements" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
-          {panels.moves.style.showTitle && (
+        <Panel id="moves" layout={panels.moves} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Déplacements" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} invisible={deplacementsGroupes.length === 0} borderColor={panelBorderColor} snapTargets={snapTargets}>
+          {panels.moves.style.showTitle && deplacementsGroupes.length > 0 && (
             <div className="text-felt-cream/30 uppercase tracking-wide mb-2 text-center" style={titleStyle(panels.moves.style)}>
               {panels.moves.style.customTitle || "Déplacements"}
             </div>
@@ -2777,15 +2777,26 @@ function useDragResize(id, layout, editing, containerRef, onMove, onCommit, onRe
   };
 }
 
-function Panel({ id, layout, editing, containerRef, onMove, onCommit, onResize, onEdgeResize, onRemovePanel, defaultTitle, children, stylingId, setStylingId, onStyleChange, showButtonOptions, showCarouselOptions, onToggleCarouselIncluded, showSponsorOptions, showAvatarOptions, showScrollOptions, showRowCountOptions, rowCountDefault, borderColor, snapTargets, onUploadSound }) {
+function Panel({ id, layout, editing, containerRef, onMove, onCommit, onResize, onEdgeResize, onRemovePanel, defaultTitle, children, stylingId, setStylingId, onStyleChange, showButtonOptions, showCarouselOptions, onToggleCarouselIncluded, showSponsorOptions, showAvatarOptions, showScrollOptions, showRowCountOptions, rowCountDefault, invisible, borderColor, snapTargets, onUploadSound }) {
   const isStyling = stylingId === id;
   const h = useDragResize(id, layout, editing, containerRef, onMove, onCommit, onResize, undefined, snapTargets);
-  const noDefaultBg = layout.style.transparent || layout.style.bgColor;
-  const bgStyle = layout.style.transparent ? { backgroundColor: "transparent" } : layout.style.bgColor ? { backgroundColor: layout.style.bgColor } : {};
+  // "invisible" : le panneau n'a rien à montrer pour l'instant, il
+  // s'efface donc entièrement — fond ET bordure — au lieu de laisser un
+  // cadre vide sur l'écran de la salle. En mode réorganisation il reste
+  // visible, sinon il deviendrait impossible à attraper.
+  const efface = invisible && !editing;
+  const noDefaultBg = efface || layout.style.transparent || layout.style.bgColor;
+  const bgStyle = efface
+    ? { backgroundColor: "transparent" }
+    : layout.style.transparent
+    ? { backgroundColor: "transparent" }
+    : layout.style.bgColor
+    ? { backgroundColor: layout.style.bgColor }
+    : {};
   // Bordure : un panneau peut redéfinir la sienne (couleur propre ou "sans
   // bordure") ; sinon il suit le réglage global de Paramètres du club.
   const hasOverride = layout.style.borderOverride !== undefined && layout.style.borderOverride !== null;
-  const effectiveBorder = hasOverride ? layout.style.borderOverride : borderColor;
+  const effectiveBorder = efface ? "transparent" : hasOverride ? layout.style.borderOverride : borderColor;
   const borderStyle = !editing && effectiveBorder ? { borderColor: effectiveBorder } : {};
 
   return (
@@ -2795,7 +2806,9 @@ function Panel({ id, layout, editing, containerRef, onMove, onCommit, onResize, 
       onPointerMove={h.handlePointerMove}
       onPointerUp={h.handlePointerUp}
       style={{ position: "absolute", left: `${layout.x}%`, top: `${layout.y}%`, width: `${layout.w}%`, height: `${layout.h}%`, zIndex: 10, touchAction: "none", ...bgStyle, ...borderStyle }}
-      className={`rounded-md border p-3 ${!noDefaultBg ? "bg-felt-panel/95" : ""} ${editing ? "border-felt-gold cursor-move select-none" : (effectiveBorder ? "" : "border-felt-cream/10")}`}
+      className={`rounded-md border p-3 ${!noDefaultBg ? "bg-felt-panel/95" : ""} ${
+        editing ? "border-felt-gold cursor-move select-none" : effectiveBorder ? "" : "border-felt-cream/10"
+      }`}
     >
       {editing && (
         <div className="absolute top-1 right-1 flex gap-1 z-10">
