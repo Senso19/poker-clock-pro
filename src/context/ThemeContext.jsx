@@ -24,6 +24,29 @@ const ThemeContext = createContext({
   setTheme: () => {},
 });
 
+/**
+ * Pose (ou retire) les couleurs d'interface réglables sur la racine du
+ * document : les règles de index.css s'y accrochent. Un réglage vide
+ * retire l'attribut, et tout reprend ses couleurs d'origine.
+ */
+function appliquerCouleursInterface(theme) {
+  const racine = document.documentElement;
+  if (theme.uiBorderColor) {
+    racine.style.setProperty("--pcp-bordure", theme.uiBorderColor);
+    racine.setAttribute("data-pcp-bordure", "");
+  } else {
+    racine.style.removeProperty("--pcp-bordure");
+    racine.removeAttribute("data-pcp-bordure");
+  }
+  if (theme.uiTextColor) {
+    racine.style.setProperty("--pcp-texte", theme.uiTextColor);
+    racine.setAttribute("data-pcp-texte", "");
+  } else {
+    racine.style.removeProperty("--pcp-texte");
+    racine.removeAttribute("data-pcp-texte");
+  }
+}
+
 export function ThemeProvider({ children }) {
   const [theme, setThemeState] = useState(defaultTheme);
   const empreinteRef = useRef(null);
@@ -67,6 +90,10 @@ export function ThemeProvider({ children }) {
   useEffect(() => {
     setRolePermissionsOverride(theme.rolePermissions);
   }, [theme.rolePermissions]);
+
+  useEffect(() => {
+    appliquerCouleursInterface(theme);
+  }, [theme.uiBorderColor, theme.uiTextColor]);
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme }}>{children}</ThemeContext.Provider>

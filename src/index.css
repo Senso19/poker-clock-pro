@@ -88,3 +88,64 @@ html, body, #root {
     border: none;
   }
 }
+
+/* ------------------------------------------------------------------
+   Couleurs d'interface réglables : contours et textes.
+
+   L'application peint ses contours et ses textes avec la même poignée
+   d'utilitaires Tailwind (border-felt-cream/10 pour à peu près tout ce
+   qui a un cadre, text-felt-cream/NN pour les textes). Les redéfinir ici
+   permet de tout recolorer d'un réglage, sans toucher aux centaines
+   d'endroits qui les utilisent.
+
+   Le sélecteur :root[data-…] passe DEVANT l'utilitaire en spécificité :
+   pas besoin de !important, et sans le réglage rien ne change.
+
+   Contours : la couleur choisie est posée à pleine force. Un contour à
+   10 % d'opacité est presque invisible — choisir une couleur vive et ne
+   rien voir donnerait l'impression que le réglage ne marche pas.
+
+   Textes : les niveaux d'opacité sont conservés via color-mix, sinon un
+   libellé secondaire crierait aussi fort qu'un titre.
+   ------------------------------------------------------------------ */
+:root[data-pcp-bordure] .border-felt-cream\/5,
+:root[data-pcp-bordure] .border-felt-cream\/10,
+:root[data-pcp-bordure] .border-felt-cream\/15,
+:root[data-pcp-bordure] .border-felt-cream\/20,
+:root[data-pcp-bordure] .border-felt-cream\/30,
+:root[data-pcp-bordure] .border-felt-cream\/40 {
+  border-color: var(--pcp-bordure);
+}
+:root[data-pcp-bordure] .divide-felt-cream\/5 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--pcp-bordure);
+}
+
+:root[data-pcp-texte] .text-felt-cream,
+:root[data-pcp-texte] .text-white {
+  color: var(--pcp-texte);
+}
+:root[data-pcp-texte] .text-felt-cream\/70 {
+  color: color-mix(in srgb, var(--pcp-texte) 70%, transparent);
+}
+:root[data-pcp-texte] .text-felt-cream\/60 {
+  color: color-mix(in srgb, var(--pcp-texte) 60%, transparent);
+}
+:root[data-pcp-texte] .text-felt-cream\/50 {
+  color: color-mix(in srgb, var(--pcp-texte) 50%, transparent);
+}
+:root[data-pcp-texte] .text-felt-cream\/40 {
+  color: color-mix(in srgb, var(--pcp-texte) 40%, transparent);
+}
+:root[data-pcp-texte] .text-felt-cream\/35,
+:root[data-pcp-texte] .text-felt-cream\/30 {
+  color: color-mix(in srgb, var(--pcp-texte) 32%, transparent);
+}
+:root[data-pcp-texte] .text-felt-cream\/20 {
+  color: color-mix(in srgb, var(--pcp-texte) 20%, transparent);
+}
+/* Les champs de saisie portent leur couleur par la même classe, mais le
+   texte indicatif (placeholder) a la sienne. */
+:root[data-pcp-texte] .placeholder\:text-felt-cream\/40::placeholder,
+:root[data-pcp-texte] .placeholder\:text-felt-cream\/30::placeholder {
+  color: color-mix(in srgb, var(--pcp-texte) 35%, transparent);
+}

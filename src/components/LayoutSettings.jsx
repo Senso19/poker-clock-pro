@@ -198,6 +198,12 @@ export default function LayoutSettings() {
     await persist(next);
   }
 
+  async function updateUiColor(cle, value) {
+    const next = { ...theme, [cle]: value };
+    setTheme(next);
+    await persist(next);
+  }
+
   async function updateSidebarColor(value) {
     const next = { ...theme, sidebarColor: value };
     setTheme(next);
@@ -485,6 +491,48 @@ export default function LayoutSettings() {
           {theme.panelBgColor && (
             <button onClick={() => updatePanelBgColor(null)} className="text-xs text-felt-cream/40 hover:text-felt-cream">
               Réinitialiser
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="mb-6 bg-felt-panel border border-felt-cream/10 rounded-md px-4 py-3">
+        <div className="font-medium mb-1">Couleur des contours</div>
+        <div className="text-xs text-felt-cream/50 mb-3">
+          Tous les cadres de l'application d'un coup : cartes et cellules, traits de séparation, champs de saisie,
+          listes déroulantes. Les cadres dorés, eux, restent dorés — ils signalent ce qui est sélectionné ou en cours.
+        </div>
+        <div className="flex items-center gap-3">
+          <input
+            type="color"
+            value={theme.uiBorderColor || "#2A2F36"}
+            onChange={(e) => updateUiColor("uiBorderColor", e.target.value)}
+            className="w-10 h-10 rounded-md border-2 border-felt-cream/10 bg-transparent cursor-pointer"
+          />
+          {theme.uiBorderColor && (
+            <button onClick={() => updateUiColor("uiBorderColor", null)} className="text-xs text-felt-cream/40 hover:text-felt-cream">
+              Revenir aux contours d'origine
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="mb-6 bg-felt-panel border border-felt-cream/10 rounded-md px-4 py-3">
+        <div className="font-medium mb-1">Couleur des textes</div>
+        <div className="text-xs text-felt-cream/50 mb-3">
+          Tous les textes de l'application. Les niveaux de discrétion sont conservés : un libellé secondaire reste
+          plus effacé qu'un titre, dans la couleur choisie. Les textes dorés (montants, actions) gardent leur or.
+        </div>
+        <div className="flex items-center gap-3">
+          <input
+            type="color"
+            value={theme.uiTextColor || "#EDEAE3"}
+            onChange={(e) => updateUiColor("uiTextColor", e.target.value)}
+            className="w-10 h-10 rounded-md border-2 border-felt-cream/10 bg-transparent cursor-pointer"
+          />
+          {theme.uiTextColor && (
+            <button onClick={() => updateUiColor("uiTextColor", null)} className="text-xs text-felt-cream/40 hover:text-felt-cream">
+              Revenir aux textes d'origine
             </button>
           )}
         </div>
