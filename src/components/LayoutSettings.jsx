@@ -539,6 +539,29 @@ export default function LayoutSettings() {
       </div>
 
       <div className="mb-6 bg-felt-panel border border-felt-cream/10 rounded-md px-4 py-3">
+        <div className="font-medium mb-1">Couleur d'accent de l'onglet Joueurs</div>
+        <div className="text-xs text-felt-cream/50 mb-3">
+          Le numéro, le cercle autour de l'avatar et le pseudo sur les cartes de joueurs. Orange par défaut.
+        </div>
+        <div className="flex items-center gap-3">
+          <input
+            type="color"
+            value={theme.playersAccentColor || "#F77515"}
+            onChange={(e) => updateUiColor("playersAccentColor", e.target.value)}
+            className="w-10 h-10 rounded-md border-2 border-felt-cream/10 bg-transparent cursor-pointer"
+          />
+          {theme.playersAccentColor && (
+            <button
+              onClick={() => updateUiColor("playersAccentColor", null)}
+              className="text-xs text-felt-cream/40 hover:text-felt-cream"
+            >
+              Revenir à l'orange
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="mb-6 bg-felt-panel border border-felt-cream/10 rounded-md px-4 py-3">
         <div className="font-medium mb-1">Couleur du menu de gauche</div>
         <div className="text-xs text-felt-cream/50 mb-3">
           Le bandeau qui porte le logo, les tournois, le chat et les paramètres du club. Sans réglage, il suit la

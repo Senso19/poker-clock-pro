@@ -7,6 +7,7 @@ import { computeTournamentPoints, fetchChampionships, computeFinishPositions } f
 import { selectTournament } from "../lib/tournaments.js";
 import { fetchAllAccounts, assignTableCaptain, fetchTableCaptainAssignments, canParticipate, isClubManager, MAX_CLUB_REGS_PER_INTERCLUB } from "../lib/auth.js";
 import { useAccount } from "../context/AccountContext.jsx";
+import { useTheme } from "../context/ThemeContext.jsx";
 import TicketPrint from "./TicketPrint.jsx";
 import TicketModal from "./TicketModal.jsx";
 import SeatPickerModal from "./SeatPickerModal.jsx";
@@ -37,6 +38,11 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   const confirmAction = useConfirm();
   const { account } = useAccount();
   const isMobile = useIsMobile();
+  const { theme } = useTheme();
+  // L'orange des cartes de joueurs, repris de BlindValet (mesuré sur son
+  // écran : #F77515). Réglable dans les Paramètres du club pour qui
+  // préfère l'or du club ou une autre teinte.
+  const accentJoueurs = theme.playersAccentColor || "#F77515";
   // Un gestionnaire de club (dans un tournoi interclubs) ne peut inscrire
   // que les membres de son propre club, jusqu'à MAX_CLUB_REGS_PER_INTERCLUB.
   const isClubMgr = isClubManager(account?.role);
@@ -956,12 +962,19 @@ export default function TournamentDetail({ tournamentId, onBack }) {
                     carte s'entoure d'or quand son menu est ouvert — c'est
                     le joueur sur lequel on agit. */}
                 <div
-                  style={{ backgroundColor: "var(--pcp-cell-bg, rgba(20,24,28,0.5))", color: "var(--pcp-cell-text, inherit)" }}
+                  style={{
+                    backgroundColor: "var(--pcp-cell-bg, rgba(20,24,28,0.5))",
+                    color: "var(--pcp-cell-text, inherit)",
+                    ...(menuOuvert ? { borderColor: accentJoueurs } : {}),
+                  }}
                   className={`flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3.5 sm:py-4 mb-3 rounded-xl border ${
-                    menuOuvert ? "border-felt-gold" : "border-felt-cream/10"
+                    menuOuvert ? "" : "border-felt-cream/10"
                   } ${isOut ? "opacity-50" : ""}`}
                 >
-                  <div className="pcp-value text-felt-gold font-display text-lg sm:text-xl w-8 sm:w-10 text-center shrink-0">
+                  <div
+                    style={{ color: accentJoueurs }}
+                    className="pcp-value font-display text-lg sm:text-xl w-8 sm:w-10 text-center shrink-0"
+                  >
                     {isOut && position ? `${position}e` : rang + 1}
                   </div>
                   <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
@@ -969,15 +982,22 @@ export default function TournamentDetail({ tournamentId, onBack }) {
                       <img
                         src={reg.accounts.avatar_data}
                         alt=""
-                        className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover shrink-0 ring-2 ring-felt-gold/70"
+                        style={{ boxShadow: `0 0 0 2px ${accentJoueurs}` }}
+                        className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover shrink-0"
                       />
                     ) : (
-                      <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-felt-bg flex items-center justify-center text-felt-cream/50 font-display text-base sm:text-lg shrink-0 ring-2 ring-felt-gold/70">
+                      <div
+                        style={{ boxShadow: `0 0 0 2px ${accentJoueurs}` }}
+                        className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-felt-bg flex items-center justify-center text-felt-cream/50 font-display text-base sm:text-lg shrink-0"
+                      >
                         {(playerLabel(reg) || reg.players?.full_name)?.[0]?.toUpperCase()}
                       </div>
                     )}
                     <div className="min-w-0">
-                      <div className={`pcp-title font-medium text-lg sm:text-xl truncate ${isOut ? "text-felt-cream/40" : "text-felt-gold"}`}>
+                      <div
+                        style={isOut ? undefined : { color: accentJoueurs }}
+                        className={`pcp-title font-medium text-lg sm:text-xl truncate ${isOut ? "text-felt-cream/40" : ""}`}
+                      >
                         {playerLabel(reg) || reg.players?.full_name}
                       </div>
                       <div className="pcp-body text-sm text-felt-cream/40 truncate">
