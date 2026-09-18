@@ -12,6 +12,9 @@
 -- considérés égaux par un index unique — la clause WHERE rend l'intention
 -- explicite plutôt que de s'en remettre à ce comportement.
 --
+-- Appliquée le 2026-09-18 sur le projet 19PokerClub, après résolution du
+-- seul doublon existant (Bigboules, "Championnat Eté - Etape 3").
+--
 -- ATTENTION : cette migration ÉCHOUE s'il reste des doublons. C'est
 -- voulu — on ne supprime pas silencieusement l'inscription d'un joueur
 -- dans un tournoi en cours. Pour les repérer d'abord :
