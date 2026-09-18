@@ -17,7 +17,7 @@ import CustomizablePanel from "./CustomizablePanel.jsx";
 import EditableButton from "./EditableButton.jsx";
 import { useConfirm } from "../context/ConfirmContext.jsx";
 import { logEvent } from "../lib/events.js";
-import { sortByPlayerLabel } from "../lib/players.js";
+import { playerLabel, sortByPlayerLabel } from "../lib/players.js";
 import { addAnnouncement } from "../lib/announcements.js";
 import { useIsMobile } from "../lib/useIsMobile.js";
 
@@ -795,15 +795,19 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     }
   });
 
-  // Actifs d'abord (triés par table/siège), puis éliminés à la suite dans
-  // l'ordre du classement (le plus récemment éliminé — donc le mieux classé
-  // parmi les sortants — en premier, le tout premier éliminé tout en bas).
+  // Actifs d'abord, par ordre alphabétique de pseudo — c'est ainsi qu'on
+  // cherche un joueur dans la liste pendant la partie. Le tri par
+  // table/siège qui s'appliquait ici écrasait l'ordre alphabétique déjà
+  // posé au chargement ; pour voir qui est assis où, il y a l'onglet
+  // Tables.
+  // Les éliminés viennent à la suite, dans l'ordre du classement : le
+  // dernier sorti, donc le mieux classé d'entre eux, en premier.
   const sortedRegs = [...registrations].sort((a, b) => {
     const aOut = eliminatedIds.has(a.id);
     const bOut = eliminatedIds.has(b.id);
     if (aOut !== bOut) return aOut ? 1 : -1;
     if (aOut && bOut) return (positionByReg.get(a.id) || 0) - (positionByReg.get(b.id) || 0);
-    return (a.table_number || 0) - (b.table_number || 0) || (a.seat_number || 0) - (b.seat_number || 0);
+    return playerLabel(a).localeCompare(playerLabel(b), "fr", { sensitivity: "base" });
   });
   const tableNumbers = [...new Set(registrations.map((r) => r.table_number))].sort((a, b) => a - b);
 

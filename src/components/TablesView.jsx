@@ -8,10 +8,15 @@ import { playerLabel } from "../lib/players.js";
  * TablesView — onglet "Tables" : les joueurs regroupés par table, une
  * carte par table, lisible de loin et au doigt sur un téléphone.
  *
- * Chaque ligne suit le même gabarit : numéro de siège, avatar, pseudo,
- * puis le menu ⋮ des actions de placement. Les montants de jetons ne
- * figurent pas ici — cet écran sert à savoir qui est assis où ; les
- * tapis, rebuys et éliminations restent dans l'onglet Joueurs.
+ * Une ligne par PLACE : numéro de siège, avatar, pseudo, puis le menu ⋮
+ * des actions de placement. Les sièges inoccupés apparaissent en "Libre".
+ *
+ * Seuls les joueurs encore en jeu y figurent : un éliminé n'occupe plus
+ * sa place, et son siège est justement celui qu'on peut réattribuer.
+ *
+ * Les montants de jetons ne figurent pas ici — cet écran sert à savoir
+ * qui est assis où ; les tapis, rebuys et éliminations restent dans
+ * l'onglet Joueurs.
  *
  * La vue se relit toute seule pour rester juste pendant la partie.
  */
@@ -72,14 +77,26 @@ export default function TablesView({ tournamentId, manage = false }) {
 
   if (loading) return <ClubLoader />;
 
-  // Les joueurs sans table sont regroupés à part plutôt que masqués : un
-  // joueur non placé est justement ce qu'on cherche à repérer ici.
-  const assis = registrations.filter((r) => r.table_number);
-  const sansTable = registrations.filter((r) => !r.table_number);
+  // Un joueur éliminé n'occupe plus sa place : son siège doit ressortir
+  // comme libre, puisque c'est exactement celui qu'on peut réattribuer.
+  // On le retire donc avant de composer les tables plutôt que de
+  // l'afficher barré.
+  const enJeu = registrations.filter((r) => !eliminatedIds.has(r.id));
+  const assis = enJeu.filter((r) => r.table_number);
+  // Les joueurs encore en jeu mais sans table sont regroupés à part
+  // plutôt que masqués : un joueur non placé est justement ce qu'on
+  // cherche à repérer ici.
+  const sansTable = enJeu.filter((r) => !r.table_number);
   const numerosTables = [...new Set(assis.map((r) => r.table_number))].sort((a, b) => a - b);
 
   if (numerosTables.length === 0 && sansTable.length === 0) {
-    return <div className="p-6 text-felt-cream/60 font-body">Aucun joueur inscrit.</div>;
+    // Distinguer les deux cas : une table vide en début de tournoi et une
+    // table vidée par les éliminations ne demandent pas la même chose.
+    return (
+      <div className="p-6 text-felt-cream/60 font-body">
+        {registrations.length === 0 ? "Aucun joueur inscrit." : "Plus aucun joueur en jeu."}
+      </div>
+    );
   }
 
   return (
@@ -102,14 +119,12 @@ export default function TablesView({ tournamentId, manage = false }) {
       >
         {numerosTables.map((num) => {
           const joueurs = assis.filter((r) => r.table_number === num);
-          const enJeu = joueurs.filter((r) => !eliminatedIds.has(r.id)).length;
           return (
             <CarteTable
               key={num}
               titre={`Table ${num}`}
-              sousTitre={`${enJeu} en jeu · ${joueurs.length} place${joueurs.length > 1 ? "s" : ""} occupée${joueurs.length > 1 ? "s" : ""} sur ${perTable}`}
+              sousTitre={`${joueurs.length} joueur${joueurs.length > 1 ? "s" : ""} sur ${perTable} place${perTable > 1 ? "s" : ""}`}
               sieges={construireSieges(joueurs, perTable)}
-              eliminatedIds={eliminatedIds}
               manage={manage}
               openMenuId={openMenuId}
               setOpenMenuId={setOpenMenuId}
@@ -124,7 +139,6 @@ export default function TablesView({ tournamentId, manage = false }) {
             titre="Sans table"
             sousTitre={`${sansTable.length} joueur${sansTable.length > 1 ? "s" : ""} à placer`}
             sieges={sansTable.map((r) => ({ numero: null, joueur: r }))}
-            eliminatedIds={eliminatedIds}
             manage={manage}
             alerte
             openMenuId={openMenuId}
@@ -174,7 +188,7 @@ function construireSieges(joueurs, perTable) {
   return sieges;
 }
 
-function CarteTable({ titre, sousTitre, sieges, eliminatedIds, manage, alerte, openMenuId, setOpenMenuId, onDeplacer, onLiberer }) {
+function CarteTable({ titre, sousTitre, sieges, manage, alerte, openMenuId, setOpenMenuId, onDeplacer, onLiberer }) {
   return (
     <div
       style={{ backgroundColor: "var(--pcp-cell-bg, #171C24)", color: "var(--pcp-cell-text, inherit)" }}
@@ -192,7 +206,6 @@ function CarteTable({ titre, sousTitre, sieges, eliminatedIds, manage, alerte, o
               key={s.joueur.id}
               reg={s.joueur}
               numeroSiege={s.numero}
-              elimine={eliminatedIds.has(s.joueur.id)}
               manage={manage}
               menuOuvert={openMenuId === s.joueur.id}
               setOpenMenuId={setOpenMenuId}
@@ -208,10 +221,10 @@ function CarteTable({ titre, sousTitre, sieges, eliminatedIds, manage, alerte, o
   );
 }
 
-function LigneJoueur({ reg, numeroSiege, elimine, manage, menuOuvert, setOpenMenuId, onDeplacer, onLiberer }) {
+function LigneJoueur({ reg, numeroSiege, manage, menuOuvert, setOpenMenuId, onDeplacer, onLiberer }) {
   const nom = playerLabel(reg) || "?";
   return (
-    <div className={`relative flex items-center gap-4 py-3 ${elimine ? "opacity-40" : ""}`}>
+    <div className="relative flex items-center gap-4 py-3">
       <div className="flex items-center gap-2 shrink-0 w-14">
         <IconeSiege />
         <span className="pcp-value font-display text-xl text-felt-gold tabular-nums">{numeroSiege ?? "—"}</span>
@@ -229,7 +242,7 @@ function LigneJoueur({ reg, numeroSiege, elimine, manage, menuOuvert, setOpenMen
         </span>
       )}
 
-      <span className={`pcp-body flex-1 min-w-0 truncate text-lg font-medium ${elimine ? "line-through" : ""}`}>{nom}</span>
+      <span className="pcp-body flex-1 min-w-0 truncate text-lg font-medium">{nom}</span>
 
       {manage && (
         <button
