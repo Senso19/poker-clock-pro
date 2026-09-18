@@ -157,6 +157,61 @@ function computeSnapTargets(panels) {
   return { xs, ys };
 }
 
+/**
+ * Taille de référence de l'horloge : celle de l'écran sur lequel la
+ * disposition a été réglée. Les tailles enregistrées dans le modèle
+ * (polices, titres, avatars, espacements) sont des pixels valables À
+ * CETTE taille-là ; ailleurs, tout le contenu est mis à l'échelle.
+ *
+ * La valeur par défaut correspond à un portable ~1600x900, en retirant la
+ * hauteur prise par l'en-tête et les onglets au-dessus de l'horloge. Une
+ * disposition enregistrée depuis cette version mémorise sa vraie taille
+ * de référence et n'utilise plus ce repli.
+ */
+const CLOCK_DESIGN = { w: 1600, h: 820 };
+
+/**
+ * useClockScale — facteur d'échelle du contenu de l'horloge.
+ *
+ * Les panneaux étaient déjà placés ET dimensionnés en pourcentage : leur
+ * géométrie suivait l'écran. C'est leur contenu qui restait en pixels
+ * fixes, d'où du texte qui débordait sur un écran plus petit et des
+ * chiffres minuscules perdus au milieu de panneaux immenses sur un
+ * téléviseur. Comme les panneaux et le contenu grandissent désormais du
+ * même facteur, le rapport texte/panneau est identique partout : aucun
+ * débordement nouveau ne peut apparaître.
+ *
+ * Mesuré avec getBoundingClientRect() et non clientWidth : sous la
+ * propriété CSS `zoom` (le zoom manuel de l'horloge), clientWidth renvoie
+ * la largeur dans le repère DÉJÀ zoomé, donc elle diminue quand on zoome
+ * — l'échelle aurait compensé le zoom et l'aurait annulé.
+ * getBoundingClientRect renvoie la taille réellement rendue à l'écran,
+ * stable quel que soit le zoom.
+ */
+function useClockScale(containerRef, designSize) {
+  const [scale, setScale] = useState(1);
+  const ref = designSize?.w && designSize?.h ? designSize : CLOCK_DESIGN;
+
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el) return undefined;
+    function mesurer() {
+      const r = el.getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      // Le minimum des deux axes : se caler sur la largeur seule ferait
+      // déborder verticalement une zone large mais peu haute.
+      const k = Math.min(r.width / ref.w, r.height / ref.h);
+      setScale(clamp(Math.round(k * 100) / 100, 0.35, 2.5));
+    }
+    mesurer();
+    const ro = new ResizeObserver(mesurer);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [containerRef, ref.w, ref.h]);
+
+  return scale;
+}
+
 function mergeLayout(saved) {
   const panels = {};
   for (const key of Object.keys(DEFAULT_PANELS)) {
@@ -178,7 +233,7 @@ function mergeLayout(saved) {
     images = [{ id: "legacy-bg", x: 0, y: 0, w: 100, h: 100, imageData: saved.background.imageData, layer: "back", fit: "contain" }];
   }
   images = images.map((im) => (im.x > 100 || im.y > 100 || im.w > 100 || im.h > 100 ? { ...im, x: 10, y: 10, w: 40, h: 40 } : im));
-  return { panels, images };
+  return { panels, images, designSize: saved?.designSize || null };
 }
 
 // Avance le niveau/temps restant d'un nombre de secondes écoulées (pour
@@ -264,6 +319,10 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   const effectiveDesignOnly = designOnly || templateMode;
   const [panels, setPanels] = useState(merged0.panels);
   const [images, setImages] = useState(merged0.images);
+  // Taille de l'écran sur laquelle la disposition a été réglée. null tant
+  // qu'aucune sauvegarde n'a eu lieu depuis cette version : on retombe
+  // alors sur CLOCK_DESIGN.
+  const [designSize, setDesignSize] = useState(merged0.designSize);
   const [editing, setEditing] = useState(false);
   const [stylingId, setStylingId] = useState(null);
   const [showLibrary, setShowLibrary] = useState(false);
@@ -273,6 +332,9 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   const bgFileRef = useRef(null);
   const tournamentBgFileRef = useRef(null);
   const containerRef = useRef(null);
+  // Échelle automatique du contenu : voir useClockScale. Elle se combine
+  // au zoom manuel, qui reste un réglage propre à chaque appareil.
+  const clockScale = useClockScale(containerRef, designSize);
   const toolbarDrag = useRef(null);
 
   const [levelIndex, setLevelIndex] = useState(0);
@@ -323,6 +385,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
     const m = mergeLayout(theme.layout);
     setPanels(m.panels);
     setImages(m.images);
+    setDesignSize(m.designSize);
   }, [theme.layout, templateMode]);
 
   useEffect(() => {
@@ -486,6 +549,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
       const m = mergeLayout(t.clock_layout);
       setPanels(m.panels);
       setImages(m.images);
+      setDesignSize(m.designSize);
     }
     setTournamentBg(t.clock_background || null);
     await fetchRegsAndElims(t.id);
@@ -659,18 +723,44 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   const isFinished = registrations.length > 1 && stillIn.length === 1;
   const winner = isFinished ? stillIn[0] : null;
 
+  /**
+   * Taille de l'écran au moment où l'admin arrange sa disposition : c'est
+   * la référence à laquelle les tailles de police qu'il choisit ont un
+   * sens. On la mémorise à chaque sauvegarde pour que l'horloge se
+   * retrouve à l'identique, en proportions, sur tous les autres écrans.
+   *
+   * Le garde-fou sur la largeur évite de figer la référence sur une
+   * vignette d'aperçu de la bibliothèque de modèles.
+   */
+  function captureDesignSize() {
+    const r = containerRef.current?.getBoundingClientRect();
+    if (!r || r.width < 600 || r.height < 300) return designSize;
+    return { w: Math.round(r.width), h: Math.round(r.height) };
+  }
+
+  /**
+   * Refixe la référence sur l'écran courant sans toucher à la disposition :
+   * le contenu revient à 100 % ici, et c'est cet écran qui sert de mètre
+   * étalon aux autres.
+   */
+  function recalibrerEchelle() {
+    persist(panels, images);
+  }
+
   async function persist(nextPanels, nextImages) {
     setPanels(nextPanels);
     setImages(nextImages);
     if (templateMode) return;
+    const nextDesign = captureDesignSize();
+    setDesignSize(nextDesign);
     if (!effectiveDesignOnly && tournamentId) {
       // Disposition propre à CE tournoi (n'affecte pas les autres tournois
       // ni la disposition par défaut du club).
-      const layout = { ...nextPanels, images: nextImages };
+      const layout = { ...nextPanels, images: nextImages, designSize: nextDesign };
       const { error } = await supabase.from("tournaments").update({ clock_layout: layout }).eq("id", tournamentId);
       if (!error) return;
     }
-    const nextTheme = { ...theme, layout: { ...nextPanels, images: nextImages } };
+    const nextTheme = { ...theme, layout: { ...nextPanels, images: nextImages, designSize: nextDesign } };
     setTheme(nextTheme);
     const { data: existing } = await supabase.from("club_settings").select("id").limit(1).maybeSingle();
     const payload = { club_name: "19PokerClub", theme: nextTheme };
@@ -929,15 +1019,21 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
     saveTournamentBg({ ...tournamentBg, bars });
   }
 
-  // Le zoom grossit le CONTENU de l'horloge dans la même zone d'écran :
-  // la boîte garde la taille de son parent (width:100% se résout dans
-  // l'espace déjà zoomé), seuls les panneaux et les chiffres grandissent.
-  // À 100 % le style est exactement celui d'avant.
+  // Deux facteurs se combinent ici : l'échelle automatique (useClockScale,
+  // qui adapte l'horloge à l'écran) et le zoom manuel, propre à chaque
+  // appareil. zoom grossit le CONTENU dans la même zone d'écran — la boîte
+  // garde la taille de son parent, car width:100% se résout dans l'espace
+  // déjà zoomé. Un seul facteur suffit donc à mettre à l'échelle polices,
+  // titres, avatars, boutons, bordures et espacements, sans reprendre
+  // chaque valeur une par une, et sans toucher aux panneaux, qui restent
+  // en pourcentage et couvrent toujours la même part de l'écran. Le
+  // rapport texte/panneau est ainsi rigoureusement identique partout.
+  const zoomTotal = Math.round(clockZoom * clockScale * 1000) / 1000;
   return (
     <div
       ref={containerRef}
       className="relative w-full h-full overflow-hidden"
-      style={clockZoom !== 1 ? { ...clockBgStyle, zoom: clockZoom } : clockBgStyle}
+      style={zoomTotal !== 1 ? { ...clockBgStyle, zoom: zoomTotal } : clockBgStyle}
     >
       {bgImageLayerStyle && <div className="absolute inset-0 pointer-events-none" style={bgImageLayerStyle} />}
       {bgTintStyle && <div className="absolute inset-0 pointer-events-none" style={bgTintStyle} />}
@@ -952,10 +1048,18 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
           }}
         />
       ))}
+      {/* La barre d'outils est de l'outillage d'admin, pas un élément de
+          l'horloge : elle annule le zoom pour garder une taille utilisable
+          quel que soit l'écran. Effet de bord bienvenu, le translate du
+          glisser retrouve une correspondance exacte avec la souris, alors
+          qu'il était déjà multiplié par le zoom manuel auparavant. */}
       {!isFullscreen && (
         <div
           className="absolute top-2 right-2 z-40 flex flex-wrap justify-end items-center gap-1 max-w-[95%]"
-          style={{ transform: `translate(${toolbarOffset.x}px, ${toolbarOffset.y}px)` }}
+          style={{
+            transform: `translate(${toolbarOffset.x}px, ${toolbarOffset.y}px)`,
+            ...(zoomTotal !== 1 ? { zoom: 1 / zoomTotal } : {}),
+          }}
         >
           {canEdit && editing && (
             <span
@@ -1194,6 +1298,23 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
             >
               {editing ? "✓ Terminer la réorganisation" : "✥ Réorganiser l'affichage"}
             </EditableButton>
+          )}
+          {canEdit && editing && !templateMode && (
+            // La disposition mémorise l'écran sur lequel elle a été réglée
+            // et s'y rapporte partout ailleurs. Elle se met à jour toute
+            // seule à chaque modification ; ce bouton sert à la refixer
+            // sans rien déplacer, par exemple après avoir changé d'écran.
+            <button
+              onClick={recalibrerEchelle}
+              title={
+                designSize
+                  ? `Référence actuelle : ${designSize.w}x${designSize.h} px. Sur cet écran, le contenu est affiché à ${Math.round(clockScale * 100)} %.`
+                  : `Aucune référence enregistrée : repli sur ${CLOCK_DESIGN.w}x${CLOCK_DESIGN.h}. Sur cet écran, le contenu est affiché à ${Math.round(clockScale * 100)} %.`
+              }
+              className="text-xs px-3 py-1.5 rounded-md font-display bg-felt-panel border border-felt-cream/10 text-felt-cream/60 hover:text-felt-cream tabular-nums"
+            >
+              🎯 Calibrer sur cet écran ({Math.round(clockScale * 100)} %)
+            </button>
           )}
           {templateMode && onSaveLayout && (
             <button

@@ -240,7 +240,7 @@ export default function MobileClockView({ levels, canEdit: canEditOverride }) {
       </div>
 
       {!currentLevel.isBreak && (
-        <div className="flex items-center justify-center gap-4 text-3xl font-display mb-5">
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-3xl font-display mb-5 px-2">
           <span>{chips(currentLevel.smallBlind)}</span>
           <span className="text-felt-cream/30">/</span>
           <span>{chips(currentLevel.bigBlind)}</span>
