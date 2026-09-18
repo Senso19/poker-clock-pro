@@ -104,9 +104,14 @@ const DEFAULT_PANELS = {
 // précédente" — qui décide de ce qui est à l'écran : deux actions faites
 // coup sur coup s'affichent donc l'une sous l'autre.
 const ANNOUNCEMENT_TTL_MS = 30000;
-// Nombre de lignes des deux panneaux de championnat.
+// Nombre de lignes par défaut des classements. Chaque panneau a son
+// réglage "Nombre de places affichées" : selon la hauteur qu'on lui donne
+// et la taille de la salle, on veut le podium, le top 10 ou tout le monde.
 const STAGE_POINTS_ROWS = 10;
 const CHAMP_RANKING_ROWS = 30;
+// Le classement des éliminations n'était pas limité du tout : 0 garde ce
+// comportement (tout le classement, la liste défilant dans son panneau).
+const RANKING_ROWS = 0;
 // Le classement du championnat se recalcule à partir de TOUTES les étapes
 // (deux requêtes par étape) : on ne le relit donc pas au rythme du reste
 // de l'horloge. Il ne bouge de toute façon qu'à la fin d'une étape.
@@ -637,7 +642,8 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
     const totalPlayers = registrations.length;
     const totalRebuys = registrations.reduce((s2, r) => s2 + (r.rebuys || 0), 0);
     const totalEntries = championship.count_rebuys_in_ranking ? totalPlayers + totalRebuys : totalPlayers;
-    return Array.from({ length: Math.min(STAGE_POINTS_ROWS, totalPlayers) }, (_, i) => ({
+    const places = Math.max(1, panels.stagepoints?.style?.nbLignes || STAGE_POINTS_ROWS);
+    return Array.from({ length: Math.min(places, totalPlayers) }, (_, i) => ({
       position: i + 1,
       points: computeTournamentPoints({
         formulaText: championship.formula_text,
@@ -649,7 +655,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
         addons: 0,
       }),
     }));
-  }, [championship, registrations]);
+  }, [championship, registrations, panels.stagepoints?.style?.nbLignes]);
 
   // Chaque annonce reste affichée ANNOUNCEMENT_TTL_MS après son écriture,
   // et plusieurs peuvent donc cohabiter : éliminer un joueur et en
@@ -1933,7 +1939,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
       )}
 
       {!panels.ranking.removed && (
-        <Panel id="ranking" layout={panels.ranking} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Classement" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
+        <Panel id="ranking" layout={panels.ranking} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Classement" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} showRowCountOptions rowCountDefault={RANKING_ROWS} borderColor={panelBorderColor} snapTargets={snapTargets}>
           {panels.ranking.style.showTitle && <div className="text-felt-cream/30 uppercase tracking-wide mb-2" style={titleStyle(panels.ranking.style)}>{panels.ranking.style.customTitle || "Classement"}</div>}
           <RankingContent style={panels.ranking.style} eliminations={rankedEliminations} textStyle={textStyle} />
         </Panel>
@@ -2026,7 +2032,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
       )}
 
       {!panels.stagepoints.removed && (
-        <Panel id="stagepoints" layout={panels.stagepoints} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Points à gagner" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} showScrollOptions borderColor={panelBorderColor} snapTargets={snapTargets}>
+        <Panel id="stagepoints" layout={panels.stagepoints} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Points à gagner" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} showScrollOptions showRowCountOptions rowCountDefault={STAGE_POINTS_ROWS} borderColor={panelBorderColor} snapTargets={snapTargets}>
           {panels.stagepoints.style.showTitle && (
             <div className="text-felt-cream/30 uppercase tracking-wide mb-2 text-center" style={titleStyle(panels.stagepoints.style)}>
               {panels.stagepoints.style.customTitle || "Points à gagner"}
@@ -2045,7 +2051,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
       )}
 
       {!panels.champranking.removed && (
-        <Panel id="champranking" layout={panels.champranking} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Classement championnat" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} showScrollOptions borderColor={panelBorderColor} snapTargets={snapTargets}>
+        <Panel id="champranking" layout={panels.champranking} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Classement championnat" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} showScrollOptions showRowCountOptions rowCountDefault={CHAMP_RANKING_ROWS} borderColor={panelBorderColor} snapTargets={snapTargets}>
           {panels.champranking.style.showTitle && (
             <div className="text-felt-cream/30 uppercase tracking-wide mb-2 text-center" style={titleStyle(panels.champranking.style)}>
               {panels.champranking.style.customTitle || championship?.name || "Classement championnat"}
@@ -2222,9 +2228,12 @@ function HeadsupContent({ style, stillIn, textStyle }) {
 
 function RankingContent({ style, eliminations, textStyle }) {
   if (eliminations.length === 0) return <div className="text-felt-cream/40 text-xs">Aucune élimination pour l'instant.</div>;
+  // 0 = tout le classement, comme avant ce réglage.
+  const places = Math.max(0, style.nbLignes ?? RANKING_ROWS);
+  const visibles = places > 0 ? eliminations.slice(0, places) : eliminations;
   return (
     <div className="space-y-1 overflow-y-auto" style={{ ...textStyle(style), maxHeight: "calc(100% - 20px)" }}>
-      {eliminations.map((e) => (
+      {visibles.map((e) => (
         <div key={e.id} className="flex items-center justify-between border-b border-felt-cream/5 pb-1">
           <span className="text-felt-gold/70">{e.finish_position}</span>
           <span className="flex-1 ml-2 truncate">{e.registrations?.players?.full_name}</span>
@@ -2516,7 +2525,7 @@ function ChampRankingContent({ style, standings, championship, textStyle }) {
   return (
     <ListeDefilante {...reglagesDefilement(style, 60)}>
       <div style={textStyle(style)}>
-        {standings.slice(0, CHAMP_RANKING_ROWS).map((j, i) => (
+        {standings.slice(0, Math.max(1, style.nbLignes || CHAMP_RANKING_ROWS)).map((j, i) => (
           <div key={j.playerId} className="flex items-center gap-2 border-b border-felt-cream/5 py-0.5">
             <span className="text-felt-gold/70 w-8 shrink-0">{i + 1}</span>
             <span className="flex-1 truncate">{j.name}</span>
@@ -2768,7 +2777,7 @@ function useDragResize(id, layout, editing, containerRef, onMove, onCommit, onRe
   };
 }
 
-function Panel({ id, layout, editing, containerRef, onMove, onCommit, onResize, onEdgeResize, onRemovePanel, defaultTitle, children, stylingId, setStylingId, onStyleChange, showButtonOptions, showCarouselOptions, onToggleCarouselIncluded, showSponsorOptions, showAvatarOptions, showScrollOptions, borderColor, snapTargets, onUploadSound }) {
+function Panel({ id, layout, editing, containerRef, onMove, onCommit, onResize, onEdgeResize, onRemovePanel, defaultTitle, children, stylingId, setStylingId, onStyleChange, showButtonOptions, showCarouselOptions, onToggleCarouselIncluded, showSponsorOptions, showAvatarOptions, showScrollOptions, showRowCountOptions, rowCountDefault, borderColor, snapTargets, onUploadSound }) {
   const isStyling = stylingId === id;
   const h = useDragResize(id, layout, editing, containerRef, onMove, onCommit, onResize, undefined, snapTargets);
   const noDefaultBg = layout.style.transparent || layout.style.bgColor;
@@ -2862,6 +2871,8 @@ function Panel({ id, layout, editing, containerRef, onMove, onCommit, onResize, 
           onChange={(patch) => onStyleChange(id, patch)}
           onClose={() => setStylingId(null)}
           showScrollOptions={showScrollOptions}
+          showRowCountOptions={showRowCountOptions}
+          rowCountDefault={rowCountDefault}
           onUploadSound={onUploadSound}
         />
       )}
@@ -2938,7 +2949,7 @@ function ImagePanel({ img, editing, containerRef, zIndex, onMove, onCommit, onRe
   );
 }
 
-function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOptions, onToggleCarouselIncluded, showSponsorOptions, showAvatarOptions, showScrollOptions, onChange, onClose, onUploadSound }) {
+function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOptions, onToggleCarouselIncluded, showSponsorOptions, showAvatarOptions, showScrollOptions, showRowCountOptions, rowCountDefault, onChange, onClose, onUploadSound }) {
   return (
     <div
       data-style-popover="1"
@@ -2961,7 +2972,27 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
           placeholder={defaultTitle}
           className="w-full mt-1 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
         />
-        {showScrollOptions && (
+        {showRowCountOptions && (
+        <>
+          <div className="border-t border-felt-cream/10 my-2 pt-2 text-felt-cream/50">Places affichées</div>
+          <label className="flex items-center justify-between mb-2">
+            Nombre de places
+            <input
+              type="number"
+              min={defaultTitle === "Classement" ? 0 : 1}
+              value={style.nbLignes ?? rowCountDefault}
+              onChange={(e) => onChange({ nbLignes: Math.max(0, Number(e.target.value) || 0) })}
+              className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-1 py-0.5 text-felt-cream"
+            />
+          </label>
+          <div className="text-[11px] text-felt-cream/35 mb-2">
+            {defaultTitle === "Classement"
+              ? "0 = tout le classement. Au-delà de ce que le panneau peut montrer, la liste défile."
+              : "Au-delà de ce que le panneau peut montrer, la liste défile."}
+          </div>
+        </>
+      )}
+      {showScrollOptions && (
         <>
           <div className="border-t border-felt-cream/10 my-2 pt-2 text-felt-cream/50">Défilement</div>
           <label className="flex items-center justify-between mb-2">
