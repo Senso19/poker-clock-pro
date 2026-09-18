@@ -61,6 +61,10 @@ const DEFAULT_PANELS = {
     x: 50, y: 74, w: 48, h: 24, removed: true,
     style: { ...BASE_STYLE, fontSize: 18, font: "body", align: "center", customTitle: "Tirage des places", pauseHaut: 0, dureeDefilement: 30 },
   },
+  moves: {
+    x: 2, y: 74, w: 30, h: 24, removed: true,
+    style: { ...BASE_STYLE, fontSize: 22, font: "body", align: "center", customTitle: "Déplacements", dureeAffichage: 60 },
+  },
   stagepoints: {
     x: 2, y: 44, w: 22, h: 30, removed: true,
     style: { ...BASE_STYLE, fontSize: 16, font: "body", customTitle: "Points à gagner", pauseHaut: 60, dureeDefilement: 20 },
@@ -112,9 +116,9 @@ const CHAMP_RANKING_REFRESH_MS = 120000;
 const ANNOUNCEMENT_GAP = 6;
 const ANNOUNCEMENT_MIN_SIZE = 12;
 // Deux déplacements écrits à moins de ça l'un de l'autre viennent du même
-// geste (casse de table, équilibrage) : ils s'affichent alors ensemble et
-// figés, pour qu'on puisse appeler les joueurs sans courir après une
-// ligne qui défile.
+// geste (casse de table, équilibrage). Ces listes-là n'ont pas leur place
+// dans les annonces : elles s'ouvrent déjà dans la fenêtre des
+// déplacements, et le panneau, lui, annonce UN joueur à la fois.
 const MOVE_BATCH_MS = 15000;
 
 const PANEL_LABELS = {
@@ -122,7 +126,7 @@ const PANEL_LABELS = {
   ranking: "Classement", structure: "Structure des blinds", eliminated: "Élimination",
   headsup: "Heads Up", carousel: "Carrousel", sponsors: "Sponsors", announcements: "Annonces",
   nextbreak: "Prochaine pause (compte à rebours)", customtext: "Texte libre",
-  progress: "Barre de progression", seatdraw: "Tirage des places",
+  progress: "Barre de progression", seatdraw: "Tirage des places", moves: "Déplacements de joueurs",
   stagepoints: "Points à gagner (étape de championnat)", champranking: "Classement championnat",
   avgstack: "Tapis moyen", playercount: "Joueurs (restant/total)", level: "Niveau", prizepool: "Prizepool (dotation)",
 };
@@ -651,10 +655,41 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   // et plusieurs peuvent donc cohabiter : éliminer un joueur et en
   // déplacer un autre dans la même minute donne bien deux lignes, l'une
   // sous l'autre, au lieu d'une seule qui écrasait l'autre.
-  const visibleAnnouncements = useMemo(
-    () => announcementsRaw.filter((a) => nowTs - new Date(a.created_at).getTime() < ANNOUNCEMENT_TTL_MS),
-    [announcementsRaw, nowTs]
-  );
+  const visibleAnnouncements = useMemo(() => {
+    const recentes = announcementsRaw.filter((a) => nowTs - new Date(a.created_at).getTime() < ANNOUNCEMENT_TTL_MS);
+    // Une casse de table ou un équilibrage écrit une ligne par joueur
+    // déplacé. Ce panneau n'annonce qu'un joueur à la fois : ces listes
+    // sont donc écartées en bloc. Un déplacement isolé, lui, reste.
+    const quand = (a) => new Date(a.created_at).getTime();
+    const deplacements = recentes.filter((a) => a.kind === "move");
+    const enGroupe = new Set();
+    deplacements.forEach((a) => {
+      const memeGeste = deplacements.filter((b) => Math.abs(quand(b) - quand(a)) <= MOVE_BATCH_MS);
+      if (memeGeste.length >= 2) memeGeste.forEach((b) => enGroupe.add(b.id));
+    });
+    return recentes.filter((a) => !enGroupe.has(a.id));
+  }, [announcementsRaw, nowTs]);
+
+  // Les joueurs déplacés d'un même geste (casse de table, équilibrage).
+  // Ils ont leur propre panneau : c'est la liste qu'on lit à voix haute
+  // pour appeler les joueurs, elle doit tenir en entier sous les yeux et
+  // ne pas se mélanger aux annonces. On ne garde que le DERNIER geste —
+  // celui d'il y a une heure n'intéresse plus personne.
+  const dureeDeplacementsMs = (panels.moves?.style?.dureeAffichage ?? 60) * 1000;
+  const deplacementsGroupes = useMemo(() => {
+    const quand = (a) => new Date(a.created_at).getTime();
+    const deplacements = announcementsRaw
+      .filter((a) => a.kind === "move" && nowTs - quand(a) < dureeDeplacementsMs)
+      .sort((a, b) => quand(b) - quand(a));
+    if (deplacements.length === 0) return [];
+    const dernier = deplacements[0];
+    const memeGeste = deplacements.filter((a) => Math.abs(quand(a) - quand(dernier)) <= MOVE_BATCH_MS);
+    if (memeGeste.length < 2) return [];
+    // Par ordre alphabétique : les cinq lignes sont écrites dans la même
+    // milliseconde, l'ordre chronologique ne veut donc rien dire, et c'est
+    // une liste qu'on lit à voix haute — on y cherche un nom.
+    return [...memeGeste].sort((a, b) => a.text.localeCompare(b.text, "fr", { sensitivity: "base" }));
+  }, [announcementsRaw, nowTs, dureeDeplacementsMs]);
 
   async function handleEditAnnouncement() {
     const next = prompt("Message à afficher sur le panneau Annonces :", visibleAnnouncements[0]?.text || "");
@@ -1977,6 +2012,19 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
         </Panel>
       )}
 
+      {!panels.moves.removed && (
+        <Panel id="moves" layout={panels.moves} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Déplacements" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
+          {panels.moves.style.showTitle && (
+            <div className="text-felt-cream/30 uppercase tracking-wide mb-2 text-center" style={titleStyle(panels.moves.style)}>
+              {panels.moves.style.customTitle || "Déplacements"}
+            </div>
+          )}
+          <div className="flex-1 min-h-0 w-full">
+            <MovesContent style={panels.moves.style} moves={deplacementsGroupes} textStyle={textStyle} />
+          </div>
+        </Panel>
+      )}
+
       {!panels.stagepoints.removed && (
         <Panel id="stagepoints" layout={panels.stagepoints} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Points à gagner" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} showScrollOptions borderColor={panelBorderColor} snapTargets={snapTargets}>
           {panels.stagepoints.style.showTitle && (
@@ -2216,12 +2264,16 @@ function SponsorsContent({ style, sponsorIdx }) {
 }
 
 /**
- * AnnouncementsContent — les annonces récentes, empilées.
+ * AnnouncementsContent — les annonces récentes, empilées et défilantes.
  *
  * Auparavant une seule annonce tenait le panneau : éliminer un joueur et
  * en déplacer un autre dans la même minute n'en laissait voir qu'une. Ici
  * toutes celles encore valables s'affichent, la plus récente en haut,
  * séparées d'un espace.
+ *
+ * Ce qui arrive ici a déjà été trié : les déplacements faits d'un même
+ * geste (casse de table, équilibrage) sont écartés en amont — ce panneau
+ * annonce un joueur à la fois, pas une liste de réattributions.
  *
  * La taille du texte descend avec la place disponible et avec le nombre
  * d'annonces, mais ne dépasse JAMAIS la taille réglée dans le panneau :
@@ -2259,46 +2311,15 @@ function AnnouncementsContent({ style, announcements, textStyle, showDrawHint })
     );
   }
 
-  // Plusieurs joueurs déplacés d'un même geste (casse de table,
-  // équilibrage) : la liste reste FIGÉE, les pseudos les uns sous les
-  // autres, le temps de les appeler à voix haute. Une élimination ou un
-  // déplacement isolé, eux, défilent.
-  const deplacements = announcements.filter((a) => a.kind === "move");
-  const memeGeste = deplacements.filter(
-    (a) => Math.abs(new Date(a.created_at) - new Date(deplacements[0]?.created_at)) <= MOVE_BATCH_MS
-  );
-  const groupeDeplacements = memeGeste.length >= 2;
-
   // La taille suit la place disponible et le nombre de lignes. Le réglage
   // du panneau sert de plafond : une annonce seule sur un grand panneau ne
-  // doit pas devenir démesurée.
+  // doit pas devenir démesurée. En dessous de la taille plancher, on
+  // arrête de tasser et c'est le défilement qui montre la suite.
   const plafond = style.fontSize || 18;
-  // Figé, tout doit tenir : on autorise plus petit que d'ordinaire plutôt
-  // que d'en cacher. En défilement, on s'arrête à une taille lisible et
-  // c'est le défilement qui montre la suite.
-  const planche = groupeDeplacements ? 8 : ANNOUNCEMENT_MIN_SIZE;
-  const confort = h > 0 ? Math.max(1, Math.floor((h + ANNOUNCEMENT_GAP) / (planche + ANNOUNCEMENT_GAP))) : 3;
-  const n = groupeDeplacements ? announcements.length : Math.min(announcements.length, confort);
+  const confort = h > 0 ? Math.max(1, Math.floor((h + ANNOUNCEMENT_GAP) / (ANNOUNCEMENT_MIN_SIZE + ANNOUNCEMENT_GAP))) : 3;
+  const n = Math.min(announcements.length, confort);
   const dispo = Math.max(0, h - ANNOUNCEMENT_GAP * (n - 1));
-  const taille = h > 0 ? clamp(Math.floor((dispo / n) * 0.62), planche, plafond) : plafond;
-
-  if (groupeDeplacements) {
-    return (
-      <div
-        ref={boxRef}
-        className="w-full h-full flex flex-col justify-center overflow-hidden"
-        style={{ gap: `${ANNOUNCEMENT_GAP}px` }}
-      >
-        {announcements.map((a) => (
-          // FitText rentre la ligne dans la largeur du panneau : un pseudo
-          // long ne doit pas sortir du cadre, et rien ne défile ici.
-          <FitText key={a.id} align={style.align || "center"} origin="center">
-            <span style={{ ...textStyle(style), fontSize: `${taille}px`, lineHeight: 1.2 }}>{a.text}</span>
-          </FitText>
-        ))}
-      </div>
-    );
-  }
+  const taille = h > 0 ? clamp(Math.floor((dispo / n) * 0.62), ANNOUNCEMENT_MIN_SIZE, plafond) : plafond;
 
   const tientEntier = announcements.length <= n;
   const lignes = announcements.map((a) => (
@@ -2480,6 +2501,43 @@ function ChampRankingContent({ style, standings, championship, textStyle }) {
         ))}
       </div>
     </ListeDefilante>
+  );
+}
+
+/**
+ * MovesContent — les joueurs à faire changer de table, tous ensemble.
+ *
+ * Rien ne défile : c'est la liste qu'on lit à voix haute pour appeler les
+ * joueurs, et une ligne qui s'échappe pendant qu'on la lit ne sert à
+ * personne. Tout tient donc dans le panneau, une ligne par joueur, du
+ * haut vers le bas — la taille du texte s'y adapte, en hauteur (le nombre
+ * de joueurs déplacés) comme en largeur (un pseudo long ne doit pas
+ * sortir du cadre).
+ */
+function MovesContent({ style, moves, textStyle }) {
+  const boxRef = useRef(null);
+  const { h } = useBoxSize(boxRef);
+  const n = moves?.length || 0;
+  const plafond = style.fontSize || 22;
+  const dispo = Math.max(0, h - ANNOUNCEMENT_GAP * Math.max(0, n - 1));
+  const taille = n > 0 && h > 0 ? clamp(Math.floor((dispo / n) * 0.62), 8, plafond) : plafond;
+
+  return (
+    <div
+      ref={boxRef}
+      className="w-full h-full flex flex-col justify-center overflow-hidden"
+      style={{ gap: `${ANNOUNCEMENT_GAP}px` }}
+    >
+      {n === 0 ? (
+        <div className="text-felt-cream/30 text-sm text-center">Aucun déplacement en cours.</div>
+      ) : (
+        moves.map((m) => (
+          <FitText key={m.id} align={style.align || "center"} origin="center">
+            <span style={{ ...textStyle(style), fontSize: `${taille}px`, lineHeight: 1.2 }}>{m.text}</span>
+          </FitText>
+        ))
+      )}
+    </div>
   );
 }
 
@@ -2905,6 +2963,25 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
           </label>
           <div className="text-[11px] text-felt-cream/35 mb-2">
             Arrêt à 0 = pas de pause en haut. La liste ne défile que si elle dépasse du panneau.
+          </div>
+        </>
+      )}
+      {defaultTitle === "Déplacements" && (
+        <>
+          <div className="border-t border-felt-cream/10 my-2 pt-2 text-felt-cream/50">Déplacements</div>
+          <label className="flex items-center justify-between mb-2">
+            Rester affichés (s)
+            <input
+              type="number"
+              min="5"
+              value={style.dureeAffichage ?? 60}
+              onChange={(e) => onChange({ dureeAffichage: Math.max(5, Number(e.target.value) || 60) })}
+              className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-1 py-0.5 text-felt-cream"
+            />
+          </label>
+          <div className="text-[11px] text-felt-cream/35 mb-2">
+            Le panneau n'affiche que le dernier équilibrage ou la dernière casse de table, et seulement s'il concerne
+            plus d'un joueur. La taille du texte s'adapte au panneau.
           </div>
         </>
       )}
