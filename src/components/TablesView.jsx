@@ -101,16 +101,14 @@ export default function TablesView({ tournamentId, manage = false }) {
         className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,380px),560px))] justify-center gap-4 sm:gap-6 items-start"
       >
         {numerosTables.map((num) => {
-          const joueurs = assis
-            .filter((r) => r.table_number === num)
-            .sort((a, b) => (a.seat_number || 99) - (b.seat_number || 99));
+          const joueurs = assis.filter((r) => r.table_number === num);
           const enJeu = joueurs.filter((r) => !eliminatedIds.has(r.id)).length;
           return (
             <CarteTable
               key={num}
               titre={`Table ${num}`}
-              sousTitre={`(${enJeu} Joueur${enJeu > 1 ? "s" : ""})`}
-              joueurs={joueurs}
+              sousTitre={`${enJeu} en jeu · ${joueurs.length} place${joueurs.length > 1 ? "s" : ""} occupée${joueurs.length > 1 ? "s" : ""} sur ${perTable}`}
+              sieges={construireSieges(joueurs, perTable)}
               eliminatedIds={eliminatedIds}
               manage={manage}
               openMenuId={openMenuId}
@@ -124,8 +122,8 @@ export default function TablesView({ tournamentId, manage = false }) {
         {sansTable.length > 0 && (
           <CarteTable
             titre="Sans table"
-            sousTitre={`(${sansTable.length} à placer)`}
-            joueurs={sansTable}
+            sousTitre={`${sansTable.length} joueur${sansTable.length > 1 ? "s" : ""} à placer`}
+            sieges={sansTable.map((r) => ({ numero: null, joueur: r }))}
             eliminatedIds={eliminatedIds}
             manage={manage}
             alerte
@@ -151,7 +149,32 @@ export default function TablesView({ tournamentId, manage = false }) {
   );
 }
 
-function CarteTable({ titre, sousTitre, joueurs, eliminatedIds, manage, alerte, openMenuId, setOpenMenuId, onDeplacer, onLiberer }) {
+/**
+ * construireSieges — une entrée par PLACE de la table, pas par joueur,
+ * pour que les sièges vides apparaissent au lieu d'être sautés.
+ *
+ * On va jusqu'au plus grand des deux : la capacité réglée du tournoi et
+ * le plus haut siège réellement occupé. Sans ça, un joueur assis au siège
+ * 9 d'une table réglée à 8 disparaîtrait purement et simplement.
+ *
+ * Un siège peut porter plusieurs joueurs : ça n'est pas censé arriver,
+ * mais ça arrive (deux inscriptions tombées sur la même place), et c'est
+ * précisément ce que cet écran doit donner à voir plutôt que d'en cacher
+ * un. Les joueurs d'une table sans numéro de siège sont ajoutés à la fin.
+ */
+function construireSieges(joueurs, perTable) {
+  const siegeMax = Math.max(perTable || 0, ...joueurs.map((r) => r.seat_number || 0));
+  const sieges = [];
+  for (let n = 1; n <= siegeMax; n++) {
+    const occupants = joueurs.filter((r) => r.seat_number === n);
+    if (occupants.length === 0) sieges.push({ numero: n, joueur: null });
+    else occupants.forEach((joueur) => sieges.push({ numero: n, joueur }));
+  }
+  joueurs.filter((r) => !r.seat_number).forEach((joueur) => sieges.push({ numero: null, joueur }));
+  return sieges;
+}
+
+function CarteTable({ titre, sousTitre, sieges, eliminatedIds, manage, alerte, openMenuId, setOpenMenuId, onDeplacer, onLiberer }) {
   return (
     <div
       style={{ backgroundColor: "var(--pcp-cell-bg, #171C24)", color: "var(--pcp-cell-text, inherit)" }}
@@ -163,30 +186,35 @@ function CarteTable({ titre, sousTitre, joueurs, eliminatedIds, manage, alerte, 
       </div>
 
       <div>
-        {joueurs.map((r) => (
-          <LigneJoueur
-            key={r.id}
-            reg={r}
-            elimine={eliminatedIds.has(r.id)}
-            manage={manage}
-            menuOuvert={openMenuId === r.id}
-            setOpenMenuId={setOpenMenuId}
-            onDeplacer={onDeplacer}
-            onLiberer={onLiberer}
-          />
-        ))}
+        {sieges.map((s, i) =>
+          s.joueur ? (
+            <LigneJoueur
+              key={s.joueur.id}
+              reg={s.joueur}
+              numeroSiege={s.numero}
+              elimine={eliminatedIds.has(s.joueur.id)}
+              manage={manage}
+              menuOuvert={openMenuId === s.joueur.id}
+              setOpenMenuId={setOpenMenuId}
+              onDeplacer={onDeplacer}
+              onLiberer={onLiberer}
+            />
+          ) : (
+            <LigneSiegeLibre key={`libre-${s.numero}-${i}`} numeroSiege={s.numero} />
+          )
+        )}
       </div>
     </div>
   );
 }
 
-function LigneJoueur({ reg, elimine, manage, menuOuvert, setOpenMenuId, onDeplacer, onLiberer }) {
+function LigneJoueur({ reg, numeroSiege, elimine, manage, menuOuvert, setOpenMenuId, onDeplacer, onLiberer }) {
   const nom = playerLabel(reg) || "?";
   return (
     <div className={`relative flex items-center gap-4 py-3 ${elimine ? "opacity-40" : ""}`}>
       <div className="flex items-center gap-2 shrink-0 w-14">
         <IconeSiege />
-        <span className="pcp-value font-display text-xl text-felt-gold tabular-nums">{reg.seat_number || "—"}</span>
+        <span className="pcp-value font-display text-xl text-felt-gold tabular-nums">{numeroSiege ?? "—"}</span>
       </div>
 
       {reg.accounts?.avatar_data ? (
@@ -226,6 +254,28 @@ function LigneJoueur({ reg, elimine, manage, menuOuvert, setOpenMenuId, onDeplac
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Siège inoccupé. Volontairement discret — même hauteur qu'une ligne
+ * occupée pour que la table garde sa forme, mais sans rien qui accroche
+ * l'œil : ce sont les joueurs qu'on vient lire, la place libre n'est
+ * qu'une information de fond.
+ */
+function LigneSiegeLibre({ numeroSiege }) {
+  return (
+    <div className="flex items-center gap-4 py-3 opacity-30">
+      <div className="flex items-center gap-2 shrink-0 w-14">
+        <IconeSiege />
+        <span className="pcp-value font-display text-xl text-felt-cream tabular-nums">{numeroSiege}</span>
+      </div>
+      <span className="w-12 h-12 rounded-full border border-dashed border-felt-cream/40 shrink-0" />
+      <span className="pcp-body flex-1 min-w-0 truncate text-lg italic text-felt-cream/70">Libre</span>
+      {/* Réserve la place du menu ⋮ pour que les pseudos des lignes
+          occupées restent alignés avec ceux des lignes libres. */}
+      <span className="shrink-0 px-2 text-xl leading-none invisible">⋮</span>
     </div>
   );
 }

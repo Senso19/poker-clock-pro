@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase.js";
 import { clamp } from "../lib/format.js";
 import { useTheme } from "../context/ThemeContext.jsx";
+import { useIsMobile } from "../lib/useIsMobile.js";
 import { useEditMode } from "../context/EditModeContext.jsx";
 
 /**
@@ -75,7 +76,18 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
 
   const style = theme.panelStyles?.[panelKey] || {};
   const order = style.order ?? defaultOrder;
-  const hasFreePosition = style.posX != null && style.posY != null;
+
+  // Une géométrie arrangée sur un canevas de PC ne veut plus rien dire sur
+  // un téléphone : position libre en % d'une zone bien plus large, largeur
+  // de 60 %, hauteur figée en pixels. Rejouée telle quelle, elle donnait un
+  // tableau à 60 % de l'écran avec les pseudos tronqués.
+  //
+  // Sous 640 px on revient donc au flux normal — pleine largeur, hauteur
+  // naturelle. Les réglages restent enregistrés et reprennent effet dès
+  // qu'on rouvre la page sur un grand écran ; rien n'est perdu.
+  const isMobile = useIsMobile();
+  const hasFreePosition = !isMobile && style.posX != null && style.posY != null;
+  const largeurReglee = isMobile ? null : style.width;
 
   async function persist(nextTheme) {
     const { data: existing } = await supabase.from("club_settings").select("id").limit(1).maybeSingle();
@@ -192,7 +204,7 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
     window.addEventListener("pointerup", onUp);
   }
 
-  const flexBasis = style.width ? `0 0 ${style.width}` : defaultWidth;
+  const flexBasis = largeurReglee ? `0 0 ${largeurReglee}` : defaultWidth;
   const panelDomId = `pcp-${panelKey.replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const forcedCssRules = [];
 
@@ -225,29 +237,29 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
   // resizeLive: uniquement pendant un glisser actif de la poignée, toujours
   // en px pour l'aperçu en direct. En dehors d'un glisser, on respecte
   // l'unité enregistrée (px OU %) sans la réécrire.
-  const liveHeight = resizeLive?.h ?? (style.height || null);
+  const liveHeight = isMobile ? null : resizeLive?.h ?? (style.height || null);
   const outerStyle = livePos
     ? {
         position: "absolute",
         left: `${livePos.x}%`,
         top: `${livePos.y}%`,
         transform: "translate(-50%, -50%)",
-        width: resizeLive?.w ? `${resizeLive.w}px` : style.width || 320,
+        width: resizeLive?.w ? `${resizeLive.w}px` : largeurReglee || 320,
         height: liveHeight ? `${liveHeight}px` : undefined,
         zIndex: dragging || resizing ? 25 : 5,
       }
     : {
         flex: flexBasis,
-        width: resizeLive?.w ? `${resizeLive.w}px` : style.width || (defaultMaxWidth ? "100%" : undefined),
-        maxWidth: resizeLive?.w ? `${resizeLive.w}px` : style.width || defaultMaxWidth || undefined,
+        width: resizeLive?.w ? `${resizeLive.w}px` : largeurReglee || (defaultMaxWidth ? "100%" : undefined),
+        maxWidth: resizeLive?.w ? `${resizeLive.w}px` : largeurReglee || (isMobile ? undefined : defaultMaxWidth) || undefined,
         height: liveHeight ? `${liveHeight}px` : undefined,
         order,
         minWidth: 0,
         // Quand une largeur explicite est réglée (ou qu'une largeur par
         // défaut est fournie par la page), le tableau reste centré dans
         // sa zone même en devenant plus large ou plus étroit.
-        marginLeft: style.width || defaultMaxWidth ? "auto" : undefined,
-        marginRight: style.width || defaultMaxWidth ? "auto" : undefined,
+        marginLeft: largeurReglee || defaultMaxWidth ? "auto" : undefined,
+        marginRight: largeurReglee || defaultMaxWidth ? "auto" : undefined,
       };
 
   return (
