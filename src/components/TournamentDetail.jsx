@@ -217,6 +217,32 @@ export default function TournamentDetail({ tournamentId, onBack }) {
 
   async function registerOnePlayer(name, accountId = null) {
     const player = await findOrCreatePlayer(name);
+
+    // Un joueur ne peut être inscrit qu'une fois au même tournoi. Le
+    // contrôle interroge la base plutôt que l'état local : pendant un
+    // import en masse, `registrations` n'est pas rafraîchi entre deux
+    // lignes, et deux fois le même nom dans le même fichier passeraient
+    // tous les deux.
+    const { data: dejaInscrit } = await supabase
+      .from("registrations")
+      .select("id, account_id")
+      .eq("tournament_id", tournamentId)
+      .eq("player_id", player.id)
+      .limit(1)
+      .maybeSingle();
+    if (dejaInscrit) {
+      // Cas courant : le directeur a inscrit le joueur à la main (donc
+      // sans compte lié), et on le réinscrit ensuite en le désignant par
+      // son compte. On rattache le compte à la ligne existante au lieu
+      // d'en créer une seconde.
+      if (accountId && !dejaInscrit.account_id) {
+        await supabase.from("registrations").update({ account_id: accountId }).eq("id", dejaInscrit.id);
+      }
+      const err = new Error(`${player.full_name} est déjà inscrit à ce tournoi.`);
+      err.code = "DEJA_INSCRIT";
+      throw err;
+    }
+
     // Plus d'attribution automatique de table/siège à l'inscription (quel
     // que soit l'état du tournoi) — ça se fait désormais uniquement via
     // "Tirer les places" (tous les joueurs) ou le bouton individuel
@@ -316,6 +342,12 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     }
   }
 
+  function messageIgnores(n) {
+    return n > 1
+      ? `${n} joueurs étaient déjà inscrits à ce tournoi : ils ont été ignorés.`
+      : "1 joueur était déjà inscrit à ce tournoi : il a été ignoré.";
+  }
+
   async function handleImportFile(e) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -323,11 +355,21 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     setError(null);
     try {
       const players = await importPlayersFromFile(file);
+      let ignores = 0;
       for (const p of players) {
         if (!p.fullName?.trim()) continue;
-        await registerOnePlayer(p.fullName.trim());
+        // Un déjà-inscrit ne doit pas interrompre l'import : on le passe
+        // et on le signale à la fin, sinon une liste de cinquante noms
+        // s'arrêterait au premier joueur déjà présent.
+        try {
+          await registerOnePlayer(p.fullName.trim());
+        } catch (err) {
+          if (err.code !== "DEJA_INSCRIT") throw err;
+          ignores += 1;
+        }
       }
       await loadRegistrations();
+      if (ignores > 0) setError(messageIgnores(ignores));
     } catch (e) {
       setError(e.message);
     }
@@ -351,10 +393,17 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     setImporting(true);
     setError(null);
     try {
+      let ignores = 0;
       for (const name of names) {
-        await registerOnePlayer(name);
+        try {
+          await registerOnePlayer(name);
+        } catch (err) {
+          if (err.code !== "DEJA_INSCRIT") throw err;
+          ignores += 1;
+        }
       }
       await loadRegistrations();
+      if (ignores > 0) setError(messageIgnores(ignores));
     } catch (e) {
       setError(e.message);
     }

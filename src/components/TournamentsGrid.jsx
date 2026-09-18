@@ -152,17 +152,39 @@ export default function TournamentsGrid({ onOpen }) {
           if (pErr) throw pErr;
           player = created;
         }
-        // Plus d'attribution automatique de table/siège à l'inscription —
-        // se fait ensuite via "Tirer les places" ou individuellement.
-        const { error: regErr } = await supabase.from("registrations").insert({
-          tournament_id: t.id,
-          player_id: player.id,
-          account_id: account.id,
-          table_number: null,
-          seat_number: null,
-          stack: t.starting_stack,
-        });
-        if (regErr) throw regErr;
+        // Le joueur est peut-être DÉJÀ inscrit sans que myRegs le sache :
+        // myRegs ne connaît que les inscriptions portant un account_id, or
+        // une inscription faite à la main par le directeur n'en a pas. Sans
+        // ce contrôle, un joueur inscrit par le directeur puis s'inscrivant
+        // lui-même se retrouvait avec deux lignes, deux sièges et comptait
+        // double dans l'équilibrage des tables.
+        const { data: dejaInscrit } = await supabase
+          .from("registrations")
+          .select("id, account_id")
+          .eq("tournament_id", t.id)
+          .eq("player_id", player.id)
+          .limit(1)
+          .maybeSingle();
+
+        if (dejaInscrit) {
+          // On rattache son compte à l'inscription existante : il la verra
+          // désormais comme sienne et pourra s'en désinscrire.
+          if (!dejaInscrit.account_id) {
+            await supabase.from("registrations").update({ account_id: account.id }).eq("id", dejaInscrit.id);
+          }
+        } else {
+          // Plus d'attribution automatique de table/siège à l'inscription —
+          // se fait ensuite via "Tirer les places" ou individuellement.
+          const { error: regErr } = await supabase.from("registrations").insert({
+            tournament_id: t.id,
+            player_id: player.id,
+            account_id: account.id,
+            table_number: null,
+            seat_number: null,
+            stack: t.starting_stack,
+          });
+          if (regErr) throw regErr;
+        }
       }
       await load();
     } catch (e) {
