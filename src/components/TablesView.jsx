@@ -165,10 +165,13 @@ export default function TablesView({ tournamentId, manage = false }) {
         </div>
       )}
 
+      {/* ModalePlacement reçoit les joueurs encore EN JEU, pas tous les
+          inscrits : un siège libéré par une élimination doit ressortir
+          comme libre, sinon il reste impossible à réattribuer. */}
       {movingReg && (
         <ModalePlacement
           reg={movingReg}
-          registrations={registrations}
+          registrations={enJeu}
           perTable={perTable}
           numerosTables={numerosTables}
           onClose={() => setMovingReg(null)}

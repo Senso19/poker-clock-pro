@@ -36,18 +36,23 @@ export default function TableSeatingModal({
   const resizeRef = useRef(null);
 
   const perTable = playersPerTable || 9;
-  const maxTable = Math.max(1, ...registrations.map((r) => r.table_number || 1));
+  // Un joueur éliminé ne tient plus son siège : sa place redevient libre,
+  // exactement comme dans l'onglet Tables et comme dans les calculs
+  // d'équilibrage. Cet écran était le dernier à le montrer encore assis,
+  // le nom barré — or ce siège est justement celui qu'on peut
+  // réattribuer, et les tables entièrement vidées n'ont plus lieu d'être
+  // affichées.
+  const enJeu = registrations.filter((r) => !eliminatedIds.has(r.id));
+  const maxTable = Math.max(1, ...enJeu.map((r) => r.table_number || 1));
   const tables = Array.from({ length: maxTable }, (_, i) => i + 1);
 
   const bySeat = {};
-  registrations.forEach((r) => {
+  enJeu.forEach((r) => {
     const key = `${r.table_number}-${r.seat_number}`;
     if (!bySeat[key]) bySeat[key] = [];
     bySeat[key].push(r);
   });
-  const duplicates = new Set(
-    Object.keys(bySeat).filter((k) => bySeat[k].filter((r) => !eliminatedIds.has(r.id)).length > 1)
-  );
+  const duplicates = new Set(Object.keys(bySeat).filter((k) => bySeat[k].length > 1));
 
   async function handleRepair() {
     setRepairing(true);
@@ -209,10 +214,8 @@ export default function TableSeatingModal({
                   {Array.from({ length: perTable }, (_, i) => i + 1).map((seat, i) => {
                     const key = `${table}-${seat}`;
                     const occupants = bySeat[key] || [];
-                    const active = occupants.filter((r) => !eliminatedIds.has(r.id));
                     const isDuplicate = duplicates.has(key);
-                    const r = active[0] || occupants[0];
-                    const isOut = r && eliminatedIds.has(r.id);
+                    const r = occupants[0];
                     return (
                       <div
                         key={seat}
@@ -223,18 +226,16 @@ export default function TableSeatingModal({
                           isDuplicate
                             ? "bg-felt-alert/20 border-felt-alert/60"
                             : r
-                            ? isOut
-                              ? "bg-felt-bg border-felt-cream/10 text-felt-cream/30"
-                              : "bg-felt-gold/10 border-felt-gold/40"
+                            ? "bg-felt-gold/10 border-felt-gold/40"
                             : "bg-felt-panel border-felt-cream/10 text-felt-cream/30 border-dashed"
                         }`}
                       >
                         <div className="text-felt-cream/40 text-[9px] leading-tight">S{seat}</div>
                         {r ? (
                           <div
-                            onPointerDown={(e) => !isOut && handlePlayerPointerDown(e, r.id)}
-                            style={{ touchAction: isOut ? undefined : "none" }}
-                            className={`truncate font-medium ${isOut ? "line-through" : "cursor-grab"}`}
+                            onPointerDown={(e) => handlePlayerPointerDown(e, r.id)}
+                            style={{ touchAction: "none" }}
+                            className="truncate font-medium cursor-grab"
                             title={playerLabel(r)}
                           >
                             {playerLabel(r)}
@@ -242,7 +243,7 @@ export default function TableSeatingModal({
                         ) : (
                           <div className="truncate leading-tight">Libre</div>
                         )}
-                        {r && !isOut && (
+                        {r && (
                           <>
                             {editingStackId === r.id ? (
                               <input
