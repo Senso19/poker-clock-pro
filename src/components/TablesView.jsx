@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { usePolling } from "../lib/usePolling.js";
+import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase.js";
 import ClubLoader from "./ClubLoader.jsx";
 import CustomizablePanel from "./CustomizablePanel.jsx";
 import { playerLabel } from "../lib/players.js";
 import { eliminatePlayer } from "../lib/eliminations.js";
 import EliminationPicker from "./EliminationPicker.jsx";
+import { useTableBalance } from "../context/TableBalanceContext.jsx";
 
 /**
  * TablesView — onglet "Tables" : les joueurs regroupés par table, une
@@ -24,40 +24,17 @@ import EliminationPicker from "./EliminationPicker.jsx";
  * La vue se relit toute seule pour rester juste pendant la partie.
  */
 export default function TablesView({ tournamentId, manage = false }) {
-  const [registrations, setRegistrations] = useState([]);
-  const [eliminatedIds, setEliminatedIds] = useState(new Set());
-  const [perTable, setPerTable] = useState(9);
-  const [loading, setLoading] = useState(true);
+  // Les joueurs viennent de la page du tournoi, pas d'une lecture propre à
+  // cet onglet : une seule sonde pour les onglets Joueurs et Tables, qui
+  // ne peuvent donc plus se contredire, et une élimination faite ici est
+  // vue tout de suite par la surveillance de l'équilibre des tables —
+  // avant, il fallait passer par l'onglet Joueurs pour que le message
+  // d'équilibrage ou de casse finisse par sortir.
+  const { registrations, eliminatedIds, perTable, dataReady, recharger } = useTableBalance();
   const [openMenuId, setOpenMenuId] = useState(null);
   const [movingReg, setMovingReg] = useState(null);
   const [eliminatingReg, setEliminatingReg] = useState(null);
   const [winnerName, setWinnerName] = useState(null);
-
-  const load = useCallback(
-    async ({ silent = false } = {}) => {
-      if (!silent) setLoading(true);
-      const [{ data: regs }, { data: elims }, { data: tournoi }] = await Promise.all([
-        supabase
-          .from("registrations")
-          .select("*, players(pseudo, full_name), accounts(pseudo, avatar_data)")
-          .eq("tournament_id", tournamentId),
-        supabase.from("eliminations").select("registration_id").eq("tournament_id", tournamentId).eq("undone", false),
-        supabase.from("tournaments").select("players_per_table").eq("id", tournamentId).maybeSingle(),
-      ]);
-      setRegistrations(regs || []);
-      setEliminatedIds(new Set((elims || []).map((e) => e.registration_id)));
-      setPerTable(tournoi?.players_per_table || 9);
-      if (!silent) setLoading(false);
-    },
-    [tournamentId]
-  );
-
-  // Premier chargement non silencieux (il affiche le loader), puis
-  // sondage silencieux tant que l'onglet est à l'écran.
-  useEffect(() => {
-    load();
-  }, [load]);
-  usePolling(() => load({ silent: true }), 8000, { immediat: false });
 
   // Un clic n'importe où ailleurs referme le menu ⋮ ouvert, comme dans
   // l'onglet Joueurs.
@@ -72,7 +49,7 @@ export default function TablesView({ tournamentId, manage = false }) {
     await supabase.from("registrations").update({ table_number: table, seat_number: seat }).eq("id", regId);
     setMovingReg(null);
     setOpenMenuId(null);
-    load({ silent: true });
+    recharger();
   }
 
   async function eliminer(reg, eliminatedByRegId) {
@@ -81,10 +58,13 @@ export default function TablesView({ tournamentId, manage = false }) {
     setEliminatingReg(null);
     setOpenMenuId(null);
     if (res.winnerName) setWinnerName(res.winnerName);
-    await load({ silent: true });
+    // On relit tout de suite : c'est cette relecture qui fait apparaître,
+    // le cas échéant, le message « équilibrage » ou « la table casse » —
+    // sans attendre le prochain tour de sonde ni un changement d'onglet.
+    await recharger();
   }
 
-  if (loading) return <ClubLoader />;
+  if (!dataReady) return <ClubLoader />;
 
   // Un joueur éliminé n'occupe plus sa place : son siège doit ressortir
   // comme libre, puisque c'est exactement celui qu'on peut réattribuer.

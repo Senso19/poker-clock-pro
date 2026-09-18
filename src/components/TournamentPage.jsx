@@ -16,6 +16,7 @@ import StructureEditor from "./StructureEditor.jsx";
 import TournamentDetail from "./TournamentDetail.jsx";
 import TournamentPublicView from "./TournamentPublicView.jsx";
 import TournamentSettingsModal from "./TournamentSettingsModal.jsx";
+import { TableBalanceProvider } from "../context/TableBalanceContext.jsx";
 
 const TABS = [
   { key: "clock", label: "Horloge" },
@@ -101,7 +102,21 @@ export default function TournamentPage({ tournamentId, onBack }) {
   // tournois interclubs, en plus des rôles à qui la matrice l'accorde déjà.
   const clockControl = canControlClock(account?.role) || (isClubManager(account?.role) && !!tournament.is_interclub);
 
+  // La surveillance de l'équilibre des tables vit ici, autour des onglets,
+  // et non plus dans l'onglet Joueurs : un onglet n'est monté que pendant
+  // qu'on le regarde, donc la proposition de casser ou d'équilibrer
+  // n'apparaissait qu'en entrant dans Joueurs. À ce niveau, le message du
+  // bas de page sort dès que l'action devient possible, quel que soit
+  // l'onglet ouvert. Les inscriptions ne sont lues en continu que pour
+  // ceux qui gèrent le tournoi (ce sont les seuls à qui on propose ces
+  // déplacements) ou quand un onglet les affiche.
   return (
+    <TableBalanceProvider
+      tournamentId={tournamentId}
+      tournament={tournament}
+      surveiller={manage}
+      actif={manage || tab === "tables" || tab === "players"}
+    >
     <div className="h-full flex flex-col">
       <div className="flex items-center px-3 sm:px-6 py-3 sm:py-4 border-b border-felt-cream/10 shrink-0">
         <button onClick={onBack} className="text-xs sm:text-sm text-felt-cream/50 hover:text-felt-cream flex items-center gap-1 shrink-0">
@@ -189,5 +204,6 @@ export default function TournamentPage({ tournamentId, onBack }) {
           ))}
       </div>
     </div>
+    </TableBalanceProvider>
   );
 }

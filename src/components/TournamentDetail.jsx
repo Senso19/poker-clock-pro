@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { usePolling } from "../lib/usePolling.js";
 import ClubLoader from "./ClubLoader.jsx";
 import { supabase } from "../lib/supabase.js";
 
@@ -18,11 +17,11 @@ import CustomizablePanel from "./CustomizablePanel.jsx";
 import EditableButton from "./EditableButton.jsx";
 import { useConfirm } from "../context/ConfirmContext.jsx";
 import { logEvent } from "../lib/events.js";
+import { useTableBalance } from "../context/TableBalanceContext.jsx";
+import { groupActiveByTable, findFreeSeat } from "../lib/tableBalance.js";
 import { eliminatePlayer } from "../lib/eliminations.js";
 import EliminationPicker from "./EliminationPicker.jsx";
-import ToastStack from "./ToastStack.jsx";
-import TableMovesDialog from "./TableMovesDialog.jsx";
-import { playerLabel, sortByPlayerLabel } from "../lib/players.js";
+import { playerLabel } from "../lib/players.js";
 import { addAnnouncement } from "../lib/announcements.js";
 import { useIsMobile } from "../lib/useIsMobile.js";
 
@@ -43,8 +42,26 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   const isClubMgr = isClubManager(account?.role);
   const [mobileSubTab, setMobileSubTab] = useState("params"); // "params" | "table" — sous-onglets mobile uniquement
   const [tournament, setTournament] = useState(null);
-  const [registrations, setRegistrations] = useState([]);
-  const [eliminations, setEliminations] = useState([]);
+  // Les inscriptions, les éliminations et la surveillance de l'équilibre
+  // des tables appartiennent à la page du tournoi (TableBalanceContext) et
+  // non plus à cet onglet : cet onglet-ci n'existe que pendant qu'on le
+  // regarde, si bien que la proposition de casser ou d'équilibrer
+  // n'apparaissait qu'en y entrant. Le message du bas de page et les
+  // fenêtres de déplacement sont rendus là-haut, au-dessus de tous les
+  // onglets.
+  const {
+    registrations,
+    eliminations,
+    dataReady,
+    balancing,
+    recharger,
+    suspendre,
+    calculerCasse,
+    calculerEquilibrage,
+    proposerCasse,
+    proposerEquilibrage,
+    appliquerDeplacements,
+  } = useTableBalance();
   const [championships, setChampionships] = useState([]);
   const [clubPlayers, setClubPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -62,20 +79,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   const [stackDraft, setStackDraft] = useState("");
   const [movingReg, setMovingReg] = useState(null);
   const [shuffling, setShuffling] = useState(false);
-  const [breakProposal, setBreakProposal] = useState(null);
-  const [rebalanceProposal, setRebalanceProposal] = useState(null);
-  // Les suggestions d'équilibrage ne doivent pas se prononcer avant que
-  // les éliminations soient connues : tant qu'elles manquent, TOUS les
-  // inscrits encore assis comptent comme en jeu, y compris ceux sortis il
-  // y a deux heures dont le siège n'a jamais été libéré.
-  const [dataReady, setDataReady] = useState(false);
   const [winnerAnnounce, setWinnerAnnounce] = useState(null);
-  // Messages du bas de page. Deux familles : les propositions
-  // (équilibrage, casse), qui restent tant qu'elles ont lieu d'être et
-  // s'ouvrent au clic ; et les comptes rendus de déplacement, qui
-  // s'effacent tout seuls.
-  const [toasts, setToasts] = useState([]);
-  const [balancing, setBalancing] = useState(false);
   const [captainAccounts, setCaptainAccounts] = useState([]);
   const [tableCaptains, setTableCaptains] = useState([]);
   const fileInputRef = useRef(null);
@@ -93,30 +97,12 @@ export default function TournamentDetail({ tournamentId, onBack }) {
       .then(({ data }) => setClubPlayers(data || []));
   }, [tournamentId]);
 
-  // Sonde silencieuse, comme l'horloge et l'onglet Tables. Sans elle, cet
-  // écran ne relisait ses données qu'au montage : une élimination faite
-  // depuis l'onglet Tables, depuis le téléphone d'un chef de table ou
-  // depuis un autre appareil n'y arrivait jamais. C'est aussi pour ça que
-  // la proposition d'équilibrage n'apparaissait qu'en changeant d'onglet —
-  // le changement remonte le composant, et le remontage relit tout.
-  const suspendreSondeRef = useRef(false);
+  // La sonde qui relit les joueurs tourne au niveau de la page. On la
+  // suspend seulement pendant nos écritures en masse, pour qu'elle ne
+  // lise pas un état à moitié appliqué.
   useEffect(() => {
-    // On ne relit pas pendant qu'une proposition est affichée : les
-    // déplacements montrés ont été calculés sur l'état courant, et les
-    // voir bouger sous les yeux n'aiderait personne. Ni pendant une
-    // écriture en masse, pour ne pas lire un état à moitié appliqué.
-    suspendreSondeRef.current = !!(breakProposal || rebalanceProposal || balancing || importing || shuffling);
-  }, [breakProposal, rebalanceProposal, balancing, importing, shuffling]);
-
-  usePolling(
-    () => {
-      if (suspendreSondeRef.current) return;
-      loadRegistrations({ silent: true });
-      loadEliminations({ silent: true });
-    },
-    5000,
-    { actif: !!tournamentId, immediat: false }
-  );
+    suspendre("detail", importing || shuffling);
+  }, [importing, shuffling, suspendre]);
 
   // Ferme le menu ⋮ d'un joueur dès qu'on clique ailleurs sur la page.
   useEffect(() => {
@@ -128,7 +114,6 @@ export default function TournamentDetail({ tournamentId, onBack }) {
 
   async function loadEverything() {
     setLoading(true);
-    setDataReady(false);
     try {
       const { data: t, error: tErr } = await supabase
         .from("tournaments")
@@ -137,43 +122,11 @@ export default function TournamentDetail({ tournamentId, onBack }) {
         .single();
       if (tErr) throw tErr;
       setTournament(t);
-      // En parallèle plutôt qu'à la suite : enchaînés, il existait un
-      // rendu intermédiaire où les inscriptions étaient là et les
-      // éliminations pas encore.
-      await Promise.all([loadRegistrations(), loadEliminations()]);
-      setDataReady(true);
       fetchTableCaptainAssignments(tournamentId).then(setTableCaptains).catch(() => {});
     } catch (e) {
       setError(e.message);
     }
     setLoading(false);
-  }
-
-  async function loadRegistrations({ silent = false } = {}) {
-    const { data, error } = await supabase
-      .from("registrations")
-      .select("*, players(id, full_name, first_name, last_name, club, pseudo), accounts(avatar_data, pseudo, club_name)")
-      .eq("tournament_id", tournamentId)
-      .order("registered_at", { ascending: true });
-    // Une sonde silencieuse ne fait pas surgir un bandeau d'erreur pour une
-    // coupure réseau d'une seconde : elle réessaiera cinq secondes plus tard.
-    if (error && !silent) setError(error.message);
-    // Tri alphabétique sur le nom affiché. Il se fait ici et pas en SQL :
-    // le libellé vient de plusieurs tables jointes (pseudo du joueur, à
-    // défaut celui du compte, à défaut le nom complet), et localeCompare
-    // gère les accents, que l'ordre SQL par défaut classe mal.
-    setRegistrations(sortByPlayerLabel(data));
-  }
-
-  async function loadEliminations({ silent = false } = {}) {
-    const { data, error } = await supabase
-      .from("eliminations")
-      .select("*")
-      .eq("tournament_id", tournamentId)
-      .eq("undone", false)
-      .order("eliminated_at", { ascending: true });
-    if (error && !silent) setError(error.message);
-    setEliminations(data || []);
   }
 
   async function updateSetting(field, raw) {
@@ -234,7 +187,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     });
     if (updates.length === 0) return;
     await Promise.all(updates);
-    await loadRegistrations();
+    await recharger();
   }
 
   async function findOrCreatePlayer(name) {
@@ -303,7 +256,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   async function assignSeatTo(reg) {
     try {
       const perTable = tournament?.players_per_table || 9;
-      const { byTable } = groupActiveByTable();
+      const { byTable } = groupActiveByTable(registrations, eliminations);
       const usedTables = Object.keys(byTable).map(Number);
       const withRoom = usedTables.filter((t) => byTable[t].length < perTable);
 
@@ -314,7 +267,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
         const seat = findFreeSeat(occupied, table, perTable) || 1;
         await supabase.from("registrations").update({ table_number: table, seat_number: seat }).eq("id", reg.id);
         addAnnouncement(tournamentId, `${reg.players?.pseudo || reg.players?.full_name} placé Table ${table} Siège ${seat}`, "move");
-        await loadRegistrations();
+        await recharger();
       } else {
         // Plus aucune place nulle part : on ouvre une nouvelle table pour ce
         // joueur, puis on rééquilibre pour récupérer des joueurs déjà assis
@@ -323,9 +276,9 @@ export default function TournamentDetail({ tournamentId, onBack }) {
         const newTable = usedTables.length > 0 ? Math.max(...usedTables) + 1 : 1;
         await supabase.from("registrations").update({ table_number: newTable, seat_number: 1 }).eq("id", reg.id);
         addAnnouncement(tournamentId, `${reg.players?.pseudo || reg.players?.full_name} placé Table ${newTable} Siège 1 (nouvelle table)`, "move");
-        await loadRegistrations();
-        const moves = computeRebalanceMoves();
-        if (moves.length > 0) await applyMoves(moves, "balance", "Nouvelle table + équilibrage");
+        const frais = await recharger();
+        const moves = calculerEquilibrage(frais);
+        if (moves.length > 0) await appliquerDeplacements(moves, "balance", "Nouvelle table + équilibrage");
       }
     } catch (e) {
       setError(e.message);
@@ -339,7 +292,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   // rien — c'est "Tirer les places" qui répartit tout le monde.
   async function seatIfTournamentUnderway(reg) {
     if (reg && tournament?.seats_drawn) await assignSeatTo(reg);
-    else await loadRegistrations();
+    else await recharger();
   }
 
   // Nombre de membres du club du gestionnaire déjà inscrits à CE tournoi
@@ -403,7 +356,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
           ignores += 1;
         }
       }
-      await loadRegistrations();
+      await recharger();
       if (ignores > 0) setError(messageIgnores(ignores));
     } catch (e) {
       setError(e.message);
@@ -437,7 +390,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
           ignores += 1;
         }
       }
-      await loadRegistrations();
+      await recharger();
       if (ignores > 0) setError(messageIgnores(ignores));
     } catch (e) {
       setError(e.message);
@@ -450,7 +403,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
       .from("registrations")
       .update({ rebuys: (reg.rebuys || 0) + 1 })
       .eq("id", reg.id);
-    await loadRegistrations();
+    await recharger();
     setTicket({ type: "rebuy", reg });
     setOpenMenuId(null);
   }
@@ -460,7 +413,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
       .from("registrations")
       .update({ addons: (reg.addons || 0) + 1 })
       .eq("id", reg.id);
-    await loadRegistrations();
+    await recharger();
     setTicket({ type: "addon", reg });
     setOpenMenuId(null);
   }
@@ -475,7 +428,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     const val = Math.max(0, Number(stackDraft) || 0);
     setEditingStackId(null);
     await supabase.from("registrations").update({ stack: val }).eq("id", reg.id);
-    await loadRegistrations();
+    await recharger();
   }
 
   function startMoveTable(reg) {
@@ -489,7 +442,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     setMovingReg(null);
     try {
       await supabase.from("registrations").update({ table_number: table, seat_number: seat }).eq("id", reg.id);
-      await loadRegistrations();
+      await recharger();
     } catch (e) {
       setError(e.message);
     }
@@ -498,7 +451,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   async function moveSeatDirect(regId, table, seat) {
     try {
       await supabase.from("registrations").update({ table_number: table, seat_number: seat }).eq("id", regId);
-      await loadRegistrations();
+      await recharger();
     } catch (e) {
       setError(e.message);
     }
@@ -507,7 +460,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   async function updateStackDirect(regId, stack) {
     try {
       await supabase.from("registrations").update({ stack }).eq("id", regId);
-      await loadRegistrations();
+      await recharger();
     } catch (e) {
       setError(e.message);
     }
@@ -518,7 +471,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     if (!(await confirmAction(`Désinscrire ${reg.players?.full_name} ?`))) return;
     try {
       await supabase.from("registrations").delete().eq("id", reg.id);
-      await loadRegistrations();
+      await recharger();
     } catch (e) {
       setError(e.message);
     }
@@ -554,189 +507,26 @@ export default function TournamentDetail({ tournamentId, onBack }) {
         }))
         .sort((a, b) => a.pseudo.localeCompare(b.pseudo));
       addAnnouncement(tournamentId, JSON.stringify(drawList), "draw");
-      await loadRegistrations();
+      await recharger();
     } catch (e) {
       setError(e.message);
     }
     setShuffling(false);
   }
 
-  // Équilibrage automatique — deux cas précis seulement, et on ne touche
-  // JAMAIS aux joueurs qui ne sont pas concernés :
-  //  1) Casser une table : si le nombre de tables utilisées dépasse le
-  //     nombre cible (assez d'éliminations pour s'en passer), on ferme la
-  //     table la moins garnie et on ne déplace QUE ses joueurs, répartis
-  //     sur des sièges vides des autres tables.
-  //  2) Réoptimiser un écart : si aucune table n'est à casser mais l'écart
-  //     entre la table la plus et la moins garnie atteint 2 joueurs ou
-  //     plus, on déplace UN seul joueur de la table la plus garnie vers la
-  //     moins garnie (répété si besoin), jusqu'à ce que l'écart ne dépasse
-  //     plus 1 — les autres joueurs des deux tables ne bougent pas.
-  function computeTargetTableCount(activeCount, perTable, finalTableSize) {
-    if (activeCount <= finalTableSize) return 1;
-    return Math.max(1, Math.ceil(activeCount / perTable));
-  }
-
-  function groupActiveByTable() {
-    const eliminatedIdsNow = new Set(eliminations.map((e) => e.registration_id));
-    const active = registrations.filter((r) => !eliminatedIdsNow.has(r.id) && r.table_number);
-    const byTable = {};
-    active.forEach((r) => {
-      if (!byTable[r.table_number]) byTable[r.table_number] = [];
-      byTable[r.table_number].push(r);
-    });
-    return { active, byTable };
-  }
-
-  function findFreeSeat(occupied, table, perTable) {
-    for (let seat = 1; seat <= perTable; seat++) {
-      const key = `${table}-${seat}`;
-      if (!occupied.has(key)) return seat;
-    }
-    return null;
-  }
-
-  function computeBreakMoves() {
-    const perTable = tournament?.players_per_table || 9;
-    const finalTableSize = tournament?.final_table_size || perTable;
-    const { active, byTable } = groupActiveByTable();
-    if (active.length === 0) return [];
-    const usedTables = Object.keys(byTable).map(Number).sort((a, b) => a - b);
-    if (usedTables.length === 0) return [];
-    const targetCount = computeTargetTableCount(active.length, perTable, finalTableSize);
-    if (usedTables.length <= targetCount) return [];
-
-    // On privilégie toujours de casser la table au numéro le plus élevé
-    // (la table 1 est la dernière qu'on cassera), même si elle est
-    // complète — tant que les autres tables ont assez de sièges libres
-    // pour absorber tous ses joueurs. Sinon on essaie la suivante par
-    // ordre décroissant.
-    const occupied = new Set(active.map((r) => `${r.table_number}-${r.seat_number}`));
-    const descTables = [...usedTables].sort((a, b) => b - a);
-    let breakTable = null;
-    for (const t of descTables) {
-      const others = usedTables.filter((o) => o !== t);
-      const freeCapacity = others.reduce((sum, o) => sum + (perTable - byTable[o].length), 0);
-      if (byTable[t].length <= freeCapacity) {
-        breakTable = t;
-        break;
-      }
-    }
-    if (breakTable == null) return [];
-
-    const moves = [];
-    const destTables = usedTables.filter((t) => t !== breakTable);
-    const counts = {};
-    destTables.forEach((t) => (counts[t] = byTable[t].length));
-    byTable[breakTable].forEach((reg) => {
-      const dest = destTables.reduce((min, t) => (counts[t] < counts[min] ? t : min), destTables[0]);
-      occupied.delete(`${reg.table_number}-${reg.seat_number}`);
-      const seat = findFreeSeat(occupied, dest, perTable);
-      if (seat == null) return;
-      occupied.add(`${dest}-${seat}`);
-      counts[dest] += 1;
-      moves.push({ reg, fromTable: reg.table_number, fromSeat: reg.seat_number, toTable: dest, toSeat: seat });
-    });
-    return moves;
-  }
-
-  function computeRebalanceMoves() {
-    const perTable = tournament?.players_per_table || 9;
-    const { active, byTable } = groupActiveByTable();
-    if (active.length === 0) return [];
-    const usedTables = Object.keys(byTable).map(Number);
-    if (usedTables.length === 0) return [];
-    const occupied = new Set(active.map((r) => `${r.table_number}-${r.seat_number}`));
-
-    // Réoptimise l'écart entre la table la plus et la moins garnie, un
-    // joueur à la fois. La table source est choisie AU HASARD parmi les
-    // tables actuellement au maximum de joueurs — jamais une table déjà
-    // sous ce maximum, pour ne jamais créer un nouveau déséquilibre à
-    // peine celui-ci corrigé.
-    const tablesState = usedTables.map((t) => ({ t, players: [...byTable[t]] }));
-    const moves = [];
-    let guard = 0;
-    while (guard++ < 200) {
-      const counts = tablesState.map((s) => s.players.length);
-      const max = Math.max(...counts);
-      const min = Math.min(...counts);
-      if (max - min < 2) break;
-      const maxTables = tablesState.filter((s) => s.players.length === max);
-      const maxT = maxTables[Math.floor(Math.random() * maxTables.length)];
-      const minT = tablesState.reduce((a, b) => (b.players.length < a.players.length ? b : a));
-      const reg = maxT.players[maxT.players.length - 1];
-      occupied.delete(`${reg.table_number}-${reg.seat_number}`);
-      const seat = findFreeSeat(occupied, minT.t, perTable);
-      if (seat == null) break;
-      occupied.add(`${minT.t}-${seat}`);
-      moves.push({ reg, fromTable: reg.table_number, fromSeat: reg.seat_number, toTable: minT.t, toSeat: seat });
-      maxT.players.pop();
-      minT.players.push(reg);
-    }
-    return moves;
-  }
-
+  // Les deux boutons de la barre d'outils : ils ouvrent la même fenêtre
+  // de propositions que le message du bas de page, à ceci près qu'ici
+  // c'est l'utilisateur qui demande. Le calcul, lui, vit dans
+  // lib/tableBalance.js et tourne au niveau de la page.
   async function autoBreakTable() {
     if (!(await confirmAction("Casser la table la plus haute et répartir ses joueurs. Continuer ?"))) return;
-    const moves = computeBreakMoves();
-    if (moves.length === 0) return;
-    setBreakProposal(moves);
+    proposerCasse();
   }
 
   async function autoRebalanceTables() {
     if (!(await confirmAction("Un joueur va être déplacé pour équilibrer les tables. Continuer ?"))) return;
-    const moves = computeRebalanceMoves();
-    if (moves.length === 0) return;
-    setRebalanceProposal(moves);
+    proposerEquilibrage();
   }
-
-  // Dès que "Casser une table" ou "Équilibrer les tables" devient possible
-  // (transition, pas à chaque rendu), une fenêtre le propose spontanément
-  // plutôt que d'attendre que l'utilisateur clique lui-même sur le bouton.
-  const wasNeedingBreakRef = useRef(false);
-  const wasNeedingRebalanceRef = useRef(false);
-  useEffect(() => {
-    // Tant que tout n'est pas chargé, on ne calcule rien ET on ne touche
-    // pas aux refs : sinon la première mesure, faussée, servirait de
-    // point de comparaison aux suivantes.
-    if (!dataReady) return;
-
-    const breakMoves = computeBreakMoves();
-    const needsBreak = breakMoves.length > 0;
-    if (needsBreak && !wasNeedingBreakRef.current && !breakProposal) {
-      poserToast({
-        id: "casse",
-        accent: true,
-        text: `💥 La table casse : ${breakMoves[0].fromTable}`,
-        onClick: () => {
-          retirerToast("casse");
-          const moves = computeBreakMoves();
-          if (moves.length > 0) setBreakProposal(moves);
-        },
-      });
-    }
-    // Le message disparaît de lui-même quand la situation se résout
-    // autrement (une élimination, un déplacement manuel).
-    if (!needsBreak) retirerToast("casse");
-    wasNeedingBreakRef.current = needsBreak;
-
-    const needsRebalance = computeRebalanceMoves().length > 0;
-    if (needsRebalance && !wasNeedingRebalanceRef.current && !rebalanceProposal && !needsBreak) {
-      poserToast({
-        id: "equilibrage",
-        accent: true,
-        text: "⚖ Équilibrage recommandé — toucher pour voir le déplacement",
-        onClick: () => {
-          retirerToast("equilibrage");
-          const moves = computeRebalanceMoves();
-          if (moves.length > 0) setRebalanceProposal(moves);
-        },
-      });
-    }
-    if (!needsRebalance || needsBreak) retirerToast("equilibrage");
-    wasNeedingRebalanceRef.current = needsRebalance;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [registrations, eliminations, dataReady]);
 
   // Détection des seuils d'ante (moitié ante si <6 joueurs sur une table,
   // maintien des antes en tête-à-tête) : dès que l'un devient éligible
@@ -747,7 +537,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
   useEffect(() => {
     const cfg = tournament?.structure_config;
     if (!cfg) return;
-    const { byTable } = groupActiveByTable();
+    const { byTable } = groupActiveByTable(registrations, eliminations);
     const usedTables = Object.keys(byTable).map(Number);
 
     if (cfg.halfAnteIfFewPlayers) {
@@ -778,62 +568,6 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [registrations, eliminations]);
 
-  // Identifiant stable pour une proposition, afin de ne jamais empiler
-  // deux fois le même message tant qu'il est à l'écran.
-  function poserToast(t) {
-    setToasts((prev) => (prev.some((x) => x.id === t.id) ? prev : [...prev, t]));
-    if (t.duree) setTimeout(() => retirerToast(t.id), t.duree);
-  }
-  function retirerToast(id) {
-    // On renvoie prev tel quel quand il n'y a rien à retirer : la sonde
-    // appelle cette fonction toutes les 5 secondes pour les propositions
-    // qui n'ont plus lieu d'être, et un nouveau tableau à chaque passage
-    // provoquerait un rendu pour rien.
-    setToasts((prev) => (prev.some((t) => t.id === id) ? prev.filter((t) => t.id !== id) : prev));
-  }
-
-  async function applyMoves(moves, kind, label) {
-    setBalancing(true);
-    setError(null);
-    try {
-      // Instantané AVANT le déplacement, pour permettre d'annuler
-      // précisément depuis le Journal de tournoi.
-      const before = moves.map((m) => ({ registrationId: m.reg.id, table_number: m.fromTable, seat_number: m.fromSeat }));
-      await Promise.all(
-        moves.map((m) => supabase.from("registrations").update({ table_number: m.toTable, seat_number: m.toSeat }).eq("id", m.reg.id))
-      );
-      logEvent(tournamentId, kind, label, { before });
-      moves.forEach((m) => {
-        const nom = playerLabel(m.reg) || m.reg.players?.full_name;
-        addAnnouncement(tournamentId, `${nom} déplacé Table ${m.toTable} Siège ${m.toSeat}`, "move");
-        // Un message par joueur déplacé : c'est ce qu'on lit à voix haute
-        // à la table. Il s'efface seul après vingt secondes, le temps de
-        // faire passer le joueur.
-        poserToast({
-          id: `deplacement-${m.reg.id}-${Date.now()}`,
-          text: `${nom} : (Table ${m.toTable} · Place ${m.toSeat})`,
-          duree: 20000,
-        });
-      });
-      await loadRegistrations();
-    } catch (e) {
-      setError(e.message);
-    }
-    setBalancing(false);
-  }
-
-  async function applyBreakProposal() {
-    if (!breakProposal) return;
-    await applyMoves(breakProposal, "balance", "Casser une table");
-    setBreakProposal(null);
-  }
-
-  async function applyRebalanceProposal() {
-    if (!rebalanceProposal) return;
-    await applyMoves(rebalanceProposal, "balance", "Équilibrer les tables");
-    setRebalanceProposal(null);
-  }
-
   async function confirmElimination(reg, eliminatedByRegId) {
     const stillIn = registrations.filter(
       (r) => !eliminations.some((e) => e.registration_id === r.id)
@@ -847,14 +581,14 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     }
     setEliminatingReg(null);
     setOpenMenuId(null);
-    loadEliminations();
+    recharger();
   }
 
   async function undoLastElimination() {
     if (eliminations.length === 0) return;
     const last = eliminations[eliminations.length - 1];
     await supabase.from("eliminations").update({ undone: true }).eq("id", last.id);
-    loadEliminations();
+    recharger();
   }
 
   async function handleAssignCaptain(tableNumber, accountId) {
@@ -863,7 +597,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     setTableCaptains(await fetchTableCaptainAssignments(tournamentId));
   }
 
-  if (loading) {
+  if (loading || !dataReady) {
     return <ClubLoader />;
   }
   if (error && !tournament) {
@@ -1085,28 +819,28 @@ export default function TournamentDetail({ tournamentId, onBack }) {
             <div className="flex flex-wrap items-center gap-3">
               <button
                 onClick={autoBreakTable}
-                disabled={balancing || computeBreakMoves().length === 0}
+                disabled={balancing || calculerCasse().length === 0}
                 title={
-                  computeBreakMoves().length > 0
+                  calculerCasse().length > 0
                     ? "Casse la table au numéro le plus élevé et répartit ses joueurs sur les autres"
                     : "Aucune table ne peut être cassée pour l'instant"
                 }
                 className={`text-sm flex items-center gap-1.5 disabled:opacity-40 ${
-                  computeBreakMoves().length > 0 ? "text-felt-gold hover:text-felt-gold/80 font-medium" : "text-felt-cream/40"
+                  calculerCasse().length > 0 ? "text-felt-gold hover:text-felt-gold/80 font-medium" : "text-felt-cream/40"
                 }`}
               >
                 <span>💥</span> Casser une table
               </button>
               <button
                 onClick={autoRebalanceTables}
-                disabled={balancing || computeRebalanceMoves().length === 0}
+                disabled={balancing || calculerEquilibrage().length === 0}
                 title={
-                  computeRebalanceMoves().length > 0
+                  calculerEquilibrage().length > 0
                     ? "Déplace un joueur pour réduire l'écart entre la table la plus et la moins garnie"
                     : "Les tables sont déjà équilibrées"
                 }
                 className={`text-sm flex items-center gap-1.5 disabled:opacity-40 ${
-                  computeRebalanceMoves().length > 0 ? "text-felt-gold hover:text-felt-gold/80 font-medium" : "text-felt-cream/40"
+                  calculerEquilibrage().length > 0 ? "text-felt-gold hover:text-felt-gold/80 font-medium" : "text-felt-cream/40"
                 }`}
               >
                 <span>⚖</span> {balancing ? "Équilibrage…" : "Équilibrer les tables"}
@@ -1423,25 +1157,6 @@ export default function TournamentDetail({ tournamentId, onBack }) {
           </div>
         </div>
       )}
-      {breakProposal && (
-        <TableMovesDialog
-          kind="break"
-          moves={breakProposal}
-          tableNumber={breakProposal[0]?.fromTable}
-          busy={balancing}
-          onConfirm={applyBreakProposal}
-          onClose={() => setBreakProposal(null)}
-        />
-      )}
-      {rebalanceProposal && (
-        <TableMovesDialog
-          kind="balance"
-          moves={rebalanceProposal}
-          busy={balancing}
-          onConfirm={applyRebalanceProposal}
-          onClose={() => setRebalanceProposal(null)}
-        />
-      )}
       {showPasteImport && (
         <PasteImportModal
           importing={importing}
@@ -1452,8 +1167,6 @@ export default function TournamentDetail({ tournamentId, onBack }) {
           }}
         />
       )}
-
-      <ToastStack toasts={toasts} onDismiss={retirerToast} />
     </div>
   );
 }
