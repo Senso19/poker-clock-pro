@@ -2,6 +2,13 @@ import { useEffect, useRef, useState } from "react";
 
 const BOX = 380;
 const OUTPUT = 480;
+// Le zoom peut descendre sous 1 pour faire rentrer l'image en entier.
+const ZOOM_MIN = 0.4;
+const ZOOM_MAX = 3;
+// Ce qui comble le cercle autour de l'image quand elle ne le remplit pas.
+// Sans ce fond, le JPEG rendrait le vide en NOIR — un halo noir autour
+// du portrait dès qu'on dézoome.
+const FOND = "#14181C";
 
 /**
  * AvatarCropper — petite fenêtre de recadrage : zoom (curseur) et
@@ -12,6 +19,11 @@ const OUTPUT = 480;
  * Le zoom et le déplacement sont appliqués séparément (position pour le
  * déplacement, transform scale pour le zoom) afin qu'ils n'interfèrent
  * jamais l'un avec l'autre.
+ *
+ * Le zoom descend sous 1 : à 1 l'image REMPLIT le cercle (la plus petite
+ * de ses dimensions y est ajustée), ce qui rogne forcément une photo qui
+ * n'est pas carrée. En dessous, elle rentre en entier, le fond comblant
+ * les côtés — c'est souvent ce qu'on veut d'un portrait.
  */
 export default function AvatarCropper({ file, onConfirm, onCancel }) {
   const [imgUrl, setImgUrl] = useState(null);
@@ -74,6 +86,8 @@ export default function AvatarCropper({ file, onConfirm, onCancel }) {
     canvas.width = OUTPUT;
     canvas.height = OUTPUT;
     const ctx = canvas.getContext("2d");
+    ctx.fillStyle = FOND;
+    ctx.fillRect(0, 0, OUTPUT, OUTPUT);
     const scaleFactor = OUTPUT / BOX;
     ctx.save();
     ctx.translate(scaleFactor * (BOX / 2 + offset.x), scaleFactor * (BOX / 2 + offset.y));
@@ -84,7 +98,16 @@ export default function AvatarCropper({ file, onConfirm, onCancel }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4">
+    // Le recadreur est ouvert DEPUIS d'autres fenêtres (profil, membres du
+    // club, comptes) dont le fond se ferme au clic. Sans cette barrière,
+    // cliquer "Valider" ici refermait la fenêtre parente au passage, et le
+    // nouvel avatar était perdu — d'où l'impression que le bouton ne
+    // faisait rien.
+    <div
+      onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+      className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4"
+    >
       <div className="bg-felt-panel border border-felt-cream/10 rounded-lg p-6 font-body text-felt-cream w-full max-w-md">
         <div className="font-display text-lg mb-4 text-center">Ajuster l'avatar</div>
 
@@ -121,8 +144,8 @@ export default function AvatarCropper({ file, onConfirm, onCancel }) {
           <span className="text-felt-cream/50 text-xs shrink-0">Zoom</span>
           <input
             type="range"
-            min="1"
-            max="3"
+            min={ZOOM_MIN}
+            max={ZOOM_MAX}
             step="0.05"
             value={zoom}
             onChange={(e) => setZoom(Number(e.target.value))}
@@ -130,7 +153,9 @@ export default function AvatarCropper({ file, onConfirm, onCancel }) {
           />
           <span className="text-felt-cream/40 text-xs w-9 text-right shrink-0">{zoom.toFixed(1)}×</span>
         </div>
-        <div className="text-felt-cream/30 text-[11px] text-center mt-1">Glisser l'image pour la recentrer</div>
+        <div className="text-felt-cream/30 text-[11px] text-center mt-1">
+          Glisser l'image pour la recentrer. Sous 1×, elle rentre en entier dans le cercle.
+        </div>
 
         <div className="flex gap-2 mt-5">
           <button onClick={onCancel} className="flex-1 px-4 py-2 text-felt-cream/60 hover:text-felt-cream">
