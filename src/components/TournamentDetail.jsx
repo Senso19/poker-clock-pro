@@ -577,6 +577,44 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     else confirmElimination(reg, null);
   }
 
+  /**
+   * La liste des joueurs en CSV — de quoi l'ouvrir dans un tableur, la
+   * garder ou l'envoyer. Point-virgule et BOM UTF-8 : c'est ce qu'attend
+   * Excel en français, sinon tout atterrit dans une seule colonne et les
+   * accents sortent en charabia.
+   */
+  function telechargerJoueursCsv() {
+    const echapper = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const lignes = [
+      ["#", "Pseudo", "Nom", "Table", "Siège", "Tapis", "Rebuys", "Addons", "KO", "Statut"].map(echapper).join(";"),
+      ...sortedRegs.map((reg, i) => {
+        const isOut = eliminatedIds.has(reg.id);
+        const position = positionByReg.get(reg.id);
+        return [
+          isOut && position ? `${position}e` : i + 1,
+          playerLabel(reg),
+          reg.players?.full_name || "",
+          reg.table_number || "",
+          reg.seat_number || "",
+          reg.stack ?? 0,
+          reg.rebuys || 0,
+          reg.addons || 0,
+          koCounts.get(reg.id) || 0,
+          isOut ? "Éliminé" : "En jeu",
+        ]
+          .map(echapper)
+          .join(";");
+      }),
+    ];
+    const blob = new Blob(["\ufeff" + lignes.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${(tournament?.name || "tournoi").replace(/[^\w\d-]+/g, "_")}_joueurs.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function confirmElimination(reg, eliminatedByRegId) {
     const stillIn = registrations.filter(
       (r) => !eliminations.some((e) => e.registration_id === r.id)
@@ -794,6 +832,14 @@ export default function TournamentDetail({ tournamentId, onBack }) {
               >
                 <span>➕👤</span> Inscrire un joueur
               </button>
+              <button
+                onClick={telechargerJoueursCsv}
+                disabled={registrations.length === 0}
+                title="La liste des joueurs, à ouvrir dans un tableur"
+                className="text-sm text-felt-gold hover:text-felt-gold/80 flex items-center gap-1.5 disabled:opacity-40 disabled:text-felt-cream/40"
+              >
+                <span>⤓</span> Télécharger (CSV)
+              </button>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -893,41 +939,46 @@ export default function TournamentDetail({ tournamentId, onBack }) {
 
           {error && <div className="text-felt-alert text-sm mb-3">Erreur : {error}</div>}
 
-          <div className="grid grid-cols-[32px_1fr_64px_24px] sm:grid-cols-[72px_1fr_140px_44px] gap-2 sm:gap-3 px-3 sm:px-4 pb-4 mb-3 border-b border-felt-cream/10 text-sm uppercase tracking-wide text-felt-cream/50">
-            <div>Place</div>
-            <div>Nom ({registrations.length})</div>
-            <div>Tapis</div>
-            <div></div>
+          <div className="text-sm uppercase tracking-wide text-felt-cream/40 mb-3 px-1">
+            {registrations.length} joueur{registrations.length > 1 ? "s" : ""}
           </div>
 
-          {sortedRegs.map((reg) => {
+          {sortedRegs.map((reg, rang) => {
             const isOut = eliminatedIds.has(reg.id);
             const koCount = koCounts.get(reg.id) || 0;
             const position = positionByReg.get(reg.id);
             const eliminatorName = eliminatedByName.get(reg.id);
+            const menuOuvert = openMenuId === reg.id;
 
             return (
               <div key={reg.id} className="relative">
+                {/* Une carte par joueur : numéro, avatar cerclé, pseudo. La
+                    carte s'entoure d'or quand son menu est ouvert — c'est
+                    le joueur sur lequel on agit. */}
                 <div
                   style={{ backgroundColor: "var(--pcp-cell-bg, rgba(20,24,28,0.5))", color: "var(--pcp-cell-text, inherit)" }}
-                  className={`grid grid-cols-[32px_1fr_64px_24px] sm:grid-cols-[72px_1fr_140px_44px] gap-2 sm:gap-3 items-center px-3 sm:px-4 py-4 sm:py-5 mb-2.5 rounded-md ${
-                    isOut ? "opacity-50" : ""
-                  }`}
+                  className={`flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3.5 sm:py-4 mb-3 rounded-xl border ${
+                    menuOuvert ? "border-felt-gold" : "border-felt-cream/10"
+                  } ${isOut ? "opacity-50" : ""}`}
                 >
-                  <div className="pcp-value text-felt-gold font-display text-base sm:text-lg">
-                    {isOut && position ? `${position}e` : ""}
+                  <div className="pcp-value text-felt-gold font-display text-lg sm:text-xl w-8 sm:w-10 text-center shrink-0">
+                    {isOut && position ? `${position}e` : rang + 1}
                   </div>
-                  <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                  <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
                     {reg.accounts?.avatar_data ? (
-                      <img src={reg.accounts.avatar_data} alt="" className="w-9 h-9 sm:w-12 sm:h-12 rounded-full object-cover shrink-0" />
+                      <img
+                        src={reg.accounts.avatar_data}
+                        alt=""
+                        className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover shrink-0 ring-2 ring-felt-gold/70"
+                      />
                     ) : (
-                      <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-full bg-felt-bg flex items-center justify-center text-felt-cream/40 font-display text-sm sm:text-base shrink-0">
-                        {reg.players?.full_name?.[0]?.toUpperCase()}
+                      <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-felt-bg flex items-center justify-center text-felt-cream/50 font-display text-base sm:text-lg shrink-0 ring-2 ring-felt-gold/70">
+                        {(playerLabel(reg) || reg.players?.full_name)?.[0]?.toUpperCase()}
                       </div>
                     )}
                     <div className="min-w-0">
-                      <div className={`pcp-title font-medium text-base sm:text-lg truncate ${isOut ? "text-felt-cream/40" : "text-felt-gold"}`}>
-                        {reg.players?.full_name}
+                      <div className={`pcp-title font-medium text-lg sm:text-xl truncate ${isOut ? "text-felt-cream/40" : "text-felt-gold"}`}>
+                        {playerLabel(reg) || reg.players?.full_name}
                       </div>
                       <div className="pcp-body text-sm text-felt-cream/40 truncate">
                         {isOut ? (
@@ -945,7 +996,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
                       </div>
                     </div>
                   </div>
-                  <div>
+                  <div className="shrink-0">
                     {editingStackId === reg.id ? (
                       <input
                         autoFocus
@@ -957,7 +1008,11 @@ export default function TournamentDetail({ tournamentId, onBack }) {
                         className="w-24 bg-felt-bg border border-felt-gold/40 rounded px-2 py-1.5 text-base text-felt-cream"
                       />
                     ) : (
-                      <button onClick={() => startEditStack(reg)} className="pcp-value text-felt-cream underline decoration-felt-cream/30 text-base">
+                      <button
+                        onClick={() => startEditStack(reg)}
+                        title="Modifier le tapis"
+                        className="pcp-value text-felt-cream/70 hover:text-felt-cream underline decoration-felt-cream/20 text-sm sm:text-base tabular-nums"
+                      >
                         {(reg.stack ?? 0).toLocaleString()}
                       </button>
                     )}
@@ -965,9 +1020,9 @@ export default function TournamentDetail({ tournamentId, onBack }) {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      setOpenMenuId(openMenuId === reg.id ? null : reg.id);
+                      setOpenMenuId(menuOuvert ? null : reg.id);
                     }}
-                    className="text-felt-cream/50 hover:text-felt-cream text-xl leading-none"
+                    className="text-felt-cream/50 hover:text-felt-cream text-xl leading-none shrink-0 w-6"
                   >
                     ⋮
                   </button>
