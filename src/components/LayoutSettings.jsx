@@ -726,20 +726,3 @@ export default function LayoutSettings() {
     </div>
   );
 }
-
-function Toggle({ checked, onChange }) {
-  return (
-    <button
-      onClick={onChange}
-      className={`w-11 h-6 rounded-full transition-colors relative ${
-        checked ? "bg-felt-gold" : "bg-felt-bg border border-felt-cream/20"
-      }`}
-    >
-      <span
-        className={`absolute top-0.5 w-5 h-5 rounded-full bg-felt-cream transition-transform ${
-          checked ? "translate-x-5" : "translate-x-0.5"
-        }`}
-      />
-    </button>
-  );
-}

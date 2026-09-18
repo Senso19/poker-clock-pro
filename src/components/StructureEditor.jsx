@@ -585,6 +585,10 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                     return (
                       <tr
                         key={i}
+                        // Repère lu par le 🎨 du panneau : c'est ce qui lui
+                        // dit que "Hauteur des barres" et "Fond des barres"
+                        // ont une prise ici, et qu'il peut les proposer.
+                        data-pcp-barres=""
                         // La barre de la ligne suit "Fond des barres" du
                         // panneau (🎨). Un niveau tout juste ajouté garde
                         // sa surbrillance dorée, qui est temporaire.

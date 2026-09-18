@@ -2223,14 +2223,40 @@ function EliminatedContent({ style, lastElimination, total, textStyle, fill = fa
   );
 }
 
+/**
+ * HeadsupContent — les deux derniers joueurs face à face.
+ *
+ * "Adapter à la taille du panneau" agit ici aussi. Il n'était lu que par
+ * le panneau Élimination : sur Heads Up la case ne faisait rien ET
+ * désactivait le champ "Taille (px)" juste en dessous — il n'y avait donc
+ * plus aucun moyen de régler la taille de ces avatars.
+ */
 function HeadsupContent({ style, stillIn, textStyle }) {
-  if (stillIn.length !== 2) return <div className="text-felt-cream/40 text-sm text-center">{stillIn.length} joueurs restants</div>;
+  const boxRef = useRef(null);
+  const { w } = useBoxSize(boxRef);
+  const auto = style.avatarAutoFit !== false;
+  // Deux avatars côte à côte : chacun a la moitié de la largeur.
+  const taille = auto && w > 0 ? clamp(Math.round(w * 0.32), 32, 320) : style.avatarSize || 88;
+  const nom = auto && w > 0 ? clamp(Math.round(w * 0.07), 11, 72) : null;
+
+  if (stillIn.length !== 2) {
+    return (
+      <div ref={boxRef} className="w-full">
+        <div className="text-felt-cream/40 text-sm text-center">{stillIn.length} joueurs restants</div>
+      </div>
+    );
+  }
   return (
-    <div className="flex items-center justify-center gap-6">
+    <div ref={boxRef} className="w-full flex items-center justify-center gap-6">
       {stillIn.map((r) => (
-        <div key={r.id} className="flex flex-col items-center gap-1">
-          <Avatar data={r.accounts?.avatar_data} name={r.players?.full_name} size={style.avatarSize || 88} />
-          <div style={textStyle(style)} className="text-center">{r.players?.full_name}</div>
+        <div key={r.id} className="flex flex-col items-center gap-1 min-w-0">
+          <Avatar data={r.accounts?.avatar_data} name={r.players?.full_name} size={taille} />
+          <div
+            style={{ ...textStyle(style), ...(nom ? { fontSize: `${nom}px` } : {}) }}
+            className="text-center w-full truncate"
+          >
+            {r.players?.full_name}
+          </div>
         </div>
       ))}
     </div>
@@ -2255,12 +2281,25 @@ function RankingContent({ style, eliminations, textStyle }) {
 }
 
 function WinnerContent({ style, winner, textStyle }) {
-  if (!winner) return <div className="text-felt-cream/40 text-sm text-center">Tournoi en cours</div>;
+  const boxRef = useRef(null);
+  const { w } = useBoxSize(boxRef);
+  const auto = style.avatarAutoFit !== false;
+  const taille = auto && w > 0 ? clamp(Math.round(w * 0.5), 32, 400) : style.avatarSize || 104;
+
+  if (!winner) {
+    return (
+      <div ref={boxRef} className="w-full">
+        <div className="text-felt-cream/40 text-sm text-center">Tournoi en cours</div>
+      </div>
+    );
+  }
   return (
-    <div className="flex flex-col items-center gap-2">
+    <div ref={boxRef} className="w-full flex flex-col items-center gap-2">
       <div className="text-3xl">🏆</div>
-      <Avatar data={winner.accounts?.avatar_data} name={winner.players?.full_name} size={style.avatarSize || 104} />
-      <div style={textStyle(style)}>{winner.players?.full_name}</div>
+      <Avatar data={winner.accounts?.avatar_data} name={winner.players?.full_name} size={taille} />
+      <div style={textStyle(style)} className="w-full text-center truncate">
+        {winner.players?.full_name}
+      </div>
       <div className="text-felt-gold text-xs">Vainqueur</div>
     </div>
   );
@@ -3000,7 +3039,23 @@ function ImagePanel({ img, editing, containerRef, zIndex, onMove, onCommit, onRe
   );
 }
 
+// Les panneaux dont le titre passe par PanelBody sont les seuls que
+// "Position du titre" et "Espace titre / contenu" peuvent déplacer : les
+// autres posent leur titre en ligne, avec un écart figé. Proposer ces deux
+// réglages partout laissait croire qu'ils ne marchaient pas.
+const TITRES_DEPLACABLES = new Set([
+  "Horloge",
+  "Blinds",
+  "Prochaine pause",
+  "Tapis moyen",
+  "Joueurs (restant/total)",
+  "Niveau",
+  "Joueurs",
+  "Prochaine blind",
+]);
+
 function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOptions, onToggleCarouselIncluded, showSponsorOptions, showAvatarOptions, showScrollOptions, showRowCountOptions, rowCountDefault, onChange, onClose, onUploadSound }) {
+  const titreDeplacable = TITRES_DEPLACABLES.has(defaultTitle);
   return (
     <div
       data-style-popover="1"
@@ -3347,29 +3402,33 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
           />
         </label>
       )}
-      <label className="flex items-center justify-between mb-2">
-        Position du titre
-        <select
-          value={style.titlePosition || "top"}
-          onChange={(e) => onChange({ titlePosition: e.target.value })}
-          className="bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream"
-        >
-          <option value="top">Haut</option>
-          <option value="bottom">Bas</option>
-          <option value="left">Gauche</option>
-          <option value="right">Droite</option>
-        </select>
-      </label>
-      <label className="flex items-center justify-between mb-2">
-        Espace titre / contenu (px)
-        <input
-          type="number"
-          value={style.titleGap ?? ""}
-          placeholder="auto"
-          onChange={(e) => onChange({ titleGap: e.target.value === "" ? null : Number(e.target.value) })}
-          className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
-        />
-      </label>
+      {titreDeplacable && (
+        <>
+          <label className="flex items-center justify-between mb-2">
+            Position du titre
+            <select
+              value={style.titlePosition || "top"}
+              onChange={(e) => onChange({ titlePosition: e.target.value })}
+              className="bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream"
+            >
+              <option value="top">Haut</option>
+              <option value="bottom">Bas</option>
+              <option value="left">Gauche</option>
+              <option value="right">Droite</option>
+            </select>
+          </label>
+          <label className="flex items-center justify-between mb-2">
+            Espace titre / contenu (px)
+            <input
+              type="number"
+              value={style.titleGap ?? ""}
+              placeholder="auto"
+              onChange={(e) => onChange({ titleGap: e.target.value === "" ? null : Number(e.target.value) })}
+              className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
+            />
+          </label>
+        </>
+      )}
       <label className="flex items-center justify-between mb-2">
         Couleur du titre
         <input type="color" value={style.titleColor || "#C9A15A"} onChange={(e) => onChange({ titleColor: e.target.value })} className="w-8 h-6 bg-transparent cursor-pointer" />

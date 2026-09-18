@@ -375,6 +375,7 @@ function BannerImage({ image, manage, onChange }) {
   return (
     <div
       className="relative bg-felt-bg overflow-hidden"
+      data-pcp-banner=""
       style={{ height: image ? "var(--pcp-banner-height, 140px)" : "4rem" }}
     >
       {image && <img src={image} alt="" className="w-full h-full object-cover block" />}

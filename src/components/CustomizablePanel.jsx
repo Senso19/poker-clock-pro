@@ -303,6 +303,7 @@ export default function CustomizablePanel({ panelKey, defaultWidth = "1 1 0%", d
           onClose={() => setOpen(false)}
           hasFreePosition={hasFreePosition}
           onResetPosition={() => update({ posX: null, posY: null, width: null, height: null })}
+          capacites={capacitesDuPanneau(panelDomId)}
         />
       )}
       <div
@@ -355,7 +356,49 @@ function SizeColorRow({ label, sizeValue, colorValue, onSizeChange, onColorChang
   );
 }
 
-function PanelStyleEditor({ style, onChange, onClose, hasFreePosition, onResetPosition }) {
+/**
+ * Ce que ce panneau sait faire, lu sur son contenu RÉEL plutôt que sur une
+ * liste tenue à la main.
+ *
+ * Chaque réglage agit par une classe pcp-* ou une variable --pcp-* que
+ * seuls certains contenus portent : « Disposition icône / texte » n'a de
+ * prise que sur deux cartes, « Hauteur du bandeau » que sur les
+ * championnats, le bloc « Texte des cartes » sur rien du tout dans la
+ * table des blindes. Proposés partout, ces réglages donnaient l'impression
+ * de ne pas marcher.
+ *
+ * En interrogeant le panneau affiché, un réglage sans prise n'est tout
+ * simplement pas proposé — et un panneau qui gagne un jour une de ces
+ * classes voit son réglage apparaître sans que personne ait à y penser.
+ */
+function capacitesDuPanneau(panelDomId) {
+  const el = typeof document !== "undefined" ? document.getElementById(panelDomId) : null;
+  // Panneau pas encore monté : on ne cache rien plutôt que de cacher à tort.
+  if (!el) return null;
+  const a = (sel) => !!el.querySelector(sel);
+  let grille = false;
+  try {
+    grille = getComputedStyle(el).display.includes("grid");
+  } catch {
+    /* ignore */
+  }
+  return {
+    titre: a(".pcp-title"),
+    corps: a(".pcp-body"),
+    valeur: a(".pcp-value"),
+    bouton: a(".pcp-btn"),
+    ligne: a(".pcp-row"),
+    espace: a(".pcp-space"),
+    espace2: a(".pcp-space-2"),
+    banniere: a("[data-pcp-banner]"),
+    barres: a("[data-pcp-barres]"),
+    grille,
+  };
+}
+
+function PanelStyleEditor({ style, onChange, onClose, hasFreePosition, onResetPosition, capacites }) {
+  // null = on ne sait pas (panneau non monté) : tout reste proposé.
+  const peut = (cle) => !capacites || capacites[cle];
   return (
     <div
       onPointerDown={(e) => e.stopPropagation()}
@@ -432,6 +475,7 @@ function PanelStyleEditor({ style, onChange, onClose, hasFreePosition, onResetPo
           className="w-24 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
         />
       </label>
+{peut("barres") && (
       <label className="flex items-center justify-between mb-2">
         Hauteur des barres (px)
         <input
@@ -443,6 +487,8 @@ function PanelStyleEditor({ style, onChange, onClose, hasFreePosition, onResetPo
           className="w-24 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
         />
       </label>
+      )}
+{peut("barres") && (
       <label className="flex items-center justify-between mb-2">
         Fond des barres
         <input
@@ -452,6 +498,7 @@ function PanelStyleEditor({ style, onChange, onClose, hasFreePosition, onResetPo
           className="w-8 h-6 bg-transparent cursor-pointer"
         />
       </label>
+      )}
       <div className="border-t border-felt-cream/10 my-2 pt-2 text-felt-cream/50">Cellules / champs</div>
       <label className="flex items-center justify-between mb-2">
         Fond des cellules
@@ -474,6 +521,7 @@ function PanelStyleEditor({ style, onChange, onClose, hasFreePosition, onResetPo
       <div className="border-t border-felt-cream/10 my-2 pt-2 text-felt-cream/50">
         Cartes individuelles (grilles uniquement)
       </div>
+{peut("grille") && (
       <label className="flex items-center justify-between mb-2">
         Largeur d'une carte (px)
         <input
@@ -484,6 +532,8 @@ function PanelStyleEditor({ style, onChange, onClose, hasFreePosition, onResetPo
           className="w-20 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
         />
       </label>
+      )}
+{peut("grille") && (
       <label className="flex items-center justify-between mb-2">
         Hauteur d'une carte (px)
         <input
@@ -494,6 +544,8 @@ function PanelStyleEditor({ style, onChange, onClose, hasFreePosition, onResetPo
           className="w-20 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
         />
       </label>
+      )}
+{peut("banniere") && (
       <label className="flex items-center justify-between mb-2">
         Hauteur du bandeau image (px)
         <input
@@ -504,7 +556,9 @@ function PanelStyleEditor({ style, onChange, onClose, hasFreePosition, onResetPo
           className="w-20 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
         />
       </label>
+      )}
       <div className="border-t border-felt-cream/10 my-2 pt-2 text-felt-cream/50">Texte des cartes, par rôle</div>
+      {peut("titre") && (
       <SizeColorRow
         label="Titre"
         sizeValue={style.titleSize}
@@ -512,6 +566,8 @@ function PanelStyleEditor({ style, onChange, onClose, hasFreePosition, onResetPo
         onSizeChange={(v) => onChange({ titleSize: v })}
         onColorChange={(v) => onChange({ titleColor: v })}
       />
+      )}
+      {peut("corps") && (
       <SizeColorRow
         label="Texte secondaire (sous-titre, description, dates)"
         sizeValue={style.bodySize}
@@ -519,6 +575,8 @@ function PanelStyleEditor({ style, onChange, onClose, hasFreePosition, onResetPo
         onSizeChange={(v) => onChange({ bodySize: v })}
         onColorChange={(v) => onChange({ bodyColor: v })}
       />
+      )}
+      {peut("valeur") && (
       <SizeColorRow
         label="Valeurs / chiffres mis en avant"
         sizeValue={style.valueSize}
@@ -526,6 +584,8 @@ function PanelStyleEditor({ style, onChange, onClose, hasFreePosition, onResetPo
         onSizeChange={(v) => onChange({ valueSize: v })}
         onColorChange={(v) => onChange({ valueColor: v })}
       />
+      )}
+{peut("titre") || peut("corps") && (
       <label className="flex items-center justify-between mb-2 mt-2">
         Alignement (titre + texte secondaire)
         <select
@@ -539,6 +599,8 @@ function PanelStyleEditor({ style, onChange, onClose, hasFreePosition, onResetPo
           <option value="right">Droite</option>
         </select>
       </label>
+      )}
+{peut("ligne") && (
       <label className="flex items-center justify-between mb-2">
         Disposition icône / texte
         <select
@@ -553,11 +615,13 @@ function PanelStyleEditor({ style, onChange, onClose, hasFreePosition, onResetPo
           <option value="column-reverse">Texte au-dessus</option>
         </select>
       </label>
+      )}
       <div className="text-[10px] text-felt-cream/40 mb-2 -mt-1">
         S'applique aux lignes icône + chiffre/texte de ce tableau qui prennent en charge ce réglage (ex. compteur de
         joueurs, badges).
       </div>
       <div className="border-t border-felt-cream/10 my-2 pt-2 text-felt-cream/50">Boutons des cartes</div>
+{peut("bouton") && (
       <label className="flex items-center justify-between mb-2">
         Fond des boutons
         <input
@@ -567,6 +631,8 @@ function PanelStyleEditor({ style, onChange, onClose, hasFreePosition, onResetPo
           className="w-8 h-6 bg-transparent cursor-pointer"
         />
       </label>
+      )}
+{peut("bouton") && (
       <label className="flex items-center justify-between mb-2">
         Texte des boutons
         <input
@@ -576,6 +642,7 @@ function PanelStyleEditor({ style, onChange, onClose, hasFreePosition, onResetPo
           className="w-8 h-6 bg-transparent cursor-pointer"
         />
       </label>
+      )}
       {(style.btnBgColor || style.btnTextColor) && (
         <button
           onClick={() => onChange({ btnBgColor: null, btnTextColor: null })}
@@ -585,6 +652,7 @@ function PanelStyleEditor({ style, onChange, onClose, hasFreePosition, onResetPo
         </button>
       )}
       <div className="border-t border-felt-cream/10 my-2 pt-2 text-felt-cream/50">Espacement</div>
+{peut("espace") && (
       <label className="flex items-center justify-between mb-2">
         Espace 1 — après les badges (px)
         <input
@@ -595,6 +663,8 @@ function PanelStyleEditor({ style, onChange, onClose, hasFreePosition, onResetPo
           className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
         />
       </label>
+      )}
+{peut("espace2") && (
       <label className="flex items-center justify-between mb-2">
         Espace 2 — avant les boutons (px)
         <input
@@ -605,6 +675,7 @@ function PanelStyleEditor({ style, onChange, onClose, hasFreePosition, onResetPo
           className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
         />
       </label>
+      )}
       <div className="text-[10px] text-felt-cream/40 mb-2 -mt-1">
         S'applique aux emplacements d'espacement disponibles dans ce type de carte (là où le curseur le permet).
       </div>
