@@ -125,6 +125,10 @@ const ANNOUNCEMENT_MIN_SIZE = 12;
 // dans les annonces : elles s'ouvrent déjà dans la fenêtre des
 // déplacements, et le panneau, lui, annonce UN joueur à la fois.
 const MOVE_BATCH_MS = 15000;
+// Le pseudo et le séparateur table/siège ressortent en doré : c'est le
+// nom qu'on cherche dans la liste en appelant les joueurs, et le trait
+// sépare d'un coup d'œil les deux nombres, qui sinon se confondent.
+const MOVE_ACCENT_COLOR = "#ea9a10";
 
 const PANEL_LABELS = {
   timer: "Horloge", controls: "Contrôles", blinds: "Blinds", players: "Joueurs", next: "Prochaine blind",
@@ -530,17 +534,24 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   // appareil, auquel cas le rebours doit disparaître ici aussi.
   const awaitingScheduledStart =
     !effectiveDesignOnly && !!tournamentMeta?.scheduled_at && !tournamentMeta?.clock_started;
+  // L'heure courante bat à la seconde, toujours. Elle ne battait que
+  // pendant le compte à rebours d'un tournoi programmé : partout ailleurs
+  // elle restait figée à l'instant où la page avait été ouverte. Or c'est
+  // elle qui décide de la péremption des annonces et des déplacements —
+  // une annonce écrite APRÈS l'ouverture de la page était donc "dans le
+  // futur" par rapport à cette heure figée, et ne disparaissait jamais.
+  useEffect(() => {
+    const tick = setInterval(() => setNowTs(Date.now()), 1000);
+    return () => clearInterval(tick);
+  }, []);
+
   useEffect(() => {
     if (!awaitingScheduledStart || !tournamentId) return;
-    const tick = setInterval(() => setNowTs(Date.now()), 1000);
     const refresh = setInterval(async () => {
       const { data } = await supabase.from("tournaments").select("*").eq("id", tournamentId).maybeSingle();
       if (data) setTournamentMeta(data);
     }, 30000);
-    return () => {
-      clearInterval(tick);
-      clearInterval(refresh);
-    };
+    return () => clearInterval(refresh);
   }, [awaitingScheduledStart, tournamentId]);
 
   // Sauvegarde de secours : à chaque changement de tournoi courant ou au
@@ -2566,10 +2577,37 @@ function MovesContent({ style, moves, textStyle }) {
           et ce panneau passe le plus clair de son temps vide. */}
       {moves.map((m) => (
         <FitText key={m.id} align={style.align || "center"} origin="center">
-          <span style={{ ...textStyle(style), fontSize: `${taille}px`, lineHeight: 1.2 }}>{m.text}</span>
+          <span style={{ ...textStyle(style), fontSize: `${taille}px`, lineHeight: 1.2 }}>
+            <LigneDeplacement texte={m.text} accent={style.accentColor || MOVE_ACCENT_COLOR} />
+          </span>
         </FitText>
       ))}
     </div>
+  );
+}
+
+/**
+ * LigneDeplacement — "Pseudo  Table 3 / Siège 2", le pseudo et le trait
+ * en doré.
+ *
+ * L'annonce est enregistrée en texte libre (elle sert aussi telle quelle
+ * au panneau Annonces et au journal) : on la relit ici pour en colorer
+ * les morceaux. Si elle ne suit pas la forme attendue, on l'affiche telle
+ * quelle plutôt que de risquer de l'amputer.
+ */
+function LigneDeplacement({ texte, accent }) {
+  const m = /^(.*?)\s+déplacé\s+Table\s+(\S+)\s+Siège\s+(\S+)\s*$/i.exec(texte || "");
+  if (!m) return texte;
+  const [, pseudo, table, siege] = m;
+  return (
+    <>
+      <span style={{ color: accent }}>{pseudo}</span>
+      {"  Table "}
+      {table}
+      <span style={{ color: accent }}> / </span>
+      {"Siège "}
+      {siege}
+    </>
   );
 }
 
@@ -3083,6 +3121,15 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
       {defaultTitle === "Déplacements" && (
         <>
           <div className="border-t border-felt-cream/10 my-2 pt-2 text-felt-cream/50">Déplacements</div>
+          <label className="flex items-center justify-between mb-2">
+            Couleur du pseudo et du « / »
+            <input
+              type="color"
+              value={style.accentColor || "#ea9a10"}
+              onChange={(e) => onChange({ accentColor: e.target.value })}
+              className="w-8 h-6 bg-transparent cursor-pointer"
+            />
+          </label>
           <label className="flex items-center justify-between mb-2">
             Rester affichés (s)
             <input
