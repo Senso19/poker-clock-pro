@@ -84,13 +84,21 @@ export default function TablesView({ tournamentId, manage = false }) {
 
   return (
     <div className="p-3 sm:p-6 font-body text-white h-full overflow-y-auto">
-      {/* Une carte par table, empilées sur téléphone et côte à côte dès
-          qu'il y a la largeur pour. Elles suivent les réglages 🎨 du
-          tableau comme partout ailleurs dans l'app. */}
+      {/* Une carte par table : autant par rangée qu'il en tient, centrées.
+          Une grille à nombre de colonnes fixe laissait une table seule
+          coincée en haut à gauche d'un écran PC, les deux tiers de la
+          largeur vides — vu en 1920. Ici chaque carte fait entre la
+          largeur disponible et 560 px : une table seule est centrée à une
+          taille lisible, trois remplissent un 1920 et quatre un 2560.
+          Le plafond de 560 px n'est pas arbitraire : à 620 px, trois
+          tables ne tenaient plus que deux par rangée sur un écran 1920.
+          Le min(100%, 380px) est là pour les téléphones étroits : un
+          minimum fixe déborderait sous cette largeur.
+          Elles suivent les réglages 🎨 du tableau comme partout ailleurs. */}
       <CustomizablePanel
         panelKey="tables-view"
         defaultWidth="1 1 100%"
-        className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-4 sm:gap-6 items-start"
+        className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,380px),560px))] justify-center gap-4 sm:gap-6 items-start"
       >
         {numerosTables.map((num) => {
           const joueurs = assis
