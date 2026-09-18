@@ -50,6 +50,14 @@ const DEFAULT_PANELS = {
     x: 50, y: 74, w: 48, h: 24, removed: true,
     style: { ...BASE_STYLE, fontSize: 18, font: "body", align: "center" },
   },
+  progress: {
+    x: 2, y: 33, w: 34, h: 5, removed: true,
+    style: { ...BASE_STYLE, showTitle: false, align: "center", fontSize: 12, barColor: "#C9A15A", transparent: true },
+  },
+  seatdraw: {
+    x: 50, y: 74, w: 48, h: 24, removed: true,
+    style: { ...BASE_STYLE, fontSize: 18, font: "body", align: "center", customTitle: "Tirage des places" },
+  },
   nextbreak: {
     x: 78, y: 2, w: 20, h: 10, removed: true,
     style: { ...BASE_STYLE, fontSize: 22, align: "center", customTitle: "Prochaine pause" },
@@ -76,11 +84,20 @@ const DEFAULT_PANELS = {
   },
 };
 
+// Durée d'affichage d'une annonce sur le panneau Annonces, à compter de
+// son écriture. C'est ce délai — et non "la dernière remplace la
+// précédente" — qui décide de ce qui est à l'écran : deux actions faites
+// coup sur coup s'affichent donc l'une sous l'autre.
+const ANNOUNCEMENT_TTL_MS = 30000;
+// Espace vertical entre deux annonces empilées.
+const ANNOUNCEMENT_GAP = 6;
+
 const PANEL_LABELS = {
   timer: "Horloge", controls: "Contrôles", blinds: "Blinds", players: "Joueurs", next: "Prochaine blind",
   ranking: "Classement", structure: "Structure des blinds", eliminated: "Élimination",
   headsup: "Heads Up", carousel: "Carrousel", sponsors: "Sponsors", announcements: "Annonces",
   nextbreak: "Prochaine pause (compte à rebours)", customtext: "Texte libre",
+  progress: "Barre de progression", seatdraw: "Tirage des places",
   avgstack: "Tapis moyen", playercount: "Joueurs (restant/total)", level: "Niveau", prizepool: "Prizepool (dotation)",
 };
 
@@ -108,6 +125,34 @@ const H_ALIGN = { left: "justify-start", center: "justify-center", right: "justi
 const V_ALIGN = { top: "flex-start", center: "center", bottom: "flex-end" };
 const CAROUSEL_LABELS = { structure: "Structure des blinds", eliminated: "Élimination", headsup: "Heads Up", ranking: "Classement", winner: "Vainqueur" };
 
+
+/**
+ * useBoxSize — largeur et hauteur intérieures d'un élément, tenues à jour.
+ *
+ * On lit clientWidth/clientHeight et non getBoundingClientRect : le
+ * contenu de l'horloge est mis à l'échelle par un `zoom` CSS, qui
+ * multiplie les mesures de getBoundingClientRect mais pas celles de la
+ * mise en page. Les tailles calculées ici servent justement à écrire des
+ * pixels DANS ce repère mis à l'échelle.
+ */
+function useBoxSize(ref) {
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    const lire = () =>
+      setSize((prev) => {
+        const w = el.clientWidth;
+        const h = el.clientHeight;
+        return prev.w === w && prev.h === h ? prev : { w, h };
+      });
+    lire();
+    const observateur = new ResizeObserver(lire);
+    observateur.observe(el);
+    return () => observateur.disconnect();
+  }, [ref]);
+  return size;
+}
 
 function hexToRgba(hex, alpha = 1) {
   const clean = (hex || "#000000").replace("#", "");
@@ -355,7 +400,11 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   const [registrations, setRegistrations] = useState([]);
   const [eliminations, setEliminations] = useState([]);
   const [sponsorIdx, setSponsorIdx] = useState(0);
-  const [announcement, setAnnouncement] = useState(null);
+  // Les annonces récentes (les plus récentes d'abord) et, à part, la
+  // liste du tirage des places : le tirage a désormais son propre panneau
+  // et n'occupe plus tout le panneau Annonces.
+  const [announcementsRaw, setAnnouncementsRaw] = useState([]);
+  const [drawPlayers, setDrawPlayers] = useState(null);
   const [tournamentBg, setTournamentBg] = useState(effectiveDesignOnly ? initialLayout?.background || null : null);
   const [bgSaveError, setBgSaveError] = useState(null);
   const [showBgPicker, setShowBgPicker] = useState(false);
@@ -477,15 +526,13 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
     return () => clearInterval(t);
   }, [panels.sponsors?.style?.intervalSeconds]);
 
-  const lastAnnouncementIdRef = useRef(null);
-  const announcementExpireRef = useRef(null);
   useEffect(() => {
-    if (!tournamentId) return;
-    function loadAnnouncement() {
-      fetchRecentAnnouncements(tournamentId, 10)
+    if (!tournamentId) return undefined;
+    function loadAnnouncements() {
+      fetchRecentAnnouncements(tournamentId, 20)
         .then((list) => {
-          // Le tirage des places (défilement vertical continu) prend le
-          // dessus sur tout tant qu'il n'a pas été explicitement arrêté.
+          // Le tirage des places n'est pas une annonce : c'est une liste
+          // qui défile, dans son propre panneau, jusqu'à l'arrêt manuel.
           const drawControl = list.find((a) => a.kind === "draw" || a.kind === "draw_stop");
           if (drawControl?.kind === "draw") {
             let players = [];
@@ -494,34 +541,30 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
             } catch {
               players = [];
             }
-            setAnnouncement({ mode: "draw", players });
-            return;
+            setDrawPlayers(players);
+          } else {
+            setDrawPlayers(null);
           }
-          const latest = list.find((a) => a.kind !== "draw" && a.kind !== "draw_stop");
-          if (!latest) {
-            setAnnouncement(null);
-            return;
-          }
-          if (latest.id !== lastAnnouncementIdRef.current) {
-            lastAnnouncementIdRef.current = latest.id;
-            setAnnouncement({ mode: "ticker", text: latest.text, id: latest.id });
-            clearTimeout(announcementExpireRef.current);
-            // Défile 30 secondes puis disparaît.
-            announcementExpireRef.current = setTimeout(() => setAnnouncement(null), 30000);
-          }
+          setAnnouncementsRaw(list.filter((a) => a.kind !== "draw" && a.kind !== "draw_stop"));
         })
         .catch(() => {});
     }
-    loadAnnouncement();
-    const t = setInterval(loadAnnouncement, 5000);
-    return () => {
-      clearInterval(t);
-      clearTimeout(announcementExpireRef.current);
-    };
+    loadAnnouncements();
+    const t = setInterval(loadAnnouncements, 5000);
+    return () => clearInterval(t);
   }, [tournamentId]);
 
+  // Chaque annonce reste affichée ANNOUNCEMENT_TTL_MS après son écriture,
+  // et plusieurs peuvent donc cohabiter : éliminer un joueur et en
+  // déplacer un autre dans la même minute donne bien deux lignes, l'une
+  // sous l'autre, au lieu d'une seule qui écrasait l'autre.
+  const visibleAnnouncements = useMemo(
+    () => announcementsRaw.filter((a) => nowTs - new Date(a.created_at).getTime() < ANNOUNCEMENT_TTL_MS),
+    [announcementsRaw, nowTs]
+  );
+
   async function handleEditAnnouncement() {
-    const next = prompt("Message à afficher sur le panneau Annonces :", announcement?.mode === "ticker" ? announcement.text : "");
+    const next = prompt("Message à afficher sur le panneau Annonces :", visibleAnnouncements[0]?.text || "");
     if (next === null || !next.trim()) return;
     addAnnouncement(tournamentId, next, "manual");
   }
@@ -643,7 +686,18 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
       playSound(panels.timer.style.levelEndSound, panels.timer.style.levelEndSoundUrl);
     } else setIsRunning(false);
   }
+  // Le bouton "précédent" se fait en deux temps. Premier appui : si le
+  // niveau en cours est entamé, il repart à son temps plein — c'est le
+  // geste courant (on a lancé trop tôt, on veut refaire le niveau) et il
+  // ne fait pas sauter de palier de blinds. Deuxième appui, le niveau
+  // étant alors complet : on recule vraiment d'un niveau.
   function goToPrevLevel() {
+    const total = (levels[levelIndex]?.durationMinutes || 20) * 60;
+    if (secondsLeft < total) {
+      setSecondsLeft(total);
+      persistNow(levelIndex, total, isRunning);
+      return;
+    }
     const prev = Math.max(0, levelIndex - 1);
     const sl = (levels[prev]?.durationMinutes || 20) * 60;
     setLevelIndex(prev);
@@ -725,6 +779,12 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
     breakInSeconds += (levels[i].durationMinutes || 20) * 60;
   }
   if (currentLevel?.isBreak) hasUpcomingBreak = false;
+
+  // La barre de progression est affichée à deux endroits possibles (dans
+  // le panneau Horloge et dans son propre panneau) : le calcul est ici.
+  const progressPercent = inCountdown
+    ? 100 - (countdownSeconds / (COUNTDOWN_WINDOW_HOURS * 3600)) * 100
+    : 100 - (secondsLeft / ((currentLevel?.durationMinutes || 20) * 60)) * 100;
 
   const isLastLevel = levelIndex === levels.length - 1;
   const announcedBreakRef = useRef(false);
@@ -1460,22 +1520,41 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
               {inCountdown ? formatCountdown(countdownSeconds) : formatTime(secondsLeft)}
             </div>
           </PanelBody>
+          {panels.timer.style.showProgress !== false && (
+            <div
+              onClick={handleProgressClick}
+              title={inCountdown ? "Compte à rebours avant le début programmé" : "Cliquer pour ajuster le temps restant"}
+              className={`mt-3 h-1.5 bg-felt-bg rounded-full overflow-hidden mx-1 ${
+                editing || inCountdown ? "" : "cursor-pointer hover:h-2.5 transition-[height]"
+              }`}
+            >
+              <div className="h-full bg-felt-gold pointer-events-none" style={{ width: `${progressPercent}%` }} />
+            </div>
+          )}
+        </Panel>
+      )}
+
+      {!panels.progress.removed && (
+        <Panel id="progress" layout={panels.progress} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Barre de progression" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
+          {panels.progress.style.showTitle && (
+            <div className="text-felt-cream/30 uppercase tracking-wide mb-2 text-center" style={titleStyle(panels.progress.style)}>
+              {panels.progress.style.customTitle || "Progression"}
+            </div>
+          )}
+          {/* La barre occupe toute la hauteur restante : son épaisseur se
+              règle donc en redimensionnant le panneau, sans réglage à
+              part. Elle reste cliquable pour ajuster le temps restant,
+              exactement comme celle du panneau Horloge. */}
           <div
             onClick={handleProgressClick}
             title={inCountdown ? "Compte à rebours avant le début programmé" : "Cliquer pour ajuster le temps restant"}
-            className={`mt-3 h-1.5 bg-felt-bg rounded-full overflow-hidden mx-1 ${
-              editing || inCountdown ? "" : "cursor-pointer hover:h-2.5 transition-[height]"
+            className={`w-full flex-1 min-h-[4px] bg-felt-bg rounded-full overflow-hidden ${
+              editing || inCountdown ? "" : "cursor-pointer"
             }`}
           >
             <div
-              className="h-full bg-felt-gold pointer-events-none"
-              style={{
-                width: `${
-                  inCountdown
-                    ? 100 - (countdownSeconds / (COUNTDOWN_WINDOW_HOURS * 3600)) * 100
-                    : 100 - (secondsLeft / ((currentLevel?.durationMinutes || 20) * 60)) * 100
-                }%`,
-              }}
+              className="h-full pointer-events-none rounded-full"
+              style={{ width: `${progressPercent}%`, backgroundColor: panels.progress.style.barColor || "#C9A15A" }}
             />
           </div>
         </Panel>
@@ -1490,7 +1569,17 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
           )}
           {!editing && (
             <div className={`flex gap-2 ${panels.controls.style.buttonLayout === "col" ? "flex-col" : "flex-row"} ${H_ALIGN[panels.controls.style.buttonAlign] || "justify-center"}`}>
-              <ClockBtn size={panels.controls.style.buttonSize} onClick={goToPrevLevel}>◀</ClockBtn>
+              <ClockBtn
+                size={panels.controls.style.buttonSize}
+                onClick={goToPrevLevel}
+                title={
+                  secondsLeft < (currentLevel?.durationMinutes || 20) * 60
+                    ? "Remettre ce niveau à son temps plein (un second appui recule d'un niveau)"
+                    : "Revenir au niveau précédent"
+                }
+              >
+                ◀
+              </ClockBtn>
               <ClockBtn size={panels.controls.style.buttonSize} primary color={panels.controls.style.buttonColor} onClick={toggleRunning}>
                 {isRunning ? "Pause" : "Lecture"}
               </ClockBtn>
@@ -1730,7 +1819,9 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
       {!panels.eliminated.removed && (
         <Panel id="eliminated" layout={panels.eliminated} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Élimination" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} showAvatarOptions borderColor={panelBorderColor} snapTargets={snapTargets}>
           {panels.eliminated.style.showTitle && <div className="text-felt-cream/30 uppercase tracking-wide mb-2 text-center" style={titleStyle(panels.eliminated.style)}>{panels.eliminated.style.customTitle || "Élimination"}</div>}
-          <EliminatedContent style={panels.eliminated.style} lastElimination={lastElimination} total={registrations.length} textStyle={textStyle} />
+          <div className="flex-1 min-h-0 w-full">
+            <EliminatedContent style={panels.eliminated.style} lastElimination={lastElimination} total={registrations.length} textStyle={textStyle} fill />
+          </div>
         </Panel>
       )}
 
@@ -1782,7 +1873,23 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
               )}
             </div>
           )}
-          <AnnouncementsContent style={panels.announcements.style} announcement={announcement} textStyle={textStyle} />
+          <AnnouncementsContent
+            style={panels.announcements.style}
+            announcements={visibleAnnouncements}
+            textStyle={textStyle}
+            showDrawHint={canEdit && !!drawPlayers && panels.seatdraw.removed}
+          />
+        </Panel>
+      )}
+
+      {!panels.seatdraw.removed && (
+        <Panel id="seatdraw" layout={panels.seatdraw} editing={editing} containerRef={containerRef} onMove={movePanel} onCommit={commitPanels} onResize={resizePanel} onEdgeResize={resizePanelEdge} onRemovePanel={removePanel} defaultTitle="Tirage des places" stylingId={stylingId} setStylingId={setStylingId} onStyleChange={updateStyle} borderColor={panelBorderColor} snapTargets={snapTargets}>
+          {panels.seatdraw.style.showTitle && (
+            <div className="text-felt-cream/30 uppercase tracking-wide mb-2 text-center" style={titleStyle(panels.seatdraw.style)}>
+              {panels.seatdraw.style.customTitle || "Tirage des places"}
+            </div>
+          )}
+          <SeatDrawContent style={panels.seatdraw.style} players={drawPlayers} textStyle={textStyle} />
         </Panel>
       )}
 
@@ -1790,7 +1897,13 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
         <ImagePanel key={im.id} img={im} editing={editing} containerRef={containerRef} zIndex={20} onMove={moveImage} onCommit={commitImages} onResize={resizeImage} onToggleLayer={toggleImageLayer} onToggleFit={toggleImageFit} onToggleGrayscale={toggleImageGrayscale} onRemove={removeImage} />
       ))}
 
-      <style>{`@keyframes pcp-fade { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }`}</style>
+      <style>{`
+        @keyframes pcp-fade { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes pcp-scroll-left { from { transform: translateX(100%); } to { transform: translateX(-100%); } }
+        .animate-pcp-scroll-left { animation: pcp-scroll-left 14s linear infinite; }
+        @keyframes pcp-scroll-up { from { transform: translateY(0); } to { transform: translateY(-50%); } }
+        .animate-pcp-scroll-up { animation-name: pcp-scroll-up; animation-timing-function: linear; animation-iteration-count: infinite; }
+      `}</style>
     </div>
   );
 }
@@ -1857,13 +1970,58 @@ function Avatar({ data, name, size }) {
   );
 }
 
-function EliminatedContent({ style, lastElimination, total, textStyle }) {
-  if (!lastElimination) return <div className="text-felt-cream/40 text-sm text-center">Aucune élimination</div>;
+/**
+ * EliminatedContent — le dernier joueur sorti.
+ *
+ * L'avatar et le nom étaient de taille fixe : sur un panneau agrandi pour
+ * être lu du fond de la salle, ils restaient minuscules au milieu du
+ * vide. Ils se calculent maintenant à partir de la place réellement
+ * disponible. La taille réglée à la main reste accessible en décochant
+ * "Adapter à la taille du panneau".
+ *
+ * "fill" dit si le composant dispose de toute la hauteur du panneau (cas
+ * du panneau Élimination) ou seulement de la largeur (cas du carrousel,
+ * qui empile ses vues à hauteur libre) — sans quoi on mesurerait une
+ * hauteur qui n'est que celle de notre propre contenu.
+ */
+function EliminatedContent({ style, lastElimination, total, textStyle, fill = false }) {
+  const boxRef = useRef(null);
+  const { w, h } = useBoxSize(boxRef);
+  const auto = style.avatarAutoFit !== false;
+  const hauteurUtile = fill && h > 0 ? h : Infinity;
+  const avatarSize =
+    auto && w > 0 ? clamp(Math.round(Math.min(w * 0.55, hauteurUtile * 0.5)), 32, 460) : style.avatarSize || 88;
+  const nomSize =
+    auto && w > 0 ? clamp(Math.round(Math.min(w * 0.13, hauteurUtile * 0.16)), 11, 140) : style.fontSize;
+  const placeSize = Math.max(9, Math.round(nomSize * 0.52));
+
+  if (!lastElimination) {
+    return (
+      <div ref={boxRef} className={`w-full ${fill ? "h-full" : ""} flex items-center justify-center`}>
+        <span className="text-felt-cream/40 text-sm text-center">Aucune élimination</span>
+      </div>
+    );
+  }
   return (
-    <div className="flex flex-col items-center gap-1">
-      <Avatar data={lastElimination.registrations?.accounts?.avatar_data} name={lastElimination.registrations?.players?.full_name} size={style.avatarSize || 88} />
-      <div style={textStyle(style)}>{lastElimination.registrations?.players?.full_name}</div>
-      <div className="text-felt-gold text-xs">{lastElimination.finish_position} / {total}</div>
+    <div
+      ref={boxRef}
+      className={`w-full ${fill ? "h-full justify-center" : ""} flex flex-col items-center overflow-hidden`}
+      style={{ gap: `${Math.max(2, Math.round(nomSize * 0.22))}px` }}
+    >
+      <Avatar
+        data={lastElimination.registrations?.accounts?.avatar_data}
+        name={lastElimination.registrations?.players?.full_name}
+        size={avatarSize}
+      />
+      <div
+        className="w-full text-center break-words"
+        style={{ ...textStyle(style), fontSize: `${nomSize}px`, textAlign: "center", lineHeight: 1.1 }}
+      >
+        {lastElimination.registrations?.players?.full_name}
+      </div>
+      <div className="text-felt-gold" style={{ fontSize: `${placeSize}px` }}>
+        {lastElimination.finish_position} / {total}
+      </div>
     </div>
   );
 }
@@ -1925,46 +2083,103 @@ function SponsorsContent({ style, sponsorIdx }) {
   );
 }
 
-function AnnouncementsContent({ style, announcement, textStyle }) {
-  if (!announcement) {
-    return <div className="text-felt-cream/30 text-sm text-center">Aucune annonce pour le moment.</div>;
-  }
+/**
+ * AnnouncementsContent — les annonces récentes, empilées.
+ *
+ * Auparavant une seule annonce tenait le panneau : éliminer un joueur et
+ * en déplacer un autre dans la même minute n'en laissait voir qu'une. Ici
+ * toutes celles encore valables s'affichent, la plus récente en haut,
+ * séparées d'un espace.
+ *
+ * La taille du texte descend avec la place disponible et avec le nombre
+ * d'annonces, mais ne dépasse JAMAIS la taille réglée dans le panneau :
+ * c'est elle le plafond, pour qu'une annonce seule sur un grand panneau
+ * ne devienne pas démesurée.
+ */
+function AnnouncementsContent({ style, announcements, textStyle, showDrawHint }) {
+  const boxRef = useRef(null);
+  const { w, h } = useBoxSize(boxRef);
 
-  if (announcement.mode === "draw") {
-    const players = announcement.players || [];
-    if (players.length === 0) {
-      return <div className="text-felt-cream/30 text-sm text-center">Tirage en cours…</div>;
-    }
-    // Boucle continue : la liste est dupliquée pour un défilement sans
-    // coupure visible, vers le haut, jusqu'à l'arrêt manuel.
-    const duration = Math.max(8, players.length * 1.6);
+  if (!announcements || announcements.length === 0) {
     return (
-      <div className="w-full h-full overflow-hidden relative">
-        <div className="absolute inset-x-0 animate-pcp-scroll-up" style={{ animationDuration: `${duration}s` }}>
-          {[...players, ...players].map((p, i) => (
-            <div key={i} className="text-center py-1" style={textStyle(style)}>
-              {p.pseudo} — Table {p.table} Siège {p.seat}
-            </div>
-          ))}
-        </div>
-        <style>{`
-          @keyframes pcp-scroll-up { from { transform: translateY(0); } to { transform: translateY(-50%); } }
-          .animate-pcp-scroll-up { animation-name: pcp-scroll-up; animation-timing-function: linear; animation-iteration-count: infinite; }
-        `}</style>
+      <div ref={boxRef} className="w-full h-full flex items-center justify-center text-center">
+        <span className="text-felt-cream/30 text-sm">
+          {showDrawHint
+            ? "Tirage des places en cours — ajoute le panneau « Tirage des places » pour l'afficher."
+            : "Aucune annonce pour le moment."}
+        </span>
       </div>
     );
   }
 
-  // Mode "ticker" : défilement horizontal continu, de droite à gauche.
+  // Au-delà de ce que la hauteur peut porter lisiblement, on garde les
+  // plus récentes plutôt que de tout tasser jusqu'à l'illisible.
+  const maxLignes = h > 0 ? Math.max(1, Math.floor((h + ANNOUNCEMENT_GAP) / (14 + ANNOUNCEMENT_GAP))) : 3;
+  const visibles = announcements.slice(0, maxLignes);
+  const n = visibles.length;
+  const plafond = style.fontSize || 18;
+  const dispo = Math.max(0, h - ANNOUNCEMENT_GAP * (n - 1));
+  const taille = h > 0 ? clamp(Math.floor((dispo / n) * 0.62), 9, plafond) : plafond;
+
   return (
-    <div className="w-full h-full overflow-hidden relative flex items-center">
-      <div className="whitespace-nowrap animate-pcp-scroll-left" style={textStyle(style)}>
-        {announcement.text}
+    <div
+      ref={boxRef}
+      className="w-full h-full flex flex-col justify-center overflow-hidden"
+      style={{ gap: `${ANNOUNCEMENT_GAP}px` }}
+    >
+      {visibles.map((a) => (
+        <AnnouncementLine key={a.id} text={a.text} style={style} textStyle={textStyle} fontSize={taille} boxWidth={w} />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Une ligne d'annonce. Elle ne défile que si elle est trop longue pour la
+ * largeur du panneau : une annonce courte reste posée, lisible d'un coup
+ * d'œil, au lieu de traverser l'écran pour rien.
+ */
+function AnnouncementLine({ text, style, textStyle, fontSize, boxWidth }) {
+  const ref = useRef(null);
+  const [defile, setDefile] = useState(false);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    setDefile(el.scrollWidth > el.clientWidth + 1);
+  }, [text, fontSize, boxWidth]);
+  return (
+    <div
+      ref={ref}
+      className="w-full overflow-hidden whitespace-nowrap shrink-0"
+      style={{ ...textStyle(style), fontSize: `${fontSize}px`, lineHeight: 1.2, textAlign: style.align || "center" }}
+    >
+      <span className={`inline-block ${defile ? "animate-pcp-scroll-left" : ""}`}>{text}</span>
+    </div>
+  );
+}
+
+/**
+ * SeatDrawContent — la liste du tirage des places, en défilement vertical
+ * continu. Elle occupait le panneau Annonces et l'accaparait entièrement ;
+ * elle a désormais son propre panneau, et les annonces continuent de
+ * s'afficher pendant le tirage.
+ */
+function SeatDrawContent({ style, players, textStyle }) {
+  if (!players || players.length === 0) {
+    return <div className="text-felt-cream/30 text-sm text-center">Aucun tirage en cours.</div>;
+  }
+  // Boucle continue : la liste est dupliquée pour un défilement sans
+  // coupure visible, jusqu'à l'arrêt manuel.
+  const duration = Math.max(8, players.length * 1.6);
+  return (
+    <div className="w-full h-full overflow-hidden relative">
+      <div className="absolute inset-x-0 animate-pcp-scroll-up" style={{ animationDuration: `${duration}s` }}>
+        {[...players, ...players].map((p, i) => (
+          <div key={i} className="text-center py-1" style={textStyle(style)}>
+            {p.pseudo} — Table {p.table} Siège {p.seat}
+          </div>
+        ))}
       </div>
-      <style>{`
-        @keyframes pcp-scroll-left { from { transform: translateX(100%); } to { transform: translateX(-100%); } }
-        .animate-pcp-scroll-left { animation: pcp-scroll-left 14s linear infinite; }
-      `}</style>
     </div>
   );
 }
@@ -2162,6 +2377,7 @@ function Panel({ id, layout, editing, containerRef, onMove, onCommit, onResize, 
 
   return (
     <div
+      data-panel={id}
       onPointerDown={h.handlePointerDown}
       onPointerMove={h.handlePointerMove}
       onPointerUp={h.handlePointerUp}
@@ -2340,7 +2556,24 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
           placeholder={defaultTitle}
           className="w-full mt-1 bg-felt-panel border border-felt-cream/10 rounded px-1.5 py-1 text-felt-cream placeholder:text-felt-cream/30"
         />
-        {defaultTitle === "Horloge" && (
+        {defaultTitle === "Barre de progression" && (
+        <>
+          <div className="border-t border-felt-cream/10 my-2 pt-2 text-felt-cream/50">Barre</div>
+          <label className="flex items-center justify-between mb-2">
+            Couleur
+            <input
+              type="color"
+              value={style.barColor || "#C9A15A"}
+              onChange={(e) => onChange({ barColor: e.target.value })}
+              className="w-8 h-6 bg-transparent cursor-pointer"
+            />
+          </label>
+          <div className="text-[11px] text-felt-cream/35 mb-2">
+            L'épaisseur suit la hauteur du panneau : redimensionne-le pour l'ajuster.
+          </div>
+        </>
+      )}
+      {defaultTitle === "Horloge" && (
           <div className="text-[10px] text-felt-cream/40 mt-1">
             Utilisez <code className="text-felt-gold/70">{"{n}"}</code> pour le numéro de niveau (ex: « LEVEL {"{n}"} »
             → LEVEL 1, LEVEL 2...). Sans ça, le texte reste figé et ne suit pas le niveau.
@@ -2394,6 +2627,13 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
             Centrer le temps (sans toucher au titre)
             <input type="checkbox" checked={!!style.centerTime} onChange={(e) => onChange({ centerTime: e.target.checked })} />
           </label>
+          <label className="flex items-center justify-between mb-2">
+            Afficher la barre de progression
+            <input type="checkbox" checked={style.showProgress !== false} onChange={(e) => onChange({ showProgress: e.target.checked })} />
+          </label>
+          <div className="text-[11px] text-felt-cream/35 mb-2 -mt-1">
+            Décoche si tu utilises le panneau « Barre de progression » à part.
+          </div>
           <label className="flex items-center justify-between mb-2">
             Son à 1 minute restante
             <select
@@ -2627,14 +2867,23 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
 
       {showAvatarOptions && (
         <>
-          <div className="border-t border-felt-cream/10 my-2 pt-2 text-felt-cream/50">Avatar</div>
+          <div className="border-t border-felt-cream/10 my-2 pt-2 text-felt-cream/50">Avatar et nom</div>
+          <label className="flex items-center justify-between mb-2">
+            Adapter à la taille du panneau
+            <input
+              type="checkbox"
+              checked={style.avatarAutoFit !== false}
+              onChange={(e) => onChange({ avatarAutoFit: e.target.checked })}
+            />
+          </label>
           <label className="flex items-center justify-between mb-2">
             Taille (px)
             <input
               type="number"
+              disabled={style.avatarAutoFit !== false}
               value={style.avatarSize || 88}
               onChange={(e) => onChange({ avatarSize: Number(e.target.value) || 40 })}
-              className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-1 py-0.5 text-felt-cream"
+              className="w-16 bg-felt-panel border border-felt-cream/10 rounded px-1 py-0.5 text-felt-cream disabled:opacity-30"
             />
           </label>
         </>
@@ -2765,10 +3014,11 @@ function StylePopover({ style, defaultTitle, showButtonOptions, showCarouselOpti
   );
 }
 
-function ClockBtn({ children, onClick, primary, size = "md", color }) {
+function ClockBtn({ children, onClick, primary, size = "md", color, title }) {
   return (
     <button
       onClick={onClick}
+      title={title}
       style={primary && color ? { backgroundColor: color, color: "#14181C" } : undefined}
       className={`rounded-md font-display ${BUTTON_SIZE[size] || BUTTON_SIZE.md} ${
         primary ? (color ? "" : "bg-felt-gold text-felt-bg") : "bg-felt-bg text-felt-cream border border-felt-cream/10"

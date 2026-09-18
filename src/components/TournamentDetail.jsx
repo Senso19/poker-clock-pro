@@ -853,10 +853,14 @@ export default function TournamentDetail({ tournamentId, onBack }) {
               >
                 <span>⇄</span> {shuffling ? "Tirage…" : "Tirer les places"}
               </button>
+              {/* Le texte de cette ligne n'est jamais affiché (les lignes
+                  draw_stop ne passent pas par les annonces), mais il ne
+                  peut pas être vide : addAnnouncement refuse les messages
+                  vides, si bien que ce bouton ne faisait rien du tout. */}
               {tournament?.seats_drawn && (
                 <button
-                  onClick={() => addAnnouncement(tournamentId, "", "draw_stop")}
-                  title="Arrêter le défilement du tirage sur le panneau Annonces"
+                  onClick={() => addAnnouncement(tournamentId, "Arrêt du défilement du tirage", "draw_stop")}
+                  title="Arrêter le défilement du tirage sur le panneau Tirage des places"
                   className="text-sm text-felt-cream/50 hover:text-felt-cream flex items-center gap-1.5"
                 >
                   <span>⏹</span> Stop défilement tirage

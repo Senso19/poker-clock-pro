@@ -161,7 +161,16 @@ export default function MobileClockView({ levels, canEdit: canEditOverride }) {
     if (next) setTournamentMeta((m) => (m ? { ...m, clock_started: true } : m));
     persistNow(levelIndex, secondsLeft, next);
   }
+  // Deux temps, comme sur l'horloge du grand écran : si le niveau en
+  // cours est entamé, le premier appui le remet à son temps plein ; c'est
+  // seulement le suivant qui recule d'un niveau.
   function goPrev() {
+    const total = (levels[levelIndex]?.durationMinutes || 20) * 60;
+    if (secondsLeft < total) {
+      setSecondsLeft(total);
+      persistNow(levelIndex, total, isRunning);
+      return;
+    }
     const prev = Math.max(0, levelIndex - 1);
     const sl = (levels[prev]?.durationMinutes || 20) * 60;
     setLevelIndex(prev);
