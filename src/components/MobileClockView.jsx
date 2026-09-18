@@ -57,6 +57,23 @@ export default function MobileClockView({ levels, canEdit: canEditOverride }) {
   const [registrations, setRegistrations] = useState([]);
   const [eliminations, setEliminations] = useState([]);
   const [showStructure, setShowStructure] = useState(false);
+
+  // La structure peut être modifiée en pleine partie. Si le niveau courant
+  // devient plus court que le temps encore affiché, le rebours doit
+  // suivre : sans ça l'horloge restait sur l'ancienne durée — un niveau 17
+  // ramené de 20 à 10 minutes continuait d'afficher 20:00 jusqu'au
+  // changement de niveau.
+  //
+  // On raccourcit seulement, jamais l'inverse : rallonger un niveau ne
+  // doit pas rendre du temps déjà joué. La dépendance porte sur la DURÉE
+  // et non sur le tableau des niveaux, qui est relu toutes les 10 secondes
+  // et change d'identité à chaque fois.
+  const dureeNiveauSec = (levels[levelIndex]?.durationMinutes || 0) * 60;
+  useEffect(() => {
+    if (!dureeNiveauSec) return;
+    setSecondsLeft((s) => (s > dureeNiveauSec ? dureeNiveauSec : s));
+  }, [dureeNiveauSec]);
+
   const intervalRef = useRef(null);
   const clockStateRef = useRef({ levelIndex: 0, secondsLeft: 0, isRunning: false });
 

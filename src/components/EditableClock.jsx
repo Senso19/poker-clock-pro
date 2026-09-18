@@ -424,6 +424,22 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
     return () => clearInterval(t);
   }, [effectiveDesignOnly, tournamentId]);
 
+  // La structure peut être modifiée en pleine partie. Si le niveau courant
+  // devient plus court que le temps encore affiché, le rebours doit
+  // suivre : sans ça l'horloge restait sur l'ancienne durée — un niveau 17
+  // ramené de 20 à 10 minutes continuait d'afficher 20:00 jusqu'au
+  // changement de niveau.
+  //
+  // On raccourcit seulement, jamais l'inverse : rallonger un niveau ne
+  // doit pas rendre du temps déjà joué. La dépendance porte sur la DURÉE
+  // et non sur le tableau des niveaux, qui est relu toutes les 10 secondes
+  // et change d'identité à chaque fois.
+  const dureeNiveauSec = (levels[levelIndex]?.durationMinutes || 0) * 60;
+  useEffect(() => {
+    if (!dureeNiveauSec) return;
+    setSecondsLeft((s) => (s > dureeNiveauSec ? dureeNiveauSec : s));
+  }, [dureeNiveauSec]);
+
   // Sauvegarde périodique de l'état de l'horloge (toutes les 5s) via une ref
   // pour toujours écrire la valeur la plus récente sans redémarrer l'intervalle.
   useEffect(() => {
