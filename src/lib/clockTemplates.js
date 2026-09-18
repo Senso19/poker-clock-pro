@@ -1,5 +1,4 @@
 import { supabase } from "./supabase.js";
-import { saveClubTheme } from "./clubSettings.js";
 
 /**
  * clockTemplates.js — modèles réutilisables de disposition d'horloge
@@ -36,12 +35,6 @@ export async function deleteClockTemplate(id) {
   if (error) throw error;
 }
 
-export async function applyClockTemplateAsActive(layout) {
-  const { data: existing } = await supabase.from("club_settings").select("id, theme").limit(1).maybeSingle();
-  const nextTheme = { ...(existing?.theme || {}), layout };
-  if (layout?.background) nextTheme.background = layout.background;
-  await saveClubTheme(nextTheme);
-}
 
 // Applique un modèle d'horloge à UN tournoi précis (tournaments.clock_layout
 // et clock_background), sans toucher à la disposition par défaut du club.

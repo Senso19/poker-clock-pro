@@ -59,13 +59,3 @@ export async function exportResultsToExcel(tournamentName, results) {
   XLSX.writeFile(wb, `${tournamentName}-resultats.xlsx`);
 }
 
-export async function syncToGoogleSheets(webhookUrl, payload) {
-  if (!webhookUrl) throw new Error("Aucune URL de webhook Sheets configurée.");
-  const res = await fetch(webhookUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) throw new Error("Échec de la synchronisation Sheets.");
-  return res.json().catch(() => ({}));
-}

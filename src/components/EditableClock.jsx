@@ -3,7 +3,7 @@ import { saveClubTheme } from "../lib/clubSettings.js";
 import { supabase } from "../lib/supabase.js";
 import { useTheme } from "../context/ThemeContext.jsx";
 import { fetchCurrentTournament } from "../lib/tournaments.js";
-import { saveClockState, secondsUntilScheduledStart, COUNTDOWN_WINDOW_HOURS, advanceForElapsed } from "../lib/clockState.js";
+import { saveClockState, oublierEtatClockEcrit, secondsUntilScheduledStart, COUNTDOWN_WINDOW_HOURS, advanceForElapsed } from "../lib/clockState.js";
 import { playSound, SOUND_OPTIONS } from "../lib/sounds.js";
 import { addAnnouncement, fetchRecentAnnouncements } from "../lib/announcements.js";
 import { computeFinishPositions, computeTournamentPoints, fetchChampionshipStandings } from "../lib/points.js";
@@ -116,6 +116,10 @@ const RANKING_ROWS = 0;
 // (deux requêtes par étape) : on ne le relit donc pas au rythme du reste
 // de l'horloge. Il ne bouge de toute façon qu'à la fin d'une étape.
 const CHAMP_RANKING_REFRESH_MS = 120000;
+// Intervalle du tour complet des avatars (voir chargerAvatars). Cinq
+// minutes : assez rare pour ne plus rien peser, assez fréquent pour qu'un
+// changement de photo apparaisse sans rechargement.
+const AVATARS_REFRESH_MS = 300000;
 // Espace vertical entre deux annonces empilées, et taille en dessous de
 // laquelle on préfère faire défiler la liste plutôt que de tasser encore.
 const ANNOUNCEMENT_GAP = 6;
@@ -548,8 +552,16 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   useEffect(() => {
     if (!awaitingScheduledStart || !tournamentId) return;
     const refresh = setInterval(async () => {
-      const { data } = await supabase.from("tournaments").select("*").eq("id", tournamentId).maybeSingle();
-      if (data) setTournamentMeta(data);
+      // Trois colonnes, pas la ligne entière : celle-ci porte la
+      // disposition et le fond de l'horloge, ~884 kB qu'il serait absurde
+      // de retélécharger toutes les 30 secondes pour lire un booléen.
+      // (Ce sont exactement les champs que cet écran lit de tournamentMeta.)
+      const { data } = await supabase
+        .from("tournaments")
+        .select("id, scheduled_at, clock_started, championship_id")
+        .eq("id", tournamentId)
+        .maybeSingle();
+      if (data) setTournamentMeta((m) => ({ ...m, ...data }));
     }, 30000);
     return () => clearInterval(refresh);
   }, [awaitingScheduledStart, tournamentId]);
@@ -714,19 +726,56 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
     addAnnouncement(tournamentId, next, "manual");
   }
 
+  /**
+   * Avatars des membres, gardés de côté et rechargés rarement.
+   *
+   * Ce sont des images en base64 stockées dans la colonne, ~92 kB pièce.
+   * Elles étaient jointes aux inscriptions ET aux éliminations, relues
+   * toutes les 5 secondes : sur un tournoi de 80 joueurs, ~470 kB par
+   * sondage, soit de l'ordre de 340 Mo par heure sur l'écran de la salle —
+   * pour des images qui ne changent quasiment jamais en cours de partie.
+   *
+   * On ne demande donc que les avatars encore inconnus, et on refait le
+   * tour complet toutes les AVATARS_REFRESH_MS pour qu'un membre qui
+   * change de photo finisse par apparaître sans rechargement de page.
+   */
+  const avatarsRef = useRef({ parCompte: new Map(), dernierTourComplet: 0 });
+
+  async function chargerAvatars(idsComptes) {
+    const cache = avatarsRef.current;
+    const tourComplet = Date.now() - cache.dernierTourComplet > AVATARS_REFRESH_MS;
+    const aDemander = idsComptes.filter((id) => tourComplet || !cache.parCompte.has(id));
+    if (aDemander.length === 0) return;
+    const { data } = await supabase.from("accounts").select("id, avatar_data").in("id", aDemander);
+    for (const compte of data || []) cache.parCompte.set(compte.id, compte.avatar_data || null);
+    if (tourComplet) cache.dernierTourComplet = Date.now();
+  }
+
   async function fetchRegsAndElims(tId) {
     const { data: regs } = await supabase
       .from("registrations")
-      .select("*, players(full_name), accounts(avatar_data)")
+      .select("*, players(full_name)")
       .eq("tournament_id", tId);
     const { data: elims } = await supabase
       .from("eliminations")
-      .select("*, registrations!eliminations_registration_id_fkey(players(full_name), accounts(avatar_data))")
+      .select("*, registrations!eliminations_registration_id_fkey(id, account_id, players(full_name))")
       .eq("tournament_id", tId)
       .eq("undone", false)
       .order("finish_position", { ascending: true });
-    setRegistrations(regs || []);
-    setEliminations(elims || []);
+
+    const idsComptes = [
+      ...new Set(
+        [...(regs || []).map((r) => r.account_id), ...(elims || []).map((e) => e.registrations?.account_id)].filter(Boolean)
+      ),
+    ];
+    await chargerAvatars(idsComptes);
+
+    // On réinjecte l'avatar sous la forme que produisait la jointure, pour
+    // que tout ce qui lit `.accounts.avatar_data` continue de marcher.
+    const avecAvatar = (r) =>
+      r ? { ...r, accounts: { avatar_data: avatarsRef.current.parCompte.get(r.account_id) || null } } : r;
+    setRegistrations((regs || []).map(avecAvatar));
+    setEliminations((elims || []).map((e) => ({ ...e, registrations: avecAvatar(e.registrations) })));
   }
 
   /**
@@ -770,6 +819,10 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   async function initTournament() {
     const t = await fetchCurrentTournament();
     if (!t) return;
+    // On vient de relire l'état depuis la base : ce qu'on croyait y avoir
+    // écrit ne fait plus foi (une autre tablette a pu bouger l'horloge
+    // entre-temps).
+    oublierEtatClockEcrit(t.id);
     setTournamentId(t.id);
     setTournamentMeta(t);
     // Dès qu'on connaît le tournoi, on gère sa propre disposition d'horloge

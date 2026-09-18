@@ -320,14 +320,6 @@ export async function setSiteUrl(url) {
   await upsertClubSettings({ site_url: url || null });
 }
 
-// Message live diffusé sur le panneau "Annonces" de l'horloge (texte libre,
-// modifiable par l'admin/TD/floor depuis le panneau lui-même).
-export async function setLiveAnnouncement(text) {
-  await upsertClubSettings({
-    live_announcement: text || null,
-    live_announcement_updated_at: new Date().toISOString(),
-  });
-}
 
 export async function updateOwnProfile(id, { pseudo, firstName, lastName, email, avatarData }) {
   const payload = {

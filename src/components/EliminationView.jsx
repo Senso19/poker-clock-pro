@@ -5,7 +5,7 @@ import { sortByPlayerLabel } from "../lib/players.js";
 import { eliminatePlayer } from "../lib/eliminations.js";
 import EliminationPicker from "./EliminationPicker.jsx";
 import { fetchCurrentTournament } from "../lib/tournaments.js";
-import { fetchMyTables } from "../lib/auth.js";
+import { fetchMyTables, canEliminateAnyone, ROLE_LABELS } from "../lib/auth.js";
 import { useAccount } from "../context/AccountContext.jsx";
 import CustomizablePanel from "./CustomizablePanel.jsx";
 
@@ -19,7 +19,7 @@ export default function EliminationView() {
   const [tournament, setTournament] = useState(null);
   const [registrations, setRegistrations] = useState([]);
   const [eliminations, setEliminations] = useState([]);
-  const [myTables, setMyTables] = useState(null); // null = pas de restriction (floor)
+  const [myTables, setMyTables] = useState(null); // null = pas de restriction
   const [loading, setLoading] = useState(true);
   const [eliminatingReg, setEliminatingReg] = useState(null);
 
@@ -32,8 +32,16 @@ export default function EliminationView() {
     const t = await fetchCurrentTournament();
     setTournament(t);
     if (t) {
-      if (account.role === "table_captain") {
+      // Le cloisonnement aux tables assignées suit la permission « Éliminer
+      // n'importe quel joueur », pas le rôle : cette case est réglable par
+      // l'administrateur dans la matrice des droits, et elle ne servait à
+      // rien — la restriction était écrite en dur sur le rôle chef de
+      // table. La décocher pour un floor ne changeait rien ; la cocher pour
+      // un chef de table non plus.
+      if (!canEliminateAnyone(account.role)) {
         setMyTables(await fetchMyTables(t.id, account.id));
+      } else {
+        setMyTables(null);
       }
       await loadData(t.id);
     }
@@ -93,7 +101,7 @@ export default function EliminationView() {
       <div className="text-xs text-felt-cream/40 mb-4">
         {myTables !== null
           ? myTables.length > 0
-            ? `Chef de table — Table${myTables.length > 1 ? "s" : ""} ${myTables.join(", ")}`
+            ? `${ROLE_LABELS[account.role] || "Accès limité"} — Table${myTables.length > 1 ? "s" : ""} ${myTables.join(", ")}`
             : "Aucune table ne t'est assignée pour ce tournoi."
           : "Floor — toutes les tables"}
       </div>

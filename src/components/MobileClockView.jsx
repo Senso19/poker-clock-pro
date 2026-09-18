@@ -123,8 +123,15 @@ export default function MobileClockView({ levels, canEdit: canEditOverride }) {
     if (!awaitingScheduledStart || !tournamentId) return;
     const tick = setInterval(() => setNowTs(Date.now()), 1000);
     const refresh = setInterval(async () => {
-      const { data } = await supabase.from("tournaments").select("*").eq("id", tournamentId).maybeSingle();
-      if (data) setTournamentMeta(data);
+      // Deux colonnes, pas la ligne entière : elle porte la disposition et
+      // le fond de l'horloge (~884 kB). Sur un téléphone en 4G, c'était le
+      // plus gros poste de consommation de cet écran.
+      const { data } = await supabase
+        .from("tournaments")
+        .select("id, scheduled_at, clock_started")
+        .eq("id", tournamentId)
+        .maybeSingle();
+      if (data) setTournamentMeta((m) => ({ ...m, ...data }));
     }, 30000);
     return () => {
       clearInterval(tick);

@@ -6,7 +6,24 @@ import { supabase } from "./supabase.js";
  * l'horloge continue correctement même après un changement d'onglet, un
  * rechargement de page, ou depuis un autre appareil.
  */
+// Dernier état ÉCRIT AVEC SUCCÈS pour chaque tournoi. Sert à ne pas
+// réécrire ce qui est déjà en base : l'horloge appelle cette fonction
+// toutes les 5 secondes, y compris à l'arrêt, où rien ne change jamais.
+// Un écran de salle allumé la journée écrivait ainsi ~720 fois par heure
+// une ligne identique — et ce n'est pas une petite ligne : la disposition
+// et le fond du tournoi vivent dans la même, que Postgres recopie en
+// entier à chaque mise à jour.
+//
+// On ne retient QUE les écritures réussies : après un échec (réseau
+// coupé en pleine partie), l'état suivant est forcément vu comme
+// différent et repart en base.
+const dernierEtatEcrit = new Map();
+
 export async function saveClockState(tournamentId, { levelIndex, secondsLeft, isRunning }) {
+  const connu = dernierEtatEcrit.get(tournamentId);
+  if (connu && connu.levelIndex === levelIndex && connu.secondsLeft === secondsLeft && connu.isRunning === isRunning) {
+    return;
+  }
   const payload = {
     clock_level_index: levelIndex,
     clock_seconds_left: secondsLeft,
@@ -18,7 +35,21 @@ export async function saveClockState(tournamentId, { levelIndex, secondsLeft, is
   // "Programmé") — voir statusForTournament dans TournamentsGrid.
   if (isRunning) payload.clock_started = true;
   const { error } = await supabase.from("tournaments").update(payload).eq("id", tournamentId);
-  if (error) throw error;
+  if (error) {
+    dernierEtatEcrit.delete(tournamentId);
+    throw error;
+  }
+  dernierEtatEcrit.set(tournamentId, { levelIndex, secondsLeft, isRunning });
+}
+
+/**
+ * À appeler quand l'état en base a pu changer sans passer par ici — une
+ * autre tablette a bougé l'horloge, par exemple. Le prochain
+ * saveClockState réécrira alors même si les valeurs locales n'ont pas
+ * bougé.
+ */
+export function oublierEtatClockEcrit(tournamentId) {
+  dernierEtatEcrit.delete(tournamentId);
 }
 
 // Fenêtre, en heures, pendant laquelle l'horloge d'un tournoi encore
