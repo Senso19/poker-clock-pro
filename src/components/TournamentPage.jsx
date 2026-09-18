@@ -183,7 +183,7 @@ export default function TournamentPage({ tournamentId, onBack }) {
               </div>
             </div>
           ))}
-        {tab === "tables" && <TablesView tournamentId={tournamentId} />}
+        {tab === "tables" && <TablesView tournamentId={tournamentId} manage={manage} />}
         {tab === "players" &&
           (manage ? (
             <TournamentDetail tournamentId={tournamentId} onBack={onBack} />

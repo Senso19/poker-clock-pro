@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase.js";
 import ClubLoader from "./ClubLoader.jsx";
 import CustomizablePanel from "./CustomizablePanel.jsx";
@@ -6,31 +6,37 @@ import { playerLabel } from "../lib/players.js";
 
 /**
  * TablesView — onglet "Tables" : les joueurs regroupés par table, une
- * carte par table bien détachée de la suivante, et une teinte alternée
- * d'une table à l'autre pour les distinguer d'un coup d'œil de loin
- * (l'écran est souvent consulté debout, à distance).
+ * carte par table, lisible de loin et au doigt sur un téléphone.
  *
- * Vue en lecture seule : le placement se modifie dans l'onglet Joueurs
- * (glisser-déposer de la vue des tables) ou via "Équilibrer les tables".
- * Elle se relit toute seule pour rester juste pendant la partie.
+ * Chaque ligne suit le même gabarit : numéro de siège, avatar, pseudo,
+ * puis le menu ⋮ des actions de placement. Les montants de jetons ne
+ * figurent pas ici — cet écran sert à savoir qui est assis où ; les
+ * tapis, rebuys et éliminations restent dans l'onglet Joueurs.
+ *
+ * La vue se relit toute seule pour rester juste pendant la partie.
  */
-export default function TablesView({ tournamentId }) {
+export default function TablesView({ tournamentId, manage = false }) {
   const [registrations, setRegistrations] = useState([]);
   const [eliminatedIds, setEliminatedIds] = useState(new Set());
+  const [perTable, setPerTable] = useState(9);
   const [loading, setLoading] = useState(true);
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [movingReg, setMovingReg] = useState(null);
 
   const load = useCallback(
     async ({ silent = false } = {}) => {
       if (!silent) setLoading(true);
-      const [{ data: regs }, { data: elims }] = await Promise.all([
+      const [{ data: regs }, { data: elims }, { data: tournoi }] = await Promise.all([
         supabase
           .from("registrations")
           .select("*, players(pseudo, full_name), accounts(pseudo, avatar_data)")
           .eq("tournament_id", tournamentId),
         supabase.from("eliminations").select("registration_id").eq("tournament_id", tournamentId).eq("undone", false),
+        supabase.from("tournaments").select("players_per_table").eq("id", tournamentId).maybeSingle(),
       ]);
       setRegistrations(regs || []);
       setEliminatedIds(new Set((elims || []).map((e) => e.registration_id)));
+      setPerTable(tournoi?.players_per_table || 9);
       if (!silent) setLoading(false);
     },
     [tournamentId]
@@ -42,102 +48,284 @@ export default function TablesView({ tournamentId }) {
     return () => clearInterval(t);
   }, [load]);
 
+  // Un clic n'importe où ailleurs referme le menu ⋮ ouvert, comme dans
+  // l'onglet Joueurs.
+  useEffect(() => {
+    if (!openMenuId) return undefined;
+    const close = () => setOpenMenuId(null);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [openMenuId]);
+
+  async function deplacer(regId, table, seat) {
+    await supabase.from("registrations").update({ table_number: table, seat_number: seat }).eq("id", regId);
+    setMovingReg(null);
+    setOpenMenuId(null);
+    load({ silent: true });
+  }
+
+  async function libererSiege(regId) {
+    await supabase.from("registrations").update({ table_number: null, seat_number: null }).eq("id", regId);
+    setOpenMenuId(null);
+    load({ silent: true });
+  }
+
   if (loading) return <ClubLoader />;
 
   // Les joueurs sans table sont regroupés à part plutôt que masqués : un
-  // joueur non placé est justement ce qu'on cherche à repérer sur cet écran.
-  const seated = registrations.filter((r) => r.table_number);
-  const unseated = registrations.filter((r) => !r.table_number);
-  const tableNumbers = [...new Set(seated.map((r) => r.table_number))].sort((a, b) => a - b);
+  // joueur non placé est justement ce qu'on cherche à repérer ici.
+  const assis = registrations.filter((r) => r.table_number);
+  const sansTable = registrations.filter((r) => !r.table_number);
+  const numerosTables = [...new Set(assis.map((r) => r.table_number))].sort((a, b) => a - b);
 
-  if (tableNumbers.length === 0 && unseated.length === 0) {
+  if (numerosTables.length === 0 && sansTable.length === 0) {
     return <div className="p-6 text-felt-cream/60 font-body">Aucun joueur inscrit.</div>;
   }
 
   return (
-    <div className="p-4 sm:p-6 font-body text-white h-full overflow-y-auto">
-      {/* Plusieurs cartes par rangée, et elles suivent les réglages 🎨 du
-          tableau (fond des cellules, espacement, survol) comme partout
-          ailleurs dans l'app. */}
+    <div className="p-3 sm:p-6 font-body text-white h-full overflow-y-auto">
+      {/* Une carte par table, empilées sur téléphone et côte à côte dès
+          qu'il y a la largeur pour. Elles suivent les réglages 🎨 du
+          tableau comme partout ailleurs dans l'app. */}
       <CustomizablePanel
         panelKey="tables-view"
         defaultWidth="1 1 100%"
-        className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-6 items-start"
+        className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-4 sm:gap-6 items-start"
       >
-        {tableNumbers.map((num, i) => {
-          const players = seated
+        {numerosTables.map((num) => {
+          const joueurs = assis
             .filter((r) => r.table_number === num)
             .sort((a, b) => (a.seat_number || 99) - (b.seat_number || 99));
-          const enJeu = players.filter((r) => !eliminatedIds.has(r.id)).length;
+          const enJeu = joueurs.filter((r) => !eliminatedIds.has(r.id)).length;
           return (
-            <TableCard
+            <CarteTable
               key={num}
-              title={`Table ${num}`}
-              subtitle={`${enJeu} en jeu / ${players.length}`}
-              players={players}
+              titre={`Table ${num}`}
+              sousTitre={`(${enJeu} Joueur${enJeu > 1 ? "s" : ""})`}
+              joueurs={joueurs}
               eliminatedIds={eliminatedIds}
-              alterne={i % 2 === 1}
+              manage={manage}
+              openMenuId={openMenuId}
+              setOpenMenuId={setOpenMenuId}
+              onDeplacer={(reg) => setMovingReg(reg)}
+              onLiberer={libererSiege}
             />
           );
         })}
 
-        {unseated.length > 0 && (
-          <TableCard
-            title="Sans table"
-            subtitle={`${unseated.length} joueur${unseated.length > 1 ? "s" : ""} à placer`}
-            players={unseated}
+        {sansTable.length > 0 && (
+          <CarteTable
+            titre="Sans table"
+            sousTitre={`(${sansTable.length} à placer)`}
+            joueurs={sansTable}
             eliminatedIds={eliminatedIds}
+            manage={manage}
             alerte
+            openMenuId={openMenuId}
+            setOpenMenuId={setOpenMenuId}
+            onDeplacer={(reg) => setMovingReg(reg)}
+            onLiberer={libererSiege}
           />
         )}
       </CustomizablePanel>
+
+      {movingReg && (
+        <ModalePlacement
+          reg={movingReg}
+          registrations={registrations}
+          perTable={perTable}
+          numerosTables={numerosTables}
+          onClose={() => setMovingReg(null)}
+          onConfirm={deplacer}
+        />
+      )}
     </div>
   );
 }
 
-function TableCard({ title, subtitle, players, eliminatedIds, alterne, alerte }) {
+function CarteTable({ titre, sousTitre, joueurs, eliminatedIds, manage, alerte, openMenuId, setOpenMenuId, onDeplacer, onLiberer }) {
   return (
     <div
-      // Teinte alternée d'une table à l'autre. Les deux fonds suivent
-      // "Fond des cellules" du panneau quand l'admin en choisit un, avec
-      // les couleurs du thème en repli.
-      style={{
-        backgroundColor: alerte
-          ? "rgba(140, 58, 58, 0.12)"
-          : alterne
-          ? "var(--pcp-cell-bg, #14181C)"
-          : "var(--pcp-cell-bg, #1B2027)",
-        color: "var(--pcp-cell-text, inherit)",
-      }}
-      className={`pcp-card-hover rounded-xl border p-4 sm:p-5 ${alerte ? "border-felt-alert/40" : "border-felt-cream/10"}`}
+      style={{ backgroundColor: "var(--pcp-cell-bg, #171C24)", color: "var(--pcp-cell-text, inherit)" }}
+      className={`pcp-card-hover rounded-2xl border px-4 sm:px-6 py-5 ${alerte ? "border-felt-alert/40" : "border-felt-cream/10"}`}
     >
-      <div className="flex items-baseline justify-between mb-3">
-        <div className="pcp-title font-display text-lg sm:text-xl text-felt-gold">{title}</div>
-        <div className="pcp-body text-xs text-felt-cream/40">{subtitle}</div>
+      <div className="mb-4">
+        <div className="pcp-title font-display text-2xl sm:text-3xl text-felt-cream">{titre}</div>
+        <div className="pcp-body text-sm text-felt-cream/40 mt-0.5">{sousTitre}</div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5">
-        {players.map((r) => {
-          const out = eliminatedIds.has(r.id);
-          return (
-            <div key={r.id} className={`flex items-center gap-3 py-1.5 ${out ? "opacity-40" : ""}`}>
-              <span className="pcp-value w-8 shrink-0 text-center text-xs text-felt-cream/40 tabular-nums">
-                {r.seat_number ? `S${r.seat_number}` : "—"}
-              </span>
-              {r.accounts?.avatar_data ? (
-                <img src={r.accounts.avatar_data} alt="" className="w-7 h-7 rounded-full object-cover shrink-0" />
-              ) : (
-                <span className="w-7 h-7 rounded-full bg-felt-bg/60 flex items-center justify-center text-[11px] text-felt-cream/40 shrink-0">
-                  {playerLabel(r)[0]?.toUpperCase() || "?"}
-                </span>
-              )}
-              <span className={`pcp-body flex-1 min-w-0 truncate ${out ? "line-through" : ""}`}>{playerLabel(r) || "?"}</span>
-              <span className="pcp-value shrink-0 text-sm text-felt-cream/50 tabular-nums">
-                {(r.stack ?? 0).toLocaleString("fr-FR")}
-              </span>
-            </div>
-          );
-        })}
+      <div>
+        {joueurs.map((r) => (
+          <LigneJoueur
+            key={r.id}
+            reg={r}
+            elimine={eliminatedIds.has(r.id)}
+            manage={manage}
+            menuOuvert={openMenuId === r.id}
+            setOpenMenuId={setOpenMenuId}
+            onDeplacer={onDeplacer}
+            onLiberer={onLiberer}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LigneJoueur({ reg, elimine, manage, menuOuvert, setOpenMenuId, onDeplacer, onLiberer }) {
+  const nom = playerLabel(reg) || "?";
+  return (
+    <div className={`relative flex items-center gap-4 py-3 ${elimine ? "opacity-40" : ""}`}>
+      <div className="flex items-center gap-2 shrink-0 w-14">
+        <IconeSiege />
+        <span className="pcp-value font-display text-xl text-felt-gold tabular-nums">{reg.seat_number || "—"}</span>
+      </div>
+
+      {reg.accounts?.avatar_data ? (
+        <img
+          src={reg.accounts.avatar_data}
+          alt=""
+          className="w-12 h-12 rounded-full object-cover shrink-0 ring-2 ring-felt-gold/70"
+        />
+      ) : (
+        <span className="w-12 h-12 rounded-full bg-felt-bg/60 flex items-center justify-center text-base text-felt-cream/50 shrink-0 ring-2 ring-felt-gold/40">
+          {nom[0]?.toUpperCase() || "?"}
+        </span>
+      )}
+
+      <span className={`pcp-body flex-1 min-w-0 truncate text-lg font-medium ${elimine ? "line-through" : ""}`}>{nom}</span>
+
+      {manage && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setOpenMenuId(menuOuvert ? null : reg.id);
+          }}
+          title="Actions sur ce joueur"
+          className="shrink-0 px-2 text-felt-cream/50 hover:text-felt-cream text-xl leading-none"
+        >
+          ⋮
+        </button>
+      )}
+
+      {menuOuvert && (
+        <div className="absolute right-2 top-12 z-20 bg-felt-bg border border-felt-gold/40 rounded-md shadow-lg py-1 w-52 text-sm">
+          <ElementMenu onClick={() => onDeplacer(reg)}>Changer de table / siège</ElementMenu>
+          {reg.table_number && (
+            <ElementMenu alerte onClick={() => onLiberer(reg.id)}>
+              Libérer le siège
+            </ElementMenu>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ElementMenu({ children, onClick, alerte }) {
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      className={`w-full text-left px-3 py-2 hover:bg-felt-panel ${alerte ? "text-felt-alert" : "text-felt-cream/80"}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+/**
+ * Petite chaise, en SVG plutôt qu'en emoji : les emojis de mobilier ne
+ * sont pas rendus de la même façon d'un appareil à l'autre, et certains
+ * apparaissent en couleur au milieu d'une ligne monochrome.
+ *
+ * Tracé vu de face (dossier plein, assise, deux pieds) : comparé à
+ * quatre autres dans le navigateur, c'est le seul qui reste identifiable
+ * à 20 px — les versions de profil se réduisent à des traits illisibles.
+ */
+function IconeSiege() {
+  return (
+    <svg viewBox="0 0 24 24" className="w-5 h-5 shrink-0 text-felt-cream/70" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M7 4h10v7H7z" />
+      <path d="M5 11h14" />
+      <path d="M5 11v3h14v-3" />
+      <path d="M7 14v6" />
+      <path d="M17 14v6" />
+    </svg>
+  );
+}
+
+/**
+ * Choix de la table et du siège. Les sièges déjà pris sont désactivés :
+ * placer deux joueurs au même siège est la faute que cet écran doit
+ * rendre impossible, pas seulement signaler après coup.
+ */
+function ModalePlacement({ reg, registrations, perTable, numerosTables, onClose, onConfirm }) {
+  const [table, setTable] = useState(reg.table_number || numerosTables[0] || 1);
+  const [siege, setSiege] = useState(reg.seat_number || 1);
+
+  const occupes = new Set(
+    registrations
+      .filter((r) => r.id !== reg.id && r.table_number === Number(table) && r.seat_number)
+      .map((r) => r.seat_number)
+  );
+
+  // Une table de plus que celles existantes, pour pouvoir en ouvrir une.
+  const tablesProposees = [...new Set([...numerosTables, (numerosTables[numerosTables.length - 1] || 0) + 1])];
+  const siegeLibre = !occupes.has(Number(siege));
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-felt-panel border border-felt-gold/40 rounded-lg p-5 w-80 max-w-full" onClick={(e) => e.stopPropagation()}>
+        <div className="font-display text-lg text-felt-cream mb-1">Placer {playerLabel(reg) || "ce joueur"}</div>
+        <div className="text-xs text-felt-cream/50 mb-4">
+          {reg.table_number ? `Actuellement table ${reg.table_number}, siège ${reg.seat_number || "—"}` : "Pas encore placé"}
+        </div>
+
+        <label className="block text-sm text-felt-cream/70 mb-1">Table</label>
+        <select
+          value={table}
+          onChange={(e) => setTable(Number(e.target.value))}
+          className="w-full bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-2 text-sm mb-3 text-felt-cream"
+        >
+          {tablesProposees.map((t) => (
+            <option key={t} value={t}>
+              Table {t}
+              {numerosTables.includes(t) ? "" : " (nouvelle)"}
+            </option>
+          ))}
+        </select>
+
+        <label className="block text-sm text-felt-cream/70 mb-1">Siège</label>
+        <select
+          value={siege}
+          onChange={(e) => setSiege(Number(e.target.value))}
+          className="w-full bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-2 text-sm text-felt-cream"
+        >
+          {Array.from({ length: perTable }, (_, i) => i + 1).map((s) => (
+            <option key={s} value={s} disabled={occupes.has(s)}>
+              Siège {s}
+              {occupes.has(s) ? " — occupé" : ""}
+            </option>
+          ))}
+        </select>
+
+        {!siegeLibre && <div className="text-xs text-felt-alert mt-2">Ce siège est déjà occupé.</div>}
+
+        <div className="flex justify-end gap-2 mt-5">
+          <button onClick={onClose} className="px-3 py-1.5 text-sm text-felt-cream/60 hover:text-felt-cream">
+            Annuler
+          </button>
+          <button
+            onClick={() => onConfirm(reg.id, Number(table), Number(siege))}
+            disabled={!siegeLibre}
+            className="px-4 py-1.5 text-sm bg-felt-gold text-felt-bg rounded-md font-display disabled:opacity-40"
+          >
+            Placer
+          </button>
+        </div>
       </div>
     </div>
   );
