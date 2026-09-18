@@ -145,7 +145,10 @@ export default function Sidebar({ tab, setTab, onRequestLogin }) {
   }
 
   const bg = theme.background;
-  const sidebarColor = bg?.type === "color" ? bg.value : "#1B2027";
+  // Couleur propre au bandeau de gauche. Sans réglage, il suit le fond
+  // général comme avant — mais il n'était alors PAS réglable à part : une
+  // photo en fond d'écran le laissait sur sa couleur de repli.
+  const sidebarColor = theme.sidebarColor || (bg?.type === "color" ? bg.value : "#1B2027");
   const logoData = theme.logoData;
 
   function handleNav(key) {

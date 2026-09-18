@@ -111,6 +111,11 @@ const CHAMP_RANKING_REFRESH_MS = 120000;
 // laquelle on préfère faire défiler la liste plutôt que de tasser encore.
 const ANNOUNCEMENT_GAP = 6;
 const ANNOUNCEMENT_MIN_SIZE = 12;
+// Deux déplacements écrits à moins de ça l'un de l'autre viennent du même
+// geste (casse de table, équilibrage) : ils s'affichent alors ensemble et
+// figés, pour qu'on puisse appeler les joueurs sans courir après une
+// ligne qui défile.
+const MOVE_BATCH_MS = 15000;
 
 const PANEL_LABELS = {
   timer: "Horloge", controls: "Contrôles", blinds: "Blinds", players: "Joueurs", next: "Prochaine blind",
@@ -2254,17 +2259,47 @@ function AnnouncementsContent({ style, announcements, textStyle, showDrawHint })
     );
   }
 
-  // Le texte rétrécit tant que ça reste lisible, puis on arrête de
-  // tasser : au-delà, c'est le défilement qui montre la suite. Sans cette
-  // limite, une volée d'annonces finissait en caractères illisibles.
-  const plafond = style.fontSize || 18;
-  const confort = h > 0 ? Math.max(1, Math.floor((h + ANNOUNCEMENT_GAP) / (ANNOUNCEMENT_MIN_SIZE + ANNOUNCEMENT_GAP))) : 3;
-  const n = Math.min(announcements.length, confort);
-  const dispo = Math.max(0, h - ANNOUNCEMENT_GAP * (n - 1));
-  const taille = h > 0 ? clamp(Math.floor((dispo / n) * 0.62), ANNOUNCEMENT_MIN_SIZE, plafond) : plafond;
+  // Plusieurs joueurs déplacés d'un même geste (casse de table,
+  // équilibrage) : la liste reste FIGÉE, les pseudos les uns sous les
+  // autres, le temps de les appeler à voix haute. Une élimination ou un
+  // déplacement isolé, eux, défilent.
+  const deplacements = announcements.filter((a) => a.kind === "move");
+  const memeGeste = deplacements.filter(
+    (a) => Math.abs(new Date(a.created_at) - new Date(deplacements[0]?.created_at)) <= MOVE_BATCH_MS
+  );
+  const groupeDeplacements = memeGeste.length >= 2;
 
-  // Une seule annonce, ou juste ce qu'il faut pour tenir : on centre et on
-  // ne fait rien défiler. Au-delà, la liste défile comme les autres.
+  // La taille suit la place disponible et le nombre de lignes. Le réglage
+  // du panneau sert de plafond : une annonce seule sur un grand panneau ne
+  // doit pas devenir démesurée.
+  const plafond = style.fontSize || 18;
+  // Figé, tout doit tenir : on autorise plus petit que d'ordinaire plutôt
+  // que d'en cacher. En défilement, on s'arrête à une taille lisible et
+  // c'est le défilement qui montre la suite.
+  const planche = groupeDeplacements ? 8 : ANNOUNCEMENT_MIN_SIZE;
+  const confort = h > 0 ? Math.max(1, Math.floor((h + ANNOUNCEMENT_GAP) / (planche + ANNOUNCEMENT_GAP))) : 3;
+  const n = groupeDeplacements ? announcements.length : Math.min(announcements.length, confort);
+  const dispo = Math.max(0, h - ANNOUNCEMENT_GAP * (n - 1));
+  const taille = h > 0 ? clamp(Math.floor((dispo / n) * 0.62), planche, plafond) : plafond;
+
+  if (groupeDeplacements) {
+    return (
+      <div
+        ref={boxRef}
+        className="w-full h-full flex flex-col justify-center overflow-hidden"
+        style={{ gap: `${ANNOUNCEMENT_GAP}px` }}
+      >
+        {announcements.map((a) => (
+          // FitText rentre la ligne dans la largeur du panneau : un pseudo
+          // long ne doit pas sortir du cadre, et rien ne défile ici.
+          <FitText key={a.id} align={style.align || "center"} origin="center">
+            <span style={{ ...textStyle(style), fontSize: `${taille}px`, lineHeight: 1.2 }}>{a.text}</span>
+          </FitText>
+        ))}
+      </div>
+    );
+  }
+
   const tientEntier = announcements.length <= n;
   const lignes = announcements.map((a) => (
     <AnnouncementLine key={a.id} text={a.text} style={style} textStyle={textStyle} fontSize={taille} boxWidth={w} />
@@ -2288,25 +2323,18 @@ function AnnouncementsContent({ style, announcements, textStyle, showDrawHint })
 }
 
 /**
- * Une ligne d'annonce. Elle ne défile que si elle est trop longue pour la
- * largeur du panneau : une annonce courte reste posée, lisible d'un coup
- * d'œil, au lieu de traverser l'écran pour rien.
+ * Une ligne d'annonce qui défile, de droite à gauche. C'est la forme
+ * attendue d'un panneau d'annonces : le mouvement attire l'œil de la
+ * salle. Les déplacements faits d'un même geste, eux, s'affichent figés —
+ * voir AnnouncementsContent.
  */
-function AnnouncementLine({ text, style, textStyle, fontSize, boxWidth }) {
-  const ref = useRef(null);
-  const [defile, setDefile] = useState(false);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    setDefile(el.scrollWidth > el.clientWidth + 1);
-  }, [text, fontSize, boxWidth]);
+function AnnouncementLine({ text, style, textStyle, fontSize }) {
   return (
     <div
-      ref={ref}
       className="w-full overflow-hidden whitespace-nowrap shrink-0"
       style={{ ...textStyle(style), fontSize: `${fontSize}px`, lineHeight: 1.2, textAlign: style.align || "center" }}
     >
-      <span className={`inline-block ${defile ? "animate-pcp-scroll-left" : ""}`}>{text}</span>
+      <span className="inline-block animate-pcp-scroll-left">{text}</span>
     </div>
   );
 }

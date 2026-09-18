@@ -198,6 +198,12 @@ export default function LayoutSettings() {
     await persist(next);
   }
 
+  async function updateSidebarColor(value) {
+    const next = { ...theme, sidebarColor: value };
+    setTheme(next);
+    await persist(next);
+  }
+
   async function updateSidebarDividerColor(value) {
     const next = { ...theme, sidebarDividerColor: value };
     setTheme(next);
@@ -479,6 +485,30 @@ export default function LayoutSettings() {
           {theme.panelBgColor && (
             <button onClick={() => updatePanelBgColor(null)} className="text-xs text-felt-cream/40 hover:text-felt-cream">
               Réinitialiser
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="mb-6 bg-felt-panel border border-felt-cream/10 rounded-md px-4 py-3">
+        <div className="font-medium mb-1">Couleur du menu de gauche</div>
+        <div className="text-xs text-felt-cream/50 mb-3">
+          Le bandeau qui porte le logo, les tournois, le chat et les paramètres du club. Sans réglage, il suit la
+          couleur de fond générale.
+        </div>
+        <div className="flex items-center gap-3">
+          <input
+            type="color"
+            value={theme.sidebarColor || (theme.background?.type === "color" ? theme.background.value : "#1B2027")}
+            onChange={(e) => updateSidebarColor(e.target.value)}
+            className="w-10 h-10 rounded-md border-2 border-felt-cream/10 bg-transparent cursor-pointer"
+          />
+          {theme.sidebarColor && (
+            <button
+              onClick={() => updateSidebarColor(null)}
+              className="text-xs text-felt-cream/40 hover:text-felt-cream"
+            >
+              Suivre le fond général
             </button>
           )}
         </div>
