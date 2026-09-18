@@ -17,6 +17,8 @@ import CustomizablePanel from "./CustomizablePanel.jsx";
 import EditableButton from "./EditableButton.jsx";
 import { useConfirm } from "../context/ConfirmContext.jsx";
 import { logEvent } from "../lib/events.js";
+import { eliminatePlayer } from "../lib/eliminations.js";
+import EliminationPicker from "./EliminationPicker.jsx";
 import { playerLabel, sortByPlayerLabel } from "../lib/players.js";
 import { addAnnouncement } from "../lib/announcements.js";
 import { useIsMobile } from "../lib/useIsMobile.js";
@@ -761,34 +763,12 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     const stillIn = registrations.filter(
       (r) => !eliminations.some((e) => e.registration_id === r.id)
     );
-    const position = stillIn.length;
-    const { data: elim } = await supabase
-      .from("eliminations")
-      .insert({
-        tournament_id: tournamentId,
-        registration_id: reg.id,
-        finish_position: position,
-        eliminated_by: eliminatedByRegId || null,
-      })
-      .select()
-      .single();
-    logEvent(tournamentId, "elimination", reg.players?.full_name || "", { eliminationId: elim?.id, registrationId: reg.id });
-    addAnnouncement(
-      tournamentId,
-      `${reg.players?.pseudo || reg.players?.full_name} éliminé${position > 1 ? "" : ""} à la ${position}ᵉ place`,
-      "elimination"
-    );
-
-    // Si l'élimination laisse un seul joueur en jeu, c'est le vainqueur :
-    // le tournoi passe automatiquement en Terminé, une fenêtre l'annonce,
-    // et l'annonce s'affiche aussi sur le panneau Annonces de l'horloge.
-    const remaining = stillIn.filter((r) => r.id !== reg.id);
-    if (remaining.length === 1) {
-      await supabase.from("tournaments").update({ force_finished: true, clock_is_running: false }).eq("id", tournamentId);
+    // L'écriture elle-même vit dans lib/eliminations.js : trois écrans
+    // éliminent des joueurs, et il ne doit y en avoir qu'une version.
+    const { winnerName } = await eliminatePlayer({ tournamentId, reg, stillIn, eliminatedByRegId });
+    if (winnerName) {
       setTournament((t) => ({ ...t, force_finished: true, clock_is_running: false }));
-      const winnerName = remaining[0].players?.pseudo || remaining[0].players?.full_name || "Le gagnant";
       setWinnerAnnounce({ winnerName });
-      addAnnouncement(tournamentId, `🏆 ${winnerName} a gagné le tournoi !`, "winner");
     }
     setEliminatingReg(null);
     setOpenMenuId(null);
@@ -1572,32 +1552,3 @@ function MenuItem({ children, onClick, alert }) {
   );
 }
 
-function EliminationPicker({ candidates, onConfirm, onCancel }) {
-  const [selected, setSelected] = useState("");
-  return (
-    <div className="mt-1 mb-2 ml-4 flex items-center gap-2 bg-felt-bg border border-felt-alert/30 rounded-md px-3 py-2">
-      <span className="text-xs text-felt-cream/60">Éliminé par (optionnel, pour le KO) :</span>
-      <select
-        value={selected}
-        onChange={(e) => setSelected(e.target.value)}
-        className="bg-felt-panel border border-felt-cream/10 rounded px-2 py-1 text-sm text-felt-cream"
-      >
-        <option value="">Aucun</option>
-        {candidates.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.players?.full_name}
-          </option>
-        ))}
-      </select>
-      <button
-        onClick={() => onConfirm(selected || null)}
-        className="text-xs px-3 py-1.5 bg-felt-alert/80 text-felt-cream rounded font-display"
-      >
-        Confirmer l'élimination
-      </button>
-      <button onClick={onCancel} className="text-xs px-3 py-1.5 text-felt-cream/50 hover:text-felt-cream">
-        Annuler
-      </button>
-    </div>
-  );
-}

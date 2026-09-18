@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import ClubLoader from "./ClubLoader.jsx";
 import { supabase } from "../lib/supabase.js";
 import { sortByPlayerLabel } from "../lib/players.js";
+import { eliminatePlayer } from "../lib/eliminations.js";
+import EliminationPicker from "./EliminationPicker.jsx";
 import { fetchCurrentTournament } from "../lib/tournaments.js";
 import { fetchMyTables } from "../lib/auth.js";
 import { useAccount } from "../context/AccountContext.jsx";
@@ -58,13 +60,11 @@ export default function EliminationView() {
     const stillIn = registrations.filter(
       (r) => !eliminations.some((e) => e.registration_id === r.id)
     );
-    const position = stillIn.length;
-    await supabase.from("eliminations").insert({
-      tournament_id: tournament.id,
-      registration_id: reg.id,
-      finish_position: position,
-      eliminated_by: eliminatedByRegId || null,
-    });
+    // Passe par lib/eliminations.js : cette vue écrivait jusqu'ici la
+    // ligne à la main, sans journal, sans annonce et sans terminer le
+    // tournoi au dernier joueur. Une élimination saisie par un chef de
+    // table valait donc moins qu'une élimination saisie par le floor.
+    await eliminatePlayer({ tournamentId: tournament.id, reg, stillIn, eliminatedByRegId });
     setEliminatingReg(null);
     loadData(tournament.id);
   }
@@ -125,32 +125,3 @@ export default function EliminationView() {
   );
 }
 
-function EliminationPicker({ candidates, onConfirm, onCancel }) {
-  const [selected, setSelected] = useState("");
-  return (
-    <div className="mt-1 mb-2 ml-4 flex flex-wrap items-center gap-2 bg-felt-bg border border-felt-alert/30 rounded-md px-3 py-2">
-      <span className="text-xs text-felt-cream/60">Éliminé par (optionnel) :</span>
-      <select
-        value={selected}
-        onChange={(e) => setSelected(e.target.value)}
-        className="bg-felt-panel border border-felt-cream/10 rounded px-2 py-1 text-sm text-felt-cream"
-      >
-        <option value="">Aucun</option>
-        {candidates.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.players?.full_name}
-          </option>
-        ))}
-      </select>
-      <button
-        onClick={() => onConfirm(selected || null)}
-        className="text-xs px-3 py-1.5 bg-felt-alert/80 text-felt-cream rounded font-display"
-      >
-        Confirmer
-      </button>
-      <button onClick={onCancel} className="text-xs px-3 py-1.5 text-felt-cream/50 hover:text-felt-cream">
-        Annuler
-      </button>
-    </div>
-  );
-}

@@ -3,6 +3,8 @@ import { supabase } from "../lib/supabase.js";
 import ClubLoader from "./ClubLoader.jsx";
 import CustomizablePanel from "./CustomizablePanel.jsx";
 import { playerLabel } from "../lib/players.js";
+import { eliminatePlayer } from "../lib/eliminations.js";
+import EliminationPicker from "./EliminationPicker.jsx";
 
 /**
  * TablesView — onglet "Tables" : les joueurs regroupés par table, une
@@ -27,6 +29,8 @@ export default function TablesView({ tournamentId, manage = false }) {
   const [loading, setLoading] = useState(true);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [movingReg, setMovingReg] = useState(null);
+  const [eliminatingReg, setEliminatingReg] = useState(null);
+  const [winnerName, setWinnerName] = useState(null);
 
   const load = useCallback(
     async ({ silent = false } = {}) => {
@@ -69,10 +73,13 @@ export default function TablesView({ tournamentId, manage = false }) {
     load({ silent: true });
   }
 
-  async function libererSiege(regId) {
-    await supabase.from("registrations").update({ table_number: null, seat_number: null }).eq("id", regId);
+  async function eliminer(reg, eliminatedByRegId) {
+    const stillIn = registrations.filter((r) => !eliminatedIds.has(r.id));
+    const res = await eliminatePlayer({ tournamentId, reg, stillIn, eliminatedByRegId });
+    setEliminatingReg(null);
     setOpenMenuId(null);
-    load({ silent: true });
+    if (res.winnerName) setWinnerName(res.winnerName);
+    await load({ silent: true });
   }
 
   if (loading) return <ClubLoader />;
@@ -129,7 +136,14 @@ export default function TablesView({ tournamentId, manage = false }) {
               openMenuId={openMenuId}
               setOpenMenuId={setOpenMenuId}
               onDeplacer={(reg) => setMovingReg(reg)}
-              onLiberer={libererSiege}
+              onEliminer={(reg) => {
+                setEliminatingReg(reg.id);
+                setOpenMenuId(null);
+              }}
+              eliminatingReg={eliminatingReg}
+              onConfirmElimination={eliminer}
+              onCancelElimination={() => setEliminatingReg(null)}
+              adversaires={enJeu}
             />
           );
         })}
@@ -144,10 +158,30 @@ export default function TablesView({ tournamentId, manage = false }) {
             openMenuId={openMenuId}
             setOpenMenuId={setOpenMenuId}
             onDeplacer={(reg) => setMovingReg(reg)}
-            onLiberer={libererSiege}
+            onEliminer={(reg) => {
+              setEliminatingReg(reg.id);
+              setOpenMenuId(null);
+            }}
+            eliminatingReg={eliminatingReg}
+            onConfirmElimination={eliminer}
+            onCancelElimination={() => setEliminatingReg(null)}
+            adversaires={enJeu}
           />
         )}
       </CustomizablePanel>
+
+      {winnerName && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setWinnerName(null)}>
+          <div className="bg-felt-panel border border-felt-gold rounded-lg p-8 text-center" onClick={(e) => e.stopPropagation()}>
+            <div className="text-5xl mb-3">🏆</div>
+            <div className="font-display text-2xl text-felt-gold mb-1">{winnerName}</div>
+            <div className="text-felt-cream/60 text-sm mb-5">a gagné le tournoi !</div>
+            <button onClick={() => setWinnerName(null)} className="px-5 py-2 bg-felt-gold text-felt-bg rounded-md font-display">
+              Fermer
+            </button>
+          </div>
+        </div>
+      )}
 
       {movingReg && (
         <ModalePlacement
@@ -188,7 +222,7 @@ function construireSieges(joueurs, perTable) {
   return sieges;
 }
 
-function CarteTable({ titre, sousTitre, sieges, manage, alerte, openMenuId, setOpenMenuId, onDeplacer, onLiberer }) {
+function CarteTable({ titre, sousTitre, sieges, manage, alerte, openMenuId, setOpenMenuId, onDeplacer, onEliminer, eliminatingReg, onConfirmElimination, onCancelElimination, adversaires }) {
   return (
     <div
       style={{ backgroundColor: "var(--pcp-cell-bg, #171C24)", color: "var(--pcp-cell-text, inherit)" }}
@@ -210,7 +244,11 @@ function CarteTable({ titre, sousTitre, sieges, manage, alerte, openMenuId, setO
               menuOuvert={openMenuId === s.joueur.id}
               setOpenMenuId={setOpenMenuId}
               onDeplacer={onDeplacer}
-              onLiberer={onLiberer}
+              onEliminer={onEliminer}
+              eliminatingReg={eliminatingReg}
+              onConfirmElimination={onConfirmElimination}
+              onCancelElimination={onCancelElimination}
+              adversaires={adversaires}
             />
           ) : (
             <LigneSiegeLibre key={`libre-${s.numero}-${i}`} numeroSiege={s.numero} />
@@ -221,9 +259,10 @@ function CarteTable({ titre, sousTitre, sieges, manage, alerte, openMenuId, setO
   );
 }
 
-function LigneJoueur({ reg, numeroSiege, manage, menuOuvert, setOpenMenuId, onDeplacer, onLiberer }) {
+function LigneJoueur({ reg, numeroSiege, manage, menuOuvert, setOpenMenuId, onDeplacer, onEliminer, eliminatingReg, onConfirmElimination, onCancelElimination, adversaires }) {
   const nom = playerLabel(reg) || "?";
   return (
+    <div>
     <div className="relative flex items-center gap-4 py-3">
       <div className="flex items-center gap-2 shrink-0 w-14">
         <IconeSiege />
@@ -260,13 +299,20 @@ function LigneJoueur({ reg, numeroSiege, manage, menuOuvert, setOpenMenuId, onDe
       {menuOuvert && (
         <div className="absolute right-2 top-12 z-20 bg-felt-bg border border-felt-gold/40 rounded-md shadow-lg py-1 w-52 text-sm">
           <ElementMenu onClick={() => onDeplacer(reg)}>Changer de table / siège</ElementMenu>
-          {reg.table_number && (
-            <ElementMenu alerte onClick={() => onLiberer(reg.id)}>
-              Libérer le siège
-            </ElementMenu>
-          )}
+          <ElementMenu alerte onClick={() => onEliminer(reg)}>
+            Éliminé
+          </ElementMenu>
         </div>
       )}
+    </div>
+
+    {eliminatingReg === reg.id && (
+      <EliminationPicker
+        candidates={adversaires.filter((r) => r.id !== reg.id)}
+        onConfirm={(byId) => onConfirmElimination(reg, byId)}
+        onCancel={onCancelElimination}
+      />
+    )}
     </div>
   );
 }
