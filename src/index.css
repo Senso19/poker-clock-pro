@@ -71,12 +71,20 @@ html, body, #root {
   body * {
     visibility: hidden;
   }
-  .print-ticket, .print-ticket * {
+  .print-ticket, .print-ticket *,
+  .print-affiche, .print-affiche * {
     visibility: visible;
   }
-  .print-ticket {
+  .print-ticket,
+  .print-affiche {
     position: absolute;
     top: 0;
     left: 0;
+  }
+  /* L'affiche occupe la feuille : bordure de repérage et marges d'écran
+     n'ont plus lieu d'être une fois sur le papier. */
+  .print-affiche {
+    width: 100%;
+    border: none;
   }
 }

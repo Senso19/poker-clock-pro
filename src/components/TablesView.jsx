@@ -30,7 +30,7 @@ export default function TablesView({ tournamentId, manage = false }) {
   // vue tout de suite par la surveillance de l'équilibre des tables —
   // avant, il fallait passer par l'onglet Joueurs pour que le message
   // d'équilibrage ou de casse finisse par sortir.
-  const { registrations, eliminatedIds, perTable, dataReady, recharger } = useTableBalance();
+  const { registrations, eliminatedIds, perTable, trackKnockouts, dataReady, recharger } = useTableBalance();
   const [openMenuId, setOpenMenuId] = useState(null);
   const [movingReg, setMovingReg] = useState(null);
   const [eliminatingReg, setEliminatingReg] = useState(null);
@@ -50,6 +50,14 @@ export default function TablesView({ tournamentId, manage = false }) {
     setMovingReg(null);
     setOpenMenuId(null);
     recharger();
+  }
+
+  // Sans suivi des knockouts, le "éliminé par qui ?" n'alimente plus
+  // aucun compte : on sort le joueur directement.
+  function demanderElimination(reg) {
+    setOpenMenuId(null);
+    if (trackKnockouts) setEliminatingReg(reg.id);
+    else eliminer(reg, null);
   }
 
   async function eliminer(reg, eliminatedByRegId) {
@@ -118,10 +126,7 @@ export default function TablesView({ tournamentId, manage = false }) {
               openMenuId={openMenuId}
               setOpenMenuId={setOpenMenuId}
               onDeplacer={(reg) => setMovingReg(reg)}
-              onEliminer={(reg) => {
-                setEliminatingReg(reg.id);
-                setOpenMenuId(null);
-              }}
+              onEliminer={demanderElimination}
               eliminatingReg={eliminatingReg}
               onConfirmElimination={eliminer}
               onCancelElimination={() => setEliminatingReg(null)}
@@ -140,10 +145,7 @@ export default function TablesView({ tournamentId, manage = false }) {
             openMenuId={openMenuId}
             setOpenMenuId={setOpenMenuId}
             onDeplacer={(reg) => setMovingReg(reg)}
-            onEliminer={(reg) => {
-              setEliminatingReg(reg.id);
-              setOpenMenuId(null);
-            }}
+            onEliminer={demanderElimination}
             eliminatingReg={eliminatingReg}
             onConfirmElimination={eliminer}
             onCancelElimination={() => setEliminatingReg(null)}

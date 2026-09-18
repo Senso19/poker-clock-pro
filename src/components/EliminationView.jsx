@@ -56,6 +56,16 @@ export default function EliminationView() {
     setEliminations(elims || []);
   }
 
+  // Sans suivi des knockouts, le "éliminé par qui ?" ne compte plus rien :
+  // on élimine directement plutôt que de faire valider un champ inutile.
+  function demanderElimination(reg) {
+    if (!tournament?.track_knockouts) {
+      confirmElimination(reg, null);
+      return;
+    }
+    setEliminatingReg(eliminatingReg === reg.id ? null : reg.id);
+  }
+
   async function confirmElimination(reg, eliminatedByRegId) {
     const stillIn = registrations.filter(
       (r) => !eliminations.some((e) => e.registration_id === r.id)
@@ -102,7 +112,7 @@ export default function EliminationView() {
                 </span>
               </div>
               <button
-                onClick={() => setEliminatingReg(eliminatingReg === reg.id ? null : reg.id)}
+                onClick={() => demanderElimination(reg)}
                 className="text-xs px-3 py-1.5 rounded font-display bg-felt-alert/80 text-felt-cream hover:bg-felt-alert"
               >
                 Éliminer

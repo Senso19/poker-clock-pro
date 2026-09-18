@@ -568,6 +568,15 @@ export default function TournamentDetail({ tournamentId, onBack }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [registrations, eliminations]);
 
+  // Le "éliminé par qui ?" n'existe que pour compter les KO. Si le suivi
+  // des knockouts n'est pas activé sur ce tournoi, il ne sert plus à rien
+  // et ne fait que retarder la sortie : on élimine directement.
+  function demanderElimination(reg) {
+    setOpenMenuId(null);
+    if (tournament?.track_knockouts) setEliminatingReg(reg.id);
+    else confirmElimination(reg, null);
+  }
+
   async function confirmElimination(reg, eliminatedByRegId) {
     const stillIn = registrations.filter(
       (r) => !eliminations.some((e) => e.registration_id === r.id)
@@ -975,13 +984,7 @@ export default function TournamentDetail({ tournamentId, onBack }) {
                         {!isFreezeout && <MenuItem onClick={() => addRebuy(reg)}>+ Rebuy</MenuItem>}
                         {!isFreezeout && <MenuItem onClick={() => addAddon(reg)}>+ Addon</MenuItem>}
                         <MenuItem onClick={() => startMoveTable(reg)}>Changer de table</MenuItem>
-                        <MenuItem
-                          alert
-                          onClick={() => {
-                            setEliminatingReg(reg.id);
-                            setOpenMenuId(null);
-                          }}
-                        >
+                        <MenuItem alert onClick={() => demanderElimination(reg)}>
                           Éliminer
                         </MenuItem>
                       </>

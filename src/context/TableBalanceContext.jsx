@@ -51,6 +51,10 @@ export function TableBalanceProvider({ tournamentId, tournament, surveiller = fa
 
   const perTable = tournament?.players_per_table || 9;
   const finalTableSize = tournament?.final_table_size || perTable;
+  // Sans suivi des knockouts, personne ne demande "éliminé par qui ?" :
+  // les écrans qui éliminent lisent le réglage ici plutôt que de relire
+  // le tournoi chacun de leur côté.
+  const trackKnockouts = !!tournament?.track_knockouts;
 
   const eliminatedIds = useMemo(
     () => new Set(eliminations.map((e) => e.registration_id)),
@@ -266,6 +270,7 @@ export function TableBalanceProvider({ tournamentId, tournament, surveiller = fa
       dataReady,
       perTable,
       finalTableSize,
+      trackKnockouts,
       balancing,
       recharger,
       suspendre,
@@ -284,6 +289,7 @@ export function TableBalanceProvider({ tournamentId, tournament, surveiller = fa
       dataReady,
       perTable,
       finalTableSize,
+      trackKnockouts,
       balancing,
       recharger,
       suspendre,

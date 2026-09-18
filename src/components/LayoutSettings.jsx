@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { saveClubTheme } from "../lib/clubSettings.js";
 import { useTheme } from "../context/ThemeContext.jsx";
-import { fetchClubSettings, setRegistrationCode, setChatSettings } from "../lib/auth.js";
+import { fetchClubSettings, setRegistrationCode, setChatSettings, setSiteUrl } from "../lib/auth.js";
+import { QRCodeSVG } from "qrcode.react";
+import TicketModal from "./TicketModal.jsx";
+import JoinPosterPrint from "./JoinPosterPrint.jsx";
 import { uploadImageToStorage } from "../lib/imageUtils.js";
 import { compterImagesEnBase64, migrerImagesVersStockage } from "../lib/mediaMigration.js";
 
@@ -29,6 +32,16 @@ export default function LayoutSettings() {
   const [chatCooldown, setChatCooldown] = useState(0);
   const [chatSettingsSaved, setChatSettingsSaved] = useState(false);
   const [chatSettingsError, setChatSettingsError] = useState(null);
+  // Adresse publique du site, QR code et affiche d'adhésion. L'adresse est
+  // enregistrée plutôt que devinée : celle depuis laquelle on administre
+  // n'est pas forcément celle qu'on donne aux joueurs.
+  const [clubName, setClubName] = useState("");
+  const [siteUrl, setSiteUrlState] = useState("");
+  const [siteUrlSaved, setSiteUrlSaved] = useState(false);
+  const [lienCopie, setLienCopie] = useState(false);
+  const [afficheOuverte, setAfficheOuverte] = useState(false);
+  const [afficheTitre, setAfficheTitre] = useState("Rejoignez le club");
+  const [afficheMessage, setAfficheMessage] = useState("Scannez ce code pour créer votre compte\net suivre les tournois en direct.");
 
   useEffect(() => {
     fetchClubSettings()
@@ -36,9 +49,31 @@ export default function LayoutSettings() {
         setJoinCode(s?.registration_code || "");
         setChatMaxLength(s?.chat_max_length || 200);
         setChatCooldown(s?.chat_cooldown_seconds || 0);
+        setClubName(s?.club_name || "");
+        // Rien d'enregistré : on propose l'adresse courante, c'est presque
+        // toujours la bonne.
+        setSiteUrlState(s?.site_url || window.location.origin);
       })
       .catch(() => {});
   }, []);
+
+  async function handleSaveSiteUrl() {
+    setError(null);
+    try {
+      await setSiteUrl(siteUrl.trim());
+      setSiteUrlSaved(true);
+      setTimeout(() => setSiteUrlSaved(false), 2000);
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+
+  function copierLien() {
+    navigator.clipboard?.writeText(lienAdhesion).then(() => {
+      setLienCopie(true);
+      setTimeout(() => setLienCopie(false), 1500);
+    });
+  }
 
   async function handleSaveJoinCode() {
     setError(null);
@@ -180,6 +215,14 @@ export default function LayoutSettings() {
     }
     setSaving(false);
   }
+
+  // Ce qui est encodé dans le QR et imprimé sur l'affiche. Une adresse
+  // sans schéma ne s'ouvrirait pas depuis un téléphone : on complète.
+  const lienAdhesion = (() => {
+    const brut = (siteUrl || "").trim();
+    if (!brut) return window.location.origin;
+    return /^https?:\/\//i.test(brut) ? brut : `https://${brut}`;
+  })();
 
   return (
     <div className="p-4 sm:p-6 font-body text-felt-cream h-full overflow-y-auto max-w-lg">
@@ -477,6 +520,82 @@ export default function LayoutSettings() {
           )}
         </div>
       </div>
+
+      <div className="mb-6 bg-felt-panel border border-felt-cream/10 rounded-md px-4 py-3">
+        <div className="font-medium mb-1">Adhésion au club</div>
+        <div className="text-xs text-felt-cream/50 mb-3">
+          Le lien et le QR code à donner aux joueurs pour rejoindre le club et suivre les tournois.
+        </div>
+        <div className="flex flex-col sm:flex-row gap-4">
+          {/* Fond blanc sous le QR : sur le feutre sombre de l'application,
+              un code sans marge claire n'est pas lisible par un téléphone. */}
+          <div className="bg-white p-2 rounded-md shrink-0 self-start">
+            <QRCodeSVG value={lienAdhesion} size={116} level="M" />
+          </div>
+          {/* L'adresse sur sa propre ligne, les actions en dessous : cet
+              écran fait 512 px de large, un champ coincé entre deux
+              boutons n'y montrait qu'un bout du lien. */}
+          <div className="flex-1 min-w-0">
+            <input
+              value={siteUrl}
+              onChange={(e) => setSiteUrlState(e.target.value)}
+              placeholder="https://..."
+              className="w-full bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-2 text-felt-cream text-sm"
+            />
+            <div className="text-[11px] text-felt-cream/35 mt-1.5">
+              Laissez l'adresse proposée si vous n'avez pas de nom de domaine à vous.
+            </div>
+            <div className="flex flex-wrap gap-2 mt-2.5">
+              <button
+                onClick={handleSaveSiteUrl}
+                className="px-4 py-1.5 bg-felt-gold text-felt-bg rounded-md font-display text-sm"
+              >
+                {siteUrlSaved ? "✓ Enregistré" : "Enregistrer"}
+              </button>
+              <button
+                onClick={copierLien}
+                title="Copier le lien"
+                className="px-3 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-felt-cream/70 hover:text-felt-cream text-sm"
+              >
+                {lienCopie ? "Copié !" : "⧉ Copier"}
+              </button>
+              <button
+                onClick={() => setAfficheOuverte(true)}
+                className="px-3 py-1.5 bg-felt-bg border border-felt-cream/10 rounded-md text-sm text-felt-cream/80 hover:text-felt-cream"
+              >
+                🖨 Imprimer l'affiche
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {afficheOuverte && (
+        <TicketModal onClose={() => setAfficheOuverte(false)}>
+          <div className="print:hidden mb-4 space-y-2 max-w-[420px] mx-auto">
+            <input
+              value={afficheTitre}
+              onChange={(e) => setAfficheTitre(e.target.value)}
+              placeholder="Titre de l'affiche"
+              className="w-full bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-2 text-felt-cream text-sm"
+            />
+            <textarea
+              value={afficheMessage}
+              onChange={(e) => setAfficheMessage(e.target.value)}
+              rows={2}
+              placeholder="Message (facultatif)"
+              className="w-full bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-2 text-felt-cream text-sm"
+            />
+          </div>
+          <JoinPosterPrint
+            url={lienAdhesion}
+            clubName={clubName}
+            titre={afficheTitre}
+            message={afficheMessage}
+            code={joinCode}
+          />
+        </TicketModal>
+      )}
 
       <div className="mb-6 bg-felt-panel border border-felt-cream/10 rounded-md px-4 py-3">
         <div className="font-medium mb-1">Code secret de validation des comptes</div>

@@ -243,7 +243,6 @@ export async function fetchClubSettings() {
 
 export async function setRegistrationCode(code) {
   await upsertClubSettings({ registration_code: code });
-  if (error) throw error;
 }
 
 export async function setChatSettings(maxLength, cooldownSeconds) {
@@ -251,7 +250,16 @@ export async function setChatSettings(maxLength, cooldownSeconds) {
     chat_max_length: Math.max(1, Number(maxLength) || 200),
     chat_cooldown_seconds: Math.max(0, Number(cooldownSeconds) || 0),
   });
-  if (error) throw error;
+}
+
+/**
+ * Adresse publique du site du club. Elle sert au QR code et à l'affiche
+ * d'adhésion : c'est ce qu'on donne aux joueurs, et ça n'est pas
+ * forcément l'adresse depuis laquelle l'admin travaille (aperçu de
+ * déploiement, adresse locale, nom de domaine propre au club).
+ */
+export async function setSiteUrl(url) {
+  await upsertClubSettings({ site_url: url || null });
 }
 
 // Message live diffusé sur le panneau "Annonces" de l'horloge (texte libre,
@@ -261,7 +269,6 @@ export async function setLiveAnnouncement(text) {
     live_announcement: text || null,
     live_announcement_updated_at: new Date().toISOString(),
   });
-  if (error) throw error;
 }
 
 export async function updateOwnProfile(id, { pseudo, firstName, lastName, email, avatarData }) {
