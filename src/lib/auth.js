@@ -108,61 +108,47 @@ export async function fetchAccountByAuthUserId(authUserId) {
 /**
  * Connexion par pseudo.
  *
- * Deux voies, dans cet ordre :
+ * Une seule voie : Supabase Auth, qui ouvre une vraie session. Son jeton
+ * est ce qui permet aux règles de sécurité de la base de savoir qui
+ * demande — sans lui, on n'est qu'un visiteur aux yeux du serveur, quels
+ * que soient les boutons affichés à l'écran.
  *
- *   1. Supabase Auth, la bonne — elle ouvre une vraie session dont le jeton
- *      permettra à la base d'appliquer les permissions côté serveur.
- *
- *   2. Une vérification côté base (connexion_de_secours), au cas où la
- *      première échouerait. Elle compare le mot de passe au condensat rangé
- *      dans auth.users, sans jamais le renvoyer. Elle n'ouvre pas de
- *      session : c'est un filet, pas une porte dérobée — elle existe pour
- *      qu'une panne d'authentification n'enferme personne dehors, et elle
- *      sera retirée une fois la première voie confirmée en service.
+ * Une voie de secours a existé le temps de la bascule, puis a été retirée
+ * avec la RPC qui la servait : une connexion sans jeton laissait croire à
+ * un membre qu'il était entré alors que la base l'aurait traité en
+ * visiteur, et ce demi-état est pire qu'un refus franc.
  */
 export async function login(pseudo, password) {
   const { data: session, error: erreurAuth } = await supabase.auth.signInWithPassword({
     email: emailAuthDuPseudo(pseudo),
     password,
   });
-  if (!erreurAuth && session?.user) {
-    const compte = await fetchAccountByAuthUserId(session.user.id);
-    if (compte) {
-      storeAccountId(null); // la session Supabase remplace l'ancienne
-      return compte;
-    }
+  if (erreurAuth || !session?.user) throw new Error("Pseudo ou mot de passe incorrect.");
+  const compte = await fetchAccountByAuthUserId(session.user.id);
+  if (!compte) {
     // Session ouverte mais aucun compte en face : on ne la laisse pas traîner.
     await supabase.auth.signOut();
+    throw new Error("Pseudo ou mot de passe incorrect.");
   }
-
-  const { data: id } = await supabase.rpc("connexion_de_secours", {
-    p_pseudo: String(pseudo || "").trim(),
-    p_mdp: password,
-  });
-  if (!id) throw new Error("Pseudo ou mot de passe incorrect.");
-  const compte = await fetchAccountById(id);
-  storeAccountId(id);
+  storeAccountId(null); // plus aucune session locale : c'est le jeton qui fait foi
   return compte;
 }
 
 /**
- * Le compte du visiteur au chargement de la page : session Supabase
- * d'abord, ancienne session locale ensuite — le temps que tout le monde se
- * soit reconnecté au moins une fois.
+ * Le compte du visiteur au chargement de la page, d'après la seule session
+ * Supabase. Une ancienne session locale n'est plus acceptée : elle ne porte
+ * aucun jeton, et la base ne verrait qu'un visiteur — mieux vaut demander
+ * une vraie connexion que d'afficher des commandes qui ne répondront pas.
  */
 export async function fetchSessionAccount() {
   try {
     const { data } = await supabase.auth.getSession();
     const authUserId = data?.session?.user?.id;
-    if (authUserId) {
-      const compte = await fetchAccountByAuthUserId(authUserId);
-      if (compte) return compte;
-    }
+    if (!authUserId) return null;
+    return await fetchAccountByAuthUserId(authUserId);
   } catch {
-    // on retombe sur l'ancienne voie
+    return null;
   }
-  const id = getStoredAccountId();
-  return id ? await fetchAccountById(id) : null;
 }
 
 /**
