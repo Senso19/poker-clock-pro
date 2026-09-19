@@ -57,10 +57,12 @@ export function defaultStructure() {
   return [
     { smallBlind: 25, bigBlind: 50, ante: 0, durationMinutes: 20 },
     { smallBlind: 50, bigBlind: 100, ante: 0, durationMinutes: 20 },
-    { smallBlind: 75, bigBlind: 150, ante: 0, durationMinutes: 20 },
+    { smallBlind: 100, bigBlind: 200, ante: 0, durationMinutes: 20 },
     { isBreak: true, breakLabel: "Pause 10 min", durationMinutes: 10 },
-    { smallBlind: 100, bigBlind: 200, ante: 25, durationMinutes: 20 },
-    { smallBlind: 150, bigBlind: 300, ante: 25, durationMinutes: 20 },
+    // L'ante vaut la grosse blind, comme partout ailleurs dans
+    // l'application — et comme la colonne Ante le propose par défaut.
+    { smallBlind: 150, bigBlind: 300, ante: 300, durationMinutes: 20 },
+    { smallBlind: 200, bigBlind: 400, ante: 400, durationMinutes: 20 },
   ];
 }
 
@@ -121,8 +123,21 @@ export async function saveStructureConfig(tournamentId, config) {
   if (error) throw error;
 }
 
+/**
+ * Les paliers de blinds utilisables.
+ *
+ * Tous sont des multiples de 50 : le 25 n'a sa place qu'au tout premier
+ * niveau, 25/50. Au-delà, une small blind de 125 ou de 175 obligerait à
+ * garder des jetons de 25 en circulation alors qu'ils ont été échangés —
+ * la caisse ne peut plus rendre la monnaie et personne ne sait payer la
+ * blind. Ce sont les deux seules valeurs retirées de cette échelle.
+ *
+ * Tout le reste est conservé, 700, 1200 et 1800 compris : ces paliers
+ * intermédiaires sont ce qui permet à une structure longue de monter en
+ * douceur au lieu de doubler à chaque niveau.
+ */
 const CHIP_LADDER = [
-  25, 50, 100, 125, 150, 175, 200, 250, 300, 350, 400, 500, 600, 700, 800, 1000, 1200, 1500, 1800, 2000, 2500, 3000,
+  25, 50, 100, 150, 200, 250, 300, 350, 400, 500, 600, 700, 800, 1000, 1200, 1500, 1800, 2000, 2500, 3000,
   4000, 5000, 6000, 8000, 10000, 12000, 15000, 20000, 25000, 30000, 40000, 50000, 60000, 80000, 100000, 125000,
   150000, 200000, 250000, 300000, 400000, 500000,
 ];
@@ -219,6 +234,24 @@ export function recomputeAutoFields(config) {
 // que chaque niveau soit strictement supérieur au précédent — deux niveaux
 // consécutifs ne peuvent donc jamais se retrouver identiques, même quand la
 // progression géométrique brute retombe sur le même palier arrondi.
+/**
+ * Total des jetons qui finiront sur les tables : c'est lui qui dit où la
+ * structure doit s'arrêter. Les recaves, réentrées et add-ons ne comptent
+ * que s'ils sont permis — dans un freezeout, leurs champs gardent des
+ * valeurs par défaut qui gonfleraient le total pour rien.
+ */
+export function totalChipsInPlay(config) {
+  const fieldVal = (k) => Number(config.fields?.[k]?.value) || 0;
+  const players = Number(config.expectedPlayers) || 0;
+  let total = players * fieldVal("startingStack");
+  if (config.tournamentType === "rebuy") {
+    total += fieldVal("expectedReentries") * fieldVal("reentryChips");
+    total += fieldVal("expectedRebuys") * fieldVal("rebuyChips");
+    total += fieldVal("expectedAddons") * fieldVal("addonChips");
+  }
+  return total;
+}
+
 export function generateBlindLevels(config) {
   const startingSmallBlind = Number(config.fields?.startingSmallBlind?.value) || 25;
   const minutesPerLevel = Number(config.fields?.minutesPerLevel?.value) || 20;
@@ -226,12 +259,38 @@ export function generateBlindLevels(config) {
   const antesEnabled = !!config.antesEnabled;
   const anteType = config.anteType || "bb";
 
+  // La durée prévue donne le NOMBRE de niveaux.
   const numberOfLevels = Math.max(6, Math.round((durationHours * 60) / (minutesPerLevel || 20)));
   const startIdx = nearestLadderIndex(startingSmallBlind);
-  // Vise une multiplication d'environ x120 sur toute la structure (repère
-  // usuel pour une structure de tournoi), sans jamais dépasser l'échelle.
-  const spanTarget = Math.round(numberOfLevels * 1.8);
-  const endIdx = Math.min(CHIP_LADDER.length - 1, startIdx + Math.max(spanTarget, numberOfLevels));
+
+  // Le tapis de départ et le nombre de joueurs donnent, eux, le POINT
+  // D'ARRIVÉE — c'est ce qui manquait : la structure montait d'un facteur
+  // fixe, indifférente au fait qu'on distribue 5 000 jetons à 12 joueurs
+  // ou 30 000 à 80.
+  //
+  // Un tournoi se termine quand les tapis restants ne pèsent plus que
+  // quelques grosses blinds. En visant une dernière grosse blind autour du
+  // total des jetons divisé par 20, la fin tombe à peu près au moment où
+  // la durée prévue s'achève.
+  //
+  // Avec des antes, chaque main coûte plus cher : les tapis fondent plus
+  // vite et la fin arrive plus tôt dans la structure. On vise alors une
+  // dernière blind plus basse, sinon les derniers niveaux ne sont jamais
+  // joués.
+  const totalChips = totalChipsInPlay(config);
+  const diviseurFinal = antesEnabled ? 28 : 20;
+  let endIdx;
+  if (totalChips > 0) {
+    endIdx = nearestLadderIndex(totalChips / diviseurFinal / 2);
+  } else {
+    // Sans joueurs ni tapis renseignés, on retombe sur l'ancien repère :
+    // une progression d'environ x120 sur l'ensemble de la structure.
+    endIdx = startIdx + Math.round(numberOfLevels * 1.8);
+  }
+  // Chaque niveau doit monter : il faut au moins autant de paliers que de
+  // niveaux, et jamais plus que l'échelle n'en contient.
+  endIdx = Math.max(endIdx, startIdx + numberOfLevels - 1);
+  endIdx = Math.min(endIdx, CHIP_LADDER.length - 1);
 
   const levels = [];
   let idx = startIdx;

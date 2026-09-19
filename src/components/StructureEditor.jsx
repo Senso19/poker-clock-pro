@@ -88,6 +88,20 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
     setLoading(false);
   }
 
+  /**
+   * Valeur d'un champ numérique : le nombre saisi, ou la chaîne vide quand
+   * la case est vidée.
+   *
+   * C'était `Number(valeur) || 0`, donc effacer une case y replaçait un
+   * « 0 » qu'il fallait effacer à son tour avant de pouvoir taper. Tous
+   * ceux qui lisent ces champs les passent déjà par `Number(...) || repli`,
+   * une case vide y vaut donc zéro comme avant — elle ne l'affiche
+   * simplement plus.
+   */
+  function nombreOuVide(valeur) {
+    return valeur === "" ? "" : Number(valeur);
+  }
+
   function updateDriver(patch) {
     setConfig((prev) => recomputeAutoFields({ ...prev, ...patch }));
   }
@@ -486,7 +500,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
               <input
                 type="number"
                 value={config.expectedPlayers}
-                onChange={(e) => updateDriver({ expectedPlayers: Number(e.target.value) || 0 })}
+                onChange={(e) => updateDriver({ expectedPlayers: nombreOuVide(e.target.value) })}
                 style={{ backgroundColor: "var(--pcp-cell-bg, #14181C)", color: "var(--pcp-cell-text, #EDEAE3)" }}
                 className="flex-1 border border-felt-cream/10 rounded-md px-4 py-2.5 text-base"
               />
@@ -495,7 +509,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
               <input
                 type="number"
                 value={config.durationHours}
-                onChange={(e) => updateDriver({ durationHours: Number(e.target.value) || 0 })}
+                onChange={(e) => updateDriver({ durationHours: nombreOuVide(e.target.value) })}
                 style={{ backgroundColor: "var(--pcp-cell-bg, #14181C)", color: "var(--pcp-cell-text, #EDEAE3)" }}
                 className="flex-1 border border-felt-cream/10 rounded-md px-4 py-2.5 text-base"
               />
@@ -836,7 +850,7 @@ function AutoField({ label, fieldKey, config, setFieldMode, setFieldValue }) {
           type="number"
           value={field.value}
           disabled={isAuto}
-          onChange={(e) => setFieldValue(fieldKey, Number(e.target.value) || 0)}
+          onChange={(e) => setFieldValue(fieldKey, e.target.value === "" ? "" : Number(e.target.value))}
           style={{ backgroundColor: "var(--pcp-cell-bg, #14181C)", color: "var(--pcp-cell-text, #EDEAE3)" }}
           className="flex-1 border border-felt-cream/10 rounded-md px-4 py-2.5 text-base disabled:opacity-60"
         />
