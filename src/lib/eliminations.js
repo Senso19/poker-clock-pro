@@ -47,10 +47,14 @@ export async function eliminatePlayer({ tournamentId, reg, stillIn, eliminatedBy
   const remaining = stillIn.filter((r) => r.id !== reg.id);
   if (remaining.length === 1) {
     const winnerName = playerLabel(remaining[0]) || remaining[0].players?.full_name || "Le gagnant";
-    await supabase
-      .from("tournaments")
-      .update({ force_finished: true, clock_is_running: false })
-      .eq("id", tournamentId);
+    // Par une fonction dédiée plutôt qu'une écriture directe : clore est la
+    // conséquence d'une élimination, or un chef de table n'a pas le droit de
+    // modifier un tournoi. L'écriture directe ne levait aucune erreur — elle
+    // touchait zéro ligne et le tournoi serait resté « en cours ».
+    const { error: erreurCloture } = await supabase.rpc("clore_tournoi", {
+      p_tournament_id: tournamentId,
+    });
+    if (erreurCloture) throw new Error("Le tournoi n'a pas pu être clôturé : " + erreurCloture.message);
     addAnnouncement(tournamentId, `🏆 ${winnerName} a gagné le tournoi !`, "winner");
     return { position, winnerName };
   }

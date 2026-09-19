@@ -44,7 +44,22 @@ function Root() {
 
   return (
     <>
-      <App onRequestLogin={() => setShowLogin(true)} />
+      {/*
+        La `key` remonte toute l'application quand on change d'identité —
+        connexion, déconnexion, rien d'autre.
+
+        Sans elle, se connecter depuis la fenêtre de connexion laissait les
+        écrans déjà montés en l'état : ils avaient chargé leurs données en
+        tant que VISITEUR et ne se relançaient jamais (leurs effets n'ont
+        aucune dépendance). L'onglet Tournois restait vide jusqu'à ce qu'on
+        en change et qu'on revienne, ce qui les démontait enfin. Même cause
+        pour le championnat, l'écran d'élimination, et pour l'onglet d'accueil
+        d'un chef de table, calculé une seule fois à partir du rôle.
+
+        Au rechargement de la page le problème ne se posait pas : `loading`
+        ci-dessus attend déjà que le compte soit connu.
+      */}
+      <App key={account?.id ?? "visiteur"} onRequestLogin={() => setShowLogin(true)} />
       {showLogin && !account && (
         <div className="fixed inset-0 z-[100] bg-felt-bg sm:bg-black/70 sm:flex sm:items-center sm:justify-center">
           <div className="relative h-full sm:h-auto sm:max-h-[90vh] sm:overflow-y-auto sm:rounded-lg sm:max-w-sm sm:w-full">

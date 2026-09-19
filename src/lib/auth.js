@@ -29,14 +29,6 @@ export function emailAuthDuPseudo(pseudo) {
   return String(pseudo || "").replace(/[^a-zA-Z0-9]/g, "").toLowerCase() + DOMAINE_AUTH;
 }
 
-export function getStoredAccountId() {
-  try {
-    return localStorage.getItem(SESSION_KEY);
-  } catch {
-    return null;
-  }
-}
-
 function storeAccountId(id) {
   try {
     if (id) localStorage.setItem(SESSION_KEY, id);
@@ -46,58 +38,35 @@ function storeAccountId(id) {
   }
 }
 
-export async function fetchAccountById(id) {
-  const { data, error } = await supabase.from("accounts").select("*").eq("id", id).maybeSingle();
-  if (error) throw error;
-  return data;
-}
-
+/**
+ * Inscription publique.
+ *
+ * Tout se passe en base, dans inscrire_compte() : un visiteur sans compte
+ * n'a évidemment pas le droit d'écrire dans `accounts`, et il ne l'aura pas.
+ *
+ * Le code secret du club y est vérifié aussi. Il l'était auparavant dans le
+ * navigateur, où il suffisait d'ouvrir la console pour s'en passer — le
+ * déplacer côté serveur est un gain, pas seulement un contournement de la
+ * règle d'écriture.
+ *
+ * Le rôle, la validation et le statut de fondateur sont décidés là-bas
+ * également : c'est la base qui sait si le club a déjà un premier compte.
+ */
 export async function signup({ firstName, lastName, pseudo, email, password, avatarData, code }) {
-  const { count } = await supabase.from("accounts").select("*", { count: "exact", head: true });
-  const isFirstAccount = (count || 0) === 0;
-
-  if (!isFirstAccount) {
-    const { data: settings } = await supabase.from("club_settings").select("registration_code").limit(1).maybeSingle();
-    const validCode =
-      !!settings?.registration_code &&
-      settings.registration_code.trim().toUpperCase() === (code || "").trim().toUpperCase();
-    if (!validCode) throw new Error("Code secret incorrect.");
-  }
-
-  const { data, error } = await supabase
-    .from("accounts")
-    .insert({
-      first_name: firstName,
-      last_name: lastName,
-      pseudo,
-      email: email || null,
-      password,
-      avatar_data: avatarData || null,
-      role: isFirstAccount ? "admin" : "player",
-      // Seul ce tout premier compte (fondateur du club) est verrouillé en
-      // tant qu'admin de façon permanente (voir updateAccountRole) ; les
-      // admins promus ensuite restent librement rétrogradables par lui.
-      is_owner: isFirstAccount,
-      // Le tout premier compte (admin fondateur) est validé d'office ; tous
-      // les suivants attendent la validation d'un admin/TD avant de pouvoir
-      // s'inscrire à un tournoi (voir canParticipate).
-      validated: isFirstAccount,
-    })
-    .select()
-    .single();
-  if (error) {
-    if (error.message?.includes("duplicate")) throw new Error("Ce pseudo est déjà pris.");
-    throw error;
-  }
-  // L'identité Supabase du nouveau compte est créée par la base (déclencheur
-  // accounts_sync_identite). On enchaîne donc sur une vraie connexion, pour
-  // que le nouvel inscrit reparte avec une session comme les autres.
-  try {
-    return await login(pseudo, password);
-  } catch {
-    storeAccountId(data.id);
-    return data;
-  }
+  const { error } = await supabase.rpc("inscrire_compte", {
+    p_pseudo: pseudo,
+    p_prenom: firstName,
+    p_nom: lastName,
+    p_email: email || null,
+    p_mot_de_passe: password,
+    p_avatar: avatarData || null,
+    p_code: code || null,
+  });
+  if (error) throw new Error(error.message.replace(/^.*?:\s*/, ""));
+  // L'identité Supabase vient d'être créée par le déclencheur : on enchaîne
+  // sur une vraie connexion, pour que le nouvel inscrit reparte avec une
+  // session comme les autres.
+  return await login(pseudo, password);
 }
 
 export async function fetchAccountByAuthUserId(authUserId) {
@@ -162,12 +131,11 @@ export async function fetchSessionAccount() {
  * rafraîchir la date, ça n'empile rien dans les notifications.
  */
 export async function demanderReinitialisationMotDePasse(pseudo) {
-  const { data } = await supabase.from("accounts").select("id").ilike("pseudo", (pseudo || "").trim()).maybeSingle();
-  if (!data) return;
-  await supabase
-    .from("accounts")
-    .update({ password_reset_requested_at: new Date().toISOString() })
-    .eq("id", data.id);
+  // En base : un visiteur non connecté n'a pas le droit d'écrire dans
+  // `accounts`, et son UPDATE ne levait aucune erreur — il touchait zéro
+  // ligne. La demande n'arrivait donc jamais à l'administrateur, sans que
+  // rien ne le signale, puisque cette fonction est muette par conception.
+  await supabase.rpc("demander_reinitialisation", { p_pseudo: (pseudo || "").trim() });
 }
 
 /** Les demandes en attente, les plus anciennes d'abord. */
