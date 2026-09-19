@@ -121,7 +121,23 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
 
   function updateLevel(index, field, value) {
     setLevels((prev) =>
-      prev.map((l, i) => (i === index ? { ...l, [field]: value, isNew: false } : l))
+      prev.map((l, i) => {
+        if (i !== index) return l;
+        const suivant = { ...l, [field]: value, isNew: false };
+        // Saisir la small blind d'un niveau dont la big blind est encore
+        // vierge la remplit au double : c'est la structure courante, et
+        // c'est le geste qu'on fait juste après avoir ajouté ou inséré un
+        // niveau. L'ante suit la BB tout seul quand il est activé (la
+        // colonne Ante se calcule, elle ne se saisit pas).
+        //
+        // Une big blind déjà saisie n'est JAMAIS écrasée : un niveau
+        // 400/500, voulu tel quel, le reste même si on retouche sa SB.
+        if (field === "smallBlind" && !Number(l.bigBlind)) {
+          const sb = Number(value);
+          if (Number.isFinite(sb) && sb > 0) suivant.bigBlind = sb * 2;
+        }
+        return suivant;
+      })
     );
   }
 
@@ -619,7 +635,17 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                                 </span>
                               </div>
                             </td>
-                            <td colSpan={3} style={{ paddingTop: "var(--pcp-row-pad, 16px)", paddingBottom: "var(--pcp-row-pad, 16px)" }} className="pr-3">
+                            {/* Autant de colonnes que la ligne d'un niveau en occupe à cet
+                                endroit : SB et BB, plus l'ante quand il est
+                                activé. C'était 3 en dur, donc une colonne de
+                                trop sans les antes — la pause dépassait sur
+                                la droite et ses boutons ne tombaient plus en
+                                face de ceux des niveaux. */}
+                            <td
+                              colSpan={config.antesEnabled ? 3 : 2}
+                              style={{ paddingTop: "var(--pcp-row-pad, 16px)", paddingBottom: "var(--pcp-row-pad, 16px)" }}
+                              className="pr-3"
+                            >
                               <input
                                 value={level.breakLabel || ""}
                                 onChange={(e) => updateLevel(i, "breakLabel", e.target.value)}
