@@ -41,19 +41,72 @@ Si un jour vous créez un compte autrement qu'en passant par la table
 
 ## Reste à faire
 
-- **Règles RLS** sur les 18 tables de l'horloge.
-- **Retrait des droits excessifs** du rôle `anon`.
-- Les deux avertissements de l'audit Supabase (vue `v_recap_mensuel`,
-  `search_path` de `set_updated_at`).
+| # | Migration | Effet |
+|---|---|---|
+| 6 | `securite_rls_verrouiller_les_ecritures` | RLS sur les 19 tables de l'horloge. Chaque écriture est confrontée à `ma_permission()`. Déclencheur `accounts_proteger_droits`. Voie de secours supprimée. |
+| 7 | `securite_rls_visibilite_par_role` | La visibilité des tournois et championnats suit le rôle, côté serveur. Les tables liées à un tournoi suivent sa visibilité. Les messages à l'admin ne sont lus que par l'admin. |
+| 8 | `securite_retirer_droits_excessifs_anon` | `TRUNCATE`, `TRIGGER`, `REFERENCES` retirés sur les 25 tables. Table des permissions en lecture seule. |
+| 9 | `securite_retirer_fonctions_declencheur_de_api` | Les deux fonctions de déclencheur sortent de l'API. |
+
+## Le piège de l'auto-promotion
+
+La règle d'écriture sur `accounts` laisse un membre modifier SA fiche — ce
+qui est légitime. Mais une fiche porte la colonne `role` : sans garde,
+n'importe quel joueur se nommait administrateur en une requête. Une épreuve
+l'a montré avant la mise en service.
+
+Le déclencheur `accounts_proteger_droits` remet donc silencieusement `role`,
+`validated`, `is_owner`, `club_name` et `auth_user_id` à leur valeur
+d'origine pour quiconque n'a pas `manageAccounts`.
+
+**Conséquence pour les essais** : ce garde s'applique aussi en SQL direct.
+Pour changer un rôle à la main, il faut d'abord
+`ALTER TABLE accounts DISABLE TRIGGER accounts_proteger_droits`.
+
+## Pièges rencontrés en éprouvant les règles
+
+- Une écriture refusée par RLS **n'échoue pas toujours** : un `UPDATE` ou un
+  `DELETE` interdit touche simplement zéro ligne, sans erreur. Seul un
+  `INSERT` lève `42501`. Un test qui ne regarde que les erreurs conclut à
+  tort que tout va bien.
+- `SET LOCAL ROLE anon` **ne vide pas** `request.jwt.claims`. Sans
+  `set_config('request.jwt.claims','',true)`, on croit tester un visiteur
+  alors qu'on teste encore l'utilisateur précédent.
+- Un `SELECT` qui rend zéro ligne peut vouloir dire « interdit » **ou**
+  « table vide ». Il faut insérer une ligne de contrôle avant de conclure.
+
+## Ce qui reste ouvert, sciemment
+
+**Les données nominatives restent lisibles** avec la clé publique :
+`accounts` (noms, prénoms, e-mails), `players` (le fichier des joueurs) et
+`form_submissions` (les inscriptions). Restreindre ces lectures demande de
+retravailler plusieurs requêtes de l'application :
+
+- `TableBalanceContext` joint `accounts(pseudo, club_name)` aux inscriptions ;
+- `avatarsCache` lit `accounts(id, avatar_data)` ;
+- **la vérification des doublons du formulaire public lit
+  `form_submissions`** — et si cette lecture était refusée, elle ne
+  planterait pas : elle cesserait simplement de détecter les doublons, en
+  silence. C'est le piège à éviter absolument.
+
+La voie propre est une vue des champs publics et une fonction serveur pour
+le contrôle des doublons. Ce n'est pas fait.
+
+**Protection contre les mots de passe éventés** : Supabase sait refuser les
+mots de passe connus des fuites publiques (HaveIBeenPwned). C'est une case à
+cocher dans les réglages d'authentification du projet, pas du SQL.
 
 ## Hors périmètre, et toujours ouvert
 
 Cette base sert aussi **le site des finances** (`ecritures`, `releves`,
 `saisons`, `categories`) et une **application mariage** (`wedding_*`). Ni
 l'une ni l'autre n'a d'authentification : la même clé publique y donne
-toujours tous les droits. Aucun lien ne les relie aux tables de l'horloge
-(aucune clé étrangère, aucune fonction commune), donc sécuriser l'horloge ne
-les casse pas — mais ne les protège pas non plus.
+toujours le droit de lire, modifier et effacer. Seul `TRUNCATE` leur a été
+retiré.
+
+Aucun lien ne les relie aux tables de l'horloge (aucune clé étrangère,
+aucune fonction commune) : les sécuriser plus tard ne demandera pas de
+revenir sur ce qui vient d'être fait.
 
 ## La correspondance pseudo → adresse
 
