@@ -3,7 +3,8 @@ import { usePolling } from "../lib/usePolling.js";
 import ClubLoader from "./ClubLoader.jsx";
 import { useAccount } from "../context/AccountContext.jsx";
 import { fetchMessages, sendMessage, deleteMessage } from "../lib/chat.js";
-import { fetchClubSettings } from "../lib/auth.js";
+import { fetchClubSettings, roleEffectif, canPostChat } from "../lib/auth.js";
+import { lirePseudoVisiteur, enregistrerPseudoVisiteur } from "../lib/chatVisiteur.js";
 import { useConfirm } from "../context/ConfirmContext.jsx";
 import EditableButton from "./EditableButton.jsx";
 
@@ -19,7 +20,17 @@ const DEFAULT_MAX_LENGTH = 200;
 export default function ChatPanel() {
   const confirmAction = useConfirm();
   const { account } = useAccount();
-  const isAdmin = account.role === "admin";
+  // Le visiteur n'a pas de compte : tout ce qui touche à l'identité doit
+  // supporter son absence. La ligne plus bas lisait account.role et
+  // faisait planter l'écran dès qu'on le proposait sans connexion.
+  const role = roleEffectif(account);
+  const isAdmin = role === "admin";
+  const peutEcrire = canPostChat(role);
+  // Le visiteur écrit sous un pseudo qu'il se donne, gardé 24 h sur son
+  // appareil. Sans compte ET sans pseudo, on lui demande d'abord le sien.
+  const [pseudoVisiteur, setPseudoVisiteur] = useState(() => (account ? null : lirePseudoVisiteur()));
+  const [saisiePseudo, setSaisiePseudo] = useState("");
+  const nomAffiche = account ? account.pseudo : pseudoVisiteur;
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
@@ -79,7 +90,7 @@ export default function ChatPanel() {
 
   function remainingCooldown() {
     if (!cooldownSeconds) return 0;
-    const mine = [...messages].reverse().find((m) => m.account_id === account.id);
+    const mine = [...messages].reverse().find((m) => m.account_id === account?.id);
     if (!mine) return 0;
     const elapsed = (Date.now() - new Date(mine.created_at).getTime()) / 1000;
     return Math.max(0, Math.ceil(cooldownSeconds - elapsed));
@@ -87,11 +98,16 @@ export default function ChatPanel() {
 
   async function handleSend() {
     const body = text.trim().slice(0, maxLength);
-    if (!body || remainingCooldown() > 0) return;
+    if (!body || !nomAffiche || remainingCooldown() > 0) return;
     setSending(true);
     setText("");
     try {
-      await sendMessage({ accountId: account.id, pseudo: account.pseudo, avatarData: account.avatar_data, body });
+      await sendMessage({
+        accountId: account?.id ?? null,
+        pseudo: nomAffiche,
+        avatarData: account?.avatar_data ?? null,
+        body,
+      });
       await load();
     } catch {
       // silencieux
@@ -122,7 +138,7 @@ export default function ChatPanel() {
           <div className="text-felt-cream/40 text-sm">Aucun message pour le moment. Lance la discussion !</div>
         ) : (
           messages.map((m) => {
-            const mine = m.account_id === account.id;
+            const mine = !!account && m.account_id === account.id;
             return (
               <div key={m.id} className={`group flex gap-2 items-start ${mine ? "flex-row-reverse" : ""}`}>
                 {m.avatar_data ? (
@@ -156,6 +172,38 @@ export default function ChatPanel() {
       </div>
 
       <div className="border-t border-felt-cream/10 pt-2 mt-1 shrink-0">
+        {/* Le visiteur lit le chat mais n'y écrit pas : il n'a pas de
+            pseudo à signer. On le dit plutôt que de lui présenter un champ
+            qui refuserait sa saisie. */}
+        {!peutEcrire ? (
+          <div className="text-sm text-felt-cream/40 py-2 text-center">
+            Connecte-toi pour écrire dans le chat.
+          </div>
+        ) : !nomAffiche ? (
+          // Un message sans nom ne veut rien dire pour qui le lit.
+          <div className="flex flex-col gap-2">
+            <div className="text-sm text-felt-cream/50">Choisis un pseudo pour écrire ici :</div>
+            <div className="flex gap-2">
+              <input
+                value={saisiePseudo}
+                onChange={(e) => setSaisiePseudo(e.target.value.slice(0, 24))}
+                onKeyDown={(e) => e.key === "Enter" && setPseudoVisiteur(enregistrerPseudoVisiteur(saisiePseudo))}
+                placeholder="Ton pseudo"
+                className="flex-1 bg-felt-bg border border-felt-cream/10 rounded-md px-3 py-2 text-felt-cream placeholder:text-felt-cream/40"
+              />
+              <button
+                onClick={() => setPseudoVisiteur(enregistrerPseudoVisiteur(saisiePseudo))}
+                disabled={!saisiePseudo.trim()}
+                className="px-4 py-2 bg-felt-gold text-felt-bg rounded-md font-display disabled:opacity-40"
+              >
+                Valider
+              </button>
+            </div>
+            <div className="text-[11px] text-felt-cream/30">
+              Gardé 24 heures sur cet appareil, puis effacé.
+            </div>
+          </div>
+        ) : (
         <div className="flex flex-col gap-2">
           <input
             value={text}
@@ -176,6 +224,7 @@ export default function ChatPanel() {
             {blockedFor > 0 ? `${blockedFor}s` : "Envoyer"}
           </EditableButton>
         </div>
+        )}
         <div className="flex items-center justify-between mt-1 text-[11px] text-felt-cream/30">
           <span>{blockedFor > 0 ? `Attends ${blockedFor}s avant de renvoyer un message` : ""}</span>
           <span>{text.length}/{maxLength}</span>

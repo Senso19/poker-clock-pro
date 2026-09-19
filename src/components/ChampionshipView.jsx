@@ -14,7 +14,7 @@ import {
   updateChampionshipBanner,
 } from "../lib/points.js";
 import { useAccount } from "../context/AccountContext.jsx";
-import { canManageTournaments } from "../lib/auth.js";
+import { canManageTournaments, canManageChampionships, roleEffectif, canViewAllChampionships } from "../lib/auth.js";
 import ChampionshipDetailPage from "./ChampionshipDetailPage.jsx";
 import CustomizablePanel from "./CustomizablePanel.jsx";
 import { useConfirm } from "../context/ConfirmContext.jsx";
@@ -60,7 +60,10 @@ function formatShortDate(d) {
 export default function ChampionshipView() {
   const confirmAction = useConfirm();
   const { account } = useAccount();
-  const manage = canManageTournaments(account?.role);
+  const role = roleEffectif(account);
+  // Gérer les championnats est un droit à part : on peut créer des
+  // tournois sans avoir à toucher au classement de la saison.
+  const manage = canManageChampionships(role);
   const [summaries, setSummaries] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -79,9 +82,11 @@ export default function ChampionshipView() {
     setLoading(true);
     try {
       let list = await fetchChampionships();
-      // Visiteur non connecté : uniquement les championnats marqués "Accès
-      // public" — les autres restent réservés aux comptes connectés.
-      if (!account) list = list.filter((c) => c.public_view);
+      // Le membre du club voit tous les championnats ; l'invité et le
+      // joueur d'un club invité, seulement ceux marqués « Accès public ».
+      // Le visiteur, lui, n'arrive même pas jusqu'ici : l'onglet ne lui
+      // est pas proposé.
+      if (!canViewAllChampionships(role)) list = list.filter((c) => c.public_view);
       if (list.length === 0) {
         setSummaries([]);
         if (manage) setShowCreate(true);

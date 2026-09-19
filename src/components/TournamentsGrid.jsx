@@ -3,7 +3,7 @@ import ClubLoader from "./ClubLoader.jsx";
 import { supabase } from "../lib/supabase.js";
 import { fetchAllTournaments, deleteTournament } from "../lib/tournaments.js";
 import { useAccount } from "../context/AccountContext.jsx";
-import { canManageTournaments, canManageTournament, canParticipate, isClubMember } from "../lib/auth.js";
+import { canManageTournaments, canManageTournament, canParticipate, isClubMember, roleEffectif, canViewAllTournaments, canViewInterclubTournaments } from "../lib/auth.js";
 import { fetchChampionships } from "../lib/points.js";
 import { fetchStructureTemplates, saveLevels, saveStructureConfig, fetchLevels } from "../lib/levels.js";
 import { fetchClockTemplates, applyClockTemplateToTournament } from "../lib/clockTemplates.js";
@@ -23,6 +23,7 @@ import { useConfirm } from "../context/ConfirmContext.jsx";
 export default function TournamentsGrid({ onOpen }) {
   const confirmAction = useConfirm();
   const { account } = useAccount();
+  const role = roleEffectif(account);
   const manage = canManageTournaments(account?.role);
   const clubMember = isClubMember(account);
   const [tournaments, setTournaments] = useState([]);
@@ -61,9 +62,17 @@ export default function TournamentsGrid({ onOpen }) {
     setLoading(true);
     try {
       const list = await fetchAllTournaments();
-      // Visiteur non connecté : uniquement les tournois marqués "Accès
-      // public" — les autres restent réservés aux comptes connectés.
-      setTournaments(account ? list : list.filter((t) => t.public_view));
+      // Ce que chacun a le droit de voir :
+      //   — tout le monde, les tournois marqués « Accès public » ;
+      //   — le joueur d'un club invité, en plus, les tournois interclubs ;
+      //   — le membre du club et au-dessus, tous les tournois.
+      // Le filtrage se fait ici et non à l'affichage : un tournoi qu'on
+      // n'a pas le droit de voir ne doit pas transiter par l'écran.
+      setTournaments(
+        canViewAllTournaments(role)
+          ? list
+          : list.filter((t) => t.public_view || (t.is_interclub && canViewInterclubTournaments(role)))
+      );
       setChampionships(await fetchChampionships());
       fetchStructureTemplates().then(setStructureTemplates).catch(() => {});
       fetchClockTemplates().then(setClockTemplates).catch(() => {});

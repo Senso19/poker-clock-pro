@@ -6,7 +6,12 @@ import { supabase } from "../lib/supabase.js";
 import { useAccount } from "../context/AccountContext.jsx";
 import { useTheme } from "../context/ThemeContext.jsx";
 import { useEditMode } from "../context/EditModeContext.jsx";
-import { canManageTournaments, canManageAccounts, canManageOwnClub, ROLE_LABELS, fetchClubSettings, fetchPendingAccounts, fetchContactMessages, fetchPasswordResetRequests } from "../lib/auth.js";
+import {
+  canManageTournaments, canManageAccounts, canManageOwnClub, roleEffectif, roleLabel,
+  canViewChampionships, canUseChat, canContactAdmin,
+  canManageTemplates, canManageRegistrations, canManageClubSettings,
+  fetchClubSettings, fetchPendingAccounts, fetchContactMessages, fetchPasswordResetRequests,
+} from "../lib/auth.js";
 import ProfileModal from "./ProfileModal.jsx";
 import ContactAdminModal from "./ContactAdminModal.jsx";
 import PendingAccountsModal from "./PendingAccountsModal.jsx";
@@ -56,9 +61,12 @@ export default function Sidebar({ tab, setTab, onRequestLogin }) {
   const { account, logout } = useAccount();
   const { theme, setTheme } = useTheme();
   const { isEditMode } = useEditMode();
-  const manage = canManageTournaments(account?.role);
-  const manageAccounts = canManageAccounts(account?.role);
-  const manageOwnClub = canManageOwnClub(account?.role);
+  // Le rôle effectif : sans compte, ou avec un compte que personne n'a
+  // encore confirmé, c'est « visiteur ».
+  const role = roleEffectif(account);
+  const manage = canManageTournaments(role);
+  const manageAccounts = canManageAccounts(role);
+  const manageOwnClub = canManageOwnClub(role);
   const isStaffOnly = account?.role === "floor" || account?.role === "table_captain";
   const [showProfile, setShowProfile] = useState(false);
   const [showContact, setShowContact] = useState(false);
@@ -216,16 +224,37 @@ export default function Sidebar({ tab, setTab, onRequestLogin }) {
     });
   }
 
+  /**
+   * Chaque onglet est commandé par un droit, y compris pour qui n'est pas
+   * connecté : le visiteur est un rôle comme un autre (voir roleEffectif),
+   * et l'administrateur peut régler ce qu'il voit.
+   */
   function isVisible(key) {
     if (key.startsWith("space-")) return true;
-    // Visiteur non connecté : uniquement Tournois et Championnats, comme
-    // demandé — tout le reste attend une connexion.
-    if (!account) return key === "tournaments" || key === "championship";
-    if (key === "templates" || key === "settings" || key === "registrations") return manage;
-    if (key === "accounts") return manageAccounts;
-    if (key === "myclub") return manageOwnClub;
-    if (key === "eliminate") return isStaffOnly;
-    return true;
+    switch (key) {
+      case "tournaments":
+        return true; // au minimum les tournois publics, pour tout le monde
+      case "championship":
+        return canViewChampionships(role);
+      case "chat":
+        return canUseChat(role);
+      case "contact":
+        return canContactAdmin(role);
+      case "templates":
+        return canManageTemplates(role);
+      case "registrations":
+        return canManageRegistrations(role);
+      case "settings":
+        return canManageClubSettings(role);
+      case "accounts":
+        return manageAccounts;
+      case "myclub":
+        return manageOwnClub;
+      case "eliminate":
+        return isStaffOnly;
+      default:
+        return !!account;
+    }
   }
 
   function Divider() {
@@ -515,11 +544,10 @@ export default function Sidebar({ tab, setTab, onRequestLogin }) {
           )}
           <div className="text-sm text-white font-medium truncate max-w-full">{account.pseudo}</div>
           <div className="text-xs text-felt-cream/40 truncate">
-            {account.club_name
-              ? account.role === "club_manager"
-                ? `Gestionnaire du club ${account.club_name}`
-                : `Membre du ${account.club_name}`
-              : ROLE_LABELS[account.role]}
+            {/* « Joueur Aurillac » dit qui est la personne ; « Joueur
+                interclub » non. Le libellé est calculé en un seul endroit
+                (roleLabel) pour ne pas diverger d'un écran à l'autre. */}
+            {roleLabel(account)}
           </div>
         </div>
         <div className="flex items-center justify-between px-5">

@@ -5,7 +5,7 @@ import { supabase } from "../lib/supabase.js";
 import { selectTournament } from "../lib/tournaments.js";
 import { fetchLevels, defaultStructure } from "../lib/levels.js";
 import { useAccount } from "../context/AccountContext.jsx";
-import { canManageTournament, canControlClock, isClubManager } from "../lib/auth.js";
+import { canManageTournament, canControlClock, isClubManager, roleEffectif, canManageStructure, canManageSeating } from "../lib/auth.js";
 import { useIsMobile } from "../lib/useIsMobile.js";
 import { useTheme } from "../context/ThemeContext.jsx";
 import { formatChips } from "../lib/format.js";
@@ -98,6 +98,12 @@ export default function TournamentPage({ tournamentId, onBack }) {
   // "interclubs", exactement comme admin/TD/floor gèrent les tournois
   // normaux — sinon il n'a que la vue lecture, comme un joueur.
   const manage = canManageTournament(account, tournament);
+  // Deux droits plus fins se détachent de « gérer les tournois » : modifier
+  // la structure des blindes, et bouger les joueurs sur les tables. Un
+  // floor tient la salle sans avoir à toucher à la structure.
+  const role = roleEffectif(account);
+  const editStructure = manage && canManageStructure(role);
+  const editSeating = (manage || canManageSeating(role)) && canManageSeating(role);
   // Idem pour le contrôle de l'horloge : un gestionnaire de club l'a sur ses
   // tournois interclubs, en plus des rôles à qui la matrice l'accorde déjà.
   const clockControl = canControlClock(account?.role) || (isClubManager(account?.role) && !!tournament.is_interclub);
@@ -176,7 +182,7 @@ export default function TournamentPage({ tournamentId, onBack }) {
           )}
         </div>
         {tab === "structure" &&
-          (manage ? (
+          (editStructure ? (
             <StructureEditor onSaved={loadLevels} />
           ) : (
             <div className="p-4 sm:p-6 font-body text-felt-cream h-full overflow-y-auto max-w-lg">
@@ -195,7 +201,7 @@ export default function TournamentPage({ tournamentId, onBack }) {
               </div>
             </div>
           ))}
-        {tab === "tables" && <TablesView tournamentId={tournamentId} manage={manage} />}
+        {tab === "tables" && <TablesView tournamentId={tournamentId} manage={editSeating} />}
         {tab === "players" &&
           (manage ? (
             <TournamentDetail tournamentId={tournamentId} onBack={onBack} />

@@ -362,10 +362,33 @@ export const ROLE_LABELS = {
   tournament_director: "Tournament Director",
   floor: "Floor",
   table_captain: "Chef de table",
-  club_manager: "Gestionnaire de club",
-  player: "Joueur",
+  club_manager: "Joueur interclub",
+  player: "Membre",
   invite: "Invité",
+  visitor: "Visiteur",
 };
+
+/**
+ * Le rôle qui s'applique RÉELLEMENT à quelqu'un.
+ *
+ * Sans compte, ou avec un compte que l'administrateur n'a pas encore
+ * confirmé, on est visiteur : créer un compte ne donne rien tant que
+ * personne ne l'a validé.
+ */
+export function roleEffectif(account) {
+  if (!account || account.validated === false) return "visitor";
+  return account.role || "visitor";
+}
+
+/**
+ * Le libellé affiché pour un compte. Le joueur interclub porte le nom de
+ * son club — « Joueur Aurillac » dit qui il est, « Joueur interclub » non.
+ */
+export function roleLabel(account) {
+  const role = roleEffectif(account);
+  if (role === "club_manager" && account?.club_name) return `Joueur ${account.club_name}`;
+  return ROLE_LABELS[role] || role;
+}
 
 // Droits par défaut (comportement d'origine, avant que l'admin ne
 // personnalise la matrice). "invite" a les mêmes droits que "player".
@@ -375,23 +398,121 @@ export const ROLE_LABELS = {
 // (voir canManageTournament / isClubManager ci-dessous), pour qu'aucune
 // case de la matrice ne puisse accidentellement lui donner un droit global
 // (créer des tournois, gérer tous les membres, etc.).
+/**
+ * Les droits, par domaine. Chacun est RÉELLEMENT appliqué quelque part —
+ * une case qui ne commanderait rien serait pire qu'absente.
+ */
+export const PERMISSION_GROUPS = [
+  {
+    titre: "Consultation",
+    cles: ["viewAllTournaments", "viewInterclubTournaments", "viewPublicChampionships", "viewAllChampionships"],
+  },
+  { titre: "Communication", cles: ["useChat", "postChat", "contactAdmin"] },
+  { titre: "Table et horloge", cles: ["controlClock", "eliminateAnyone", "manageSeating"] },
+  {
+    titre: "Gestion",
+    cles: ["manageTournaments", "manageStructure", "manageChampionships", "manageTemplates", "manageRegistrations", "manageClubSettings", "manageAccounts"],
+  },
+];
+
+export const ALL_PERMISSION_KEYS = PERMISSION_GROUPS.flatMap((g) => g.cles);
+
+// Les droits d'un rôle qui voit et fait tout sauf la gestion des comptes.
+const ETAT_MAJOR = {
+  viewAllTournaments: true, viewInterclubTournaments: true,
+  viewPublicChampionships: true, viewAllChampionships: true,
+  useChat: true, postChat: true, contactAdmin: true,
+  controlClock: true, eliminateAnyone: true, manageSeating: true,
+  manageTournaments: true, manageStructure: true, manageChampionships: true,
+  manageTemplates: true, manageRegistrations: true, manageClubSettings: true,
+  manageAccounts: false,
+};
+
+// Ce que voit un membre du club : tout, mais il ne touche à rien.
+const MEMBRE = {
+  viewAllTournaments: true, viewInterclubTournaments: true,
+  viewPublicChampionships: true, viewAllChampionships: true,
+  useChat: true, postChat: true, contactAdmin: true,
+  controlClock: false, eliminateAnyone: false, manageSeating: false,
+  manageTournaments: false, manageStructure: false, manageChampionships: false,
+  manageTemplates: false, manageRegistrations: false, manageClubSettings: false,
+  manageAccounts: false,
+};
+
 const DEFAULT_ROLE_PERMISSIONS = {
-  admin: { manageTournaments: true, manageAccounts: true, controlClock: true, eliminateAnyone: true },
-  tournament_director: { manageTournaments: true, manageAccounts: false, controlClock: true, eliminateAnyone: true },
-  floor: { manageTournaments: false, manageAccounts: false, controlClock: true, eliminateAnyone: true },
-  table_captain: { manageTournaments: false, manageAccounts: false, controlClock: false, eliminateAnyone: false },
-  club_manager: { manageTournaments: false, manageAccounts: false, controlClock: false, eliminateAnyone: false },
-  player: { manageTournaments: false, manageAccounts: false, controlClock: false, eliminateAnyone: false },
-  invite: { manageTournaments: false, manageAccounts: false, controlClock: false, eliminateAnyone: false },
+  admin: { ...ETAT_MAJOR, manageAccounts: true },
+  tournament_director: { ...ETAT_MAJOR },
+  // Le floor tient la salle : horloge, sièges, éliminations. Il ne crée ni
+  // tournoi ni structure.
+  floor: {
+    ...MEMBRE,
+    controlClock: true, eliminateAnyone: true, manageSeating: true,
+  },
+  // Le chef de table n'élimine qu'à ses propres tables — c'est
+  // précisément ce que « Éliminer n'importe quel joueur » décoché veut
+  // dire (voir EliminationView).
+  table_captain: { ...MEMBRE, eliminateAnyone: false },
+  // Le membre du club voit tous les tournois et tous les championnats,
+  // publics ou non.
+  player: { ...MEMBRE },
+  // Le joueur d'un club invité voit, en plus des publics, les tournois
+  // interclubs — ceux auxquels il peut prétendre — mais pas les tournois
+  // internes du club, ni les championnats non publics.
+  club_manager: {
+    ...MEMBRE,
+    viewAllTournaments: false, viewAllChampionships: false,
+    viewInterclubTournaments: true, viewPublicChampionships: true,
+  },
+  // Compte confirmé, sans plus : les tournois et championnats publics.
+  invite: {
+    ...MEMBRE,
+    viewAllTournaments: false, viewInterclubTournaments: false,
+    viewAllChampionships: false, viewPublicChampionships: true,
+  },
+  // Quelqu'un qui a le lien du site, sans compte — ou dont le compte
+  // attend encore sa confirmation. Les tournois publics, le chat et de
+  // quoi joindre l'administrateur : rien d'autre, pas même les
+  // championnats publics. Il peut écrire dans le chat, mais devra se
+  // donner un pseudo (voir pseudoVisiteur ci-dessous).
+  visitor: {
+    ...MEMBRE,
+    viewAllTournaments: false, viewInterclubTournaments: false,
+    viewAllChampionships: false, viewPublicChampionships: false,
+  },
 };
 
 export const PERMISSION_LABELS = {
-  manageTournaments: "Gérer les tournois",
-  manageAccounts: "Gérer les membres et les droits",
+  viewAllTournaments: "Voir tous les tournois",
+  viewInterclubTournaments: "Voir les tournois interclubs",
+  viewPublicChampionships: "Voir les championnats publics",
+  viewAllChampionships: "Voir tous les championnats",
+  useChat: "Lire le chat du club",
+  postChat: "Écrire dans le chat",
+  contactAdmin: "Contacter l'administrateur",
   controlClock: "Contrôler l'horloge",
   eliminateAnyone: "Éliminer n'importe quel joueur",
+  manageSeating: "Gérer les tables et les sièges",
+  manageTournaments: "Créer et modifier les tournois",
+  manageStructure: "Modifier la structure des blindes",
+  manageChampionships: "Gérer les championnats",
+  manageTemplates: "Gérer les modèles",
+  manageRegistrations: "Gérer les inscriptions Festival et Open",
+  manageClubSettings: "Modifier les paramètres du club",
+  manageAccounts: "Gérer les membres et les droits",
 };
 
+/**
+ * Les droits que la matrice montre mais ne commande pas.
+ *
+ * « Gérer les membres et les droits » est réservé à l'administrateur par
+ * construction (canManageAccounts ne consulte pas la matrice) : s'il était
+ * réglable, un rôle pourrait se retirer à lui-même l'accès à cette page et
+ * plus personne ne pourrait revenir en arrière.
+ *
+ * La ligne reste visible — elle dit qui peut quoi — mais aucune case n'y
+ * est cliquable. Une case qui ne commande rien serait pire qu'absente.
+ */
+export const PERMISSIONS_TOUJOURS_VERROUILLEES = ["manageAccounts"];
 // Rempli de façon réactive par ThemeContext à chaque chargement du thème du
 // club, pour que les fonctions can*() ci-dessous reflètent la matrice
 // éditée par l'admin sans avoir à modifier chacun de leurs appels.
@@ -408,6 +529,65 @@ function hasPermission(role, key) {
 
 export function canManageTournaments(role) {
   return hasPermission(role, "manageTournaments");
+}
+
+// Les tournois internes du club, en plus des publics.
+export function canViewAllTournaments(role) {
+  return hasPermission(role, "viewAllTournaments");
+}
+
+// Les tournois marqués « interclub », ouverts aux clubs invités.
+export function canViewInterclubTournaments(role) {
+  return hasPermission(role, "viewInterclubTournaments");
+}
+
+export function canViewPublicChampionships(role) {
+  return hasPermission(role, "viewPublicChampionships");
+}
+
+export function canViewAllChampionships(role) {
+  return hasPermission(role, "viewAllChampionships");
+}
+
+// L'onglet Championnats n'a de sens que pour qui peut en voir au moins un.
+export function canViewChampionships(role) {
+  return canViewPublicChampionships(role) || canViewAllChampionships(role);
+}
+
+export function canUseChat(role) {
+  return hasPermission(role, "useChat");
+}
+
+export function canPostChat(role) {
+  return hasPermission(role, "postChat");
+}
+
+export function canManageSeating(role) {
+  return hasPermission(role, "manageSeating");
+}
+
+export function canManageStructure(role) {
+  return hasPermission(role, "manageStructure");
+}
+
+export function canManageChampionships(role) {
+  return hasPermission(role, "manageChampionships");
+}
+
+export function canManageTemplates(role) {
+  return hasPermission(role, "manageTemplates");
+}
+
+export function canManageRegistrations(role) {
+  return hasPermission(role, "manageRegistrations");
+}
+
+export function canManageClubSettings(role) {
+  return hasPermission(role, "manageClubSettings");
+}
+
+export function canContactAdmin(role) {
+  return hasPermission(role, "contactAdmin");
 }
 
 // Gestion des comptes (rôles, mots de passe, suppression) : réservée à

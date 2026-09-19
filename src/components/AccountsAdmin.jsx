@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { saveClubTheme } from "../lib/clubSettings.js";
 import ClubLoader from "./ClubLoader.jsx";
 import { Pencil, Trash2, Merge, Search, UserPlus, Mail, Download, Copy, Lock, LockOpen, Shield } from "lucide-react";
@@ -13,6 +13,9 @@ import {
   setAccountClubName,
   ROLE_LABELS,
   PERMISSION_LABELS,
+  PERMISSION_GROUPS,
+  ALL_PERMISSION_KEYS,
+  PERMISSIONS_TOUJOURS_VERROUILLEES,
   DEFAULT_ROLE_PERMISSIONS,
 } from "../lib/auth.js";
 import { supabase } from "../lib/supabase.js";
@@ -199,7 +202,11 @@ export default function AccountsAdmin() {
 
       {showPermissions && (
         <div onClick={() => setShowPermissions(false)} className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-2xl max-h-[85vh] overflow-y-auto">
+          {/* Huit rôles en colonnes : il faut de la place. Sur un écran
+              étroit le tableau défile horizontalement, la première colonne
+              restant collée à gauche pour qu'on sache toujours quel droit
+              on coche. */}
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-6xl max-h-[85vh] overflow-y-auto">
             <RolePermissionsMatrix onClose={() => setShowPermissions(false)} />
           </div>
         </div>
@@ -623,44 +630,65 @@ function Field({ label, value, onChange, placeholder, type = "text" }) {
 }
 
 /**
- * RolePermissionsMatrix — tableau des droits par rôle, modifiable à
- * volonté par l'administrateur (cases à cocher), avec un cadenas en bout
- * de ligne pour figer un rôle (empêcher toute modification accidentelle
- * de ses droits). Stocké dans club_settings.theme.rolePermissions /
- * rolePermissionsLocked, et lu par les fonctions can*() de lib/auth.js
- * partout dans l'app.
+ * RolePermissionsMatrix — le gestionnaire de droits.
+ *
+ * Une ligne par droit, une colonne par rôle, regroupées par domaine :
+ * consultation, communication, table et horloge, gestion. Les rôles sont
+ * rangés du moins au plus doté, de sorte qu'on lise la progression de
+ * gauche à droite et qu'une case cochée plus à gauche qu'à droite saute
+ * aux yeux.
+ *
+ * « Visiteur » y figure comme les autres bien qu'il ne corresponde à aucun
+ * compte : c'est le rôle de qui arrive avec le lien du site, ou dont le
+ * compte attend sa confirmation. Il fallait pouvoir régler ce qu'il voit.
+ *
+ * Stocké dans club_settings.theme.rolePermissions, lu par les fonctions
+ * can*() de lib/auth.js partout dans l'application.
  */
 function RolePermissionsMatrix({ onClose }) {
   const { theme, setTheme } = useTheme();
   const perms = { ...DEFAULT_ROLE_PERMISSIONS, ...(theme.rolePermissions || {}) };
   const locked = theme.rolePermissionsLocked || {};
-  // "club_manager" n'apparaît pas ici : ses droits sont toujours
-  // circonscrits aux tournois interclubs et à son propre club (voir
-  // lib/auth.js), jamais globaux — aucune case à cocher ne doit pouvoir lui
-  // donner un droit sur tous les tournois ou tous les membres.
-  const roles = Object.keys(ROLE_LABELS).filter((r) => r !== "admin" && r !== "club_manager");
-  const permKeys = Object.keys(PERMISSION_LABELS);
+  const [ouverts, setOuverts] = useState(() => PERMISSION_GROUPS.map((g) => g.titre));
+
+  // Du moins doté au plus doté : la lecture suit la hiérarchie du club.
+  const roles = ["visitor", "invite", "club_manager", "player", "table_captain", "floor", "tournament_director", "admin"];
 
   async function persist(next) {
     setTheme(next);
     await saveClubTheme(next);
   }
 
-  function toggle(role, key) {
-    if (locked[role]) return;
-    const nextPerms = { ...perms, [role]: { ...perms[role], [key]: !perms[role]?.[key] } };
-    persist({ ...theme, rolePermissions: nextPerms });
+  const estVerrouille = (role, cle) => !!locked[role] || PERMISSIONS_TOUJOURS_VERROUILLEES.includes(cle);
+
+  function toggle(role, cle) {
+    if (estVerrouille(role, cle)) return;
+    persist({ ...theme, rolePermissions: { ...perms, [role]: { ...perms[role], [cle]: !perms[role]?.[cle] } } });
   }
 
   function toggleLock(role) {
-    const nextLocked = { ...locked, [role]: !locked[role] };
-    persist({ ...theme, rolePermissionsLocked: nextLocked });
+    persist({ ...theme, rolePermissionsLocked: { ...locked, [role]: !locked[role] } });
   }
+
+  function reinitialiser(role) {
+    if (locked[role]) return;
+    persist({ ...theme, rolePermissions: { ...perms, [role]: { ...DEFAULT_ROLE_PERMISSIONS[role] } } });
+  }
+
+  function toutLeGroupe(role, groupe, valeur) {
+    if (locked[role]) return;
+    const suivant = { ...perms[role] };
+    for (const cle of groupe.cles) if (!estVerrouille(role, cle)) suivant[cle] = valeur;
+    persist({ ...theme, rolePermissions: { ...perms, [role]: suivant } });
+  }
+
+  const modifie = (role) =>
+    ALL_PERMISSION_KEYS.some((cle) => !!perms[role]?.[cle] !== !!DEFAULT_ROLE_PERMISSIONS[role]?.[cle]);
 
   return (
     <div className="bg-felt-panel border border-felt-cream/10 rounded-md p-4">
       <div className="flex items-center justify-between mb-1">
-        <div className="font-display text-base">Droits par rôle</div>
+        <div className="font-display text-base">Rôles et permissions</div>
         {onClose && (
           <button onClick={onClose} className="text-felt-cream/50 hover:text-felt-cream">
             ✕
@@ -668,86 +696,105 @@ function RolePermissionsMatrix({ onClose }) {
         )}
       </div>
       <div className="text-xs text-felt-cream/50 mb-4">
-        Modifiable uniquement par l'administrateur. « Invité » a les mêmes droits que « Joueur » par défaut. Le rôle
-        Administrateur a toujours tous les droits (non modifiable). Cliquez le cadenas pour figer un rôle et éviter
+        Chaque case commande vraiment quelque chose dans l'application. « Visiteur » est le rôle de qui arrive avec le
+        lien du site sans compte — ou dont le compte n'a pas encore été confirmé. Le cadenas fige un rôle pour éviter
         toute modification accidentelle.
       </div>
-      <div className="hidden sm:block overflow-x-auto">
-        <table className="w-full text-sm">
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm border-separate border-spacing-0">
           <thead>
-            <tr className="text-left text-felt-cream/40 text-xs">
-              <th className="py-1.5 pr-3 font-normal">Rôle</th>
-              {permKeys.map((k) => (
-                <th key={k} className="py-1.5 px-2 font-normal text-center">
-                  {PERMISSION_LABELS[k]}
+            <tr className="text-felt-cream/40 text-xs">
+              <th className="text-left py-2 pr-3 font-normal sticky left-0 bg-felt-panel">Droit</th>
+              {roles.map((role) => (
+                <th key={role} className="py-2 px-2 font-normal text-center align-bottom min-w-[5.5rem]">
+                  <div className="text-felt-cream/70">{ROLE_LABELS[role]}</div>
+                  <button
+                    onClick={() => toggleLock(role)}
+                    title={locked[role] ? "Rôle figé — cliquer pour débloquer" : "Figer ce rôle"}
+                    className="mt-1 text-sm"
+                  >
+                    {locked[role] ? "🔒" : "🔓"}
+                  </button>
                 </th>
               ))}
-              <th className="py-1.5 pl-2 font-normal text-center">Figer</th>
             </tr>
           </thead>
           <tbody>
-            {roles.map((role) => (
-              <tr key={role} className="border-t border-felt-cream/5">
-                <td className="py-2 pr-3 text-felt-cream/80">{ROLE_LABELS[role]}</td>
-                {permKeys.map((k) => (
-                  <td key={k} className="py-2 px-2 text-center">
-                    <input
-                      type="checkbox"
-                      checked={!!perms[role]?.[k]}
-                      disabled={!!locked[role]}
-                      onChange={() => toggle(role, k)}
-                      className="cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
-                    />
-                  </td>
-                ))}
-                <td className="py-2 pl-2 text-center">
+            {PERMISSION_GROUPS.map((groupe) => {
+              const ouvert = ouverts.includes(groupe.titre);
+              return (
+                <Fragment key={groupe.titre}>
+                  <tr>
+                    <td colSpan={roles.length + 1} className="pt-4 pb-1">
+                      <button
+                        onClick={() =>
+                          setOuverts((o) => (o.includes(groupe.titre) ? o.filter((t) => t !== groupe.titre) : [...o, groupe.titre]))
+                        }
+                        className="text-felt-gold font-display text-sm"
+                      >
+                        {ouvert ? "▾" : "▸"} {groupe.titre}
+                      </button>
+                    </td>
+                  </tr>
+                  {ouvert &&
+                    groupe.cles.map((cle) => (
+                      <tr key={cle} className="border-t border-felt-cream/5">
+                        <td className="py-2 pr-3 text-felt-cream/80 sticky left-0 bg-felt-panel">{PERMISSION_LABELS[cle]}</td>
+                        {roles.map((role) => (
+                          <td key={role} className="py-2 px-2 text-center">
+                            <input
+                              type="checkbox"
+                              checked={!!perms[role]?.[cle]}
+                              disabled={estVerrouille(role, cle)}
+                              onChange={() => toggle(role, cle)}
+                              title={
+                                PERMISSIONS_TOUJOURS_VERROUILLEES.includes(cle)
+                                  ? "Réservé à l'administrateur : réglable ici, un rôle pourrait se retirer l'accès aux droits sans retour possible"
+                                  : undefined
+                              }
+                              className="cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  {ouvert && (
+                    <tr>
+                      <td className="py-1 pr-3 text-[11px] text-felt-cream/30 sticky left-0 bg-felt-panel">tout / rien</td>
+                      {roles.map((role) => (
+                        <td key={role} className="py-1 px-2 text-center text-[11px]">
+                          <button onClick={() => toutLeGroupe(role, groupe, true)} disabled={!!locked[role]} className="text-felt-cream/40 hover:text-felt-cream disabled:opacity-30">
+                            ✓
+                          </button>
+                          <span className="text-felt-cream/20 mx-1">/</span>
+                          <button onClick={() => toutLeGroupe(role, groupe, false)} disabled={!!locked[role]} className="text-felt-cream/40 hover:text-felt-cream disabled:opacity-30">
+                            ✕
+                          </button>
+                        </td>
+                      ))}
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
+            <tr className="border-t border-felt-cream/10">
+              <td className="py-3 pr-3 text-[11px] text-felt-cream/30 sticky left-0 bg-felt-panel">par défaut</td>
+              {roles.map((role) => (
+                <td key={role} className="py-3 px-2 text-center">
                   <button
-                    onClick={() => toggleLock(role)}
-                    title={locked[role] ? "Déverrouiller ce rôle" : "Figer ce rôle"}
-                    className={locked[role] ? "text-felt-gold" : "text-felt-cream/30 hover:text-felt-cream/60"}
+                    onClick={() => reinitialiser(role)}
+                    disabled={!!locked[role] || !modifie(role)}
+                    title="Remettre les droits d'origine de ce rôle"
+                    className="text-[11px] text-felt-cream/40 hover:text-felt-gold disabled:opacity-25"
                   >
-                    {locked[role] ? <Lock size={15} /> : <LockOpen size={15} />}
+                    ↻
                   </button>
                 </td>
-              </tr>
-            ))}
+              ))}
+            </tr>
           </tbody>
         </table>
-      </div>
-
-      {/* Sur mobile, la matrice illisible en tableau devient une carte par
-          rôle : une liste verticale de permissions, plus simple à lire et
-          à toucher qu'un tableau compressé horizontalement. */}
-      <div className="sm:hidden space-y-3">
-        {roles.map((role) => (
-          <div key={role} className="bg-felt-bg border border-felt-cream/10 rounded-md p-3">
-            <div className="flex items-center justify-between mb-2">
-              <div className="font-display text-sm text-felt-cream/80">{ROLE_LABELS[role]}</div>
-              <button
-                onClick={() => toggleLock(role)}
-                title={locked[role] ? "Déverrouiller ce rôle" : "Figer ce rôle"}
-                className={`flex items-center gap-1 text-xs ${locked[role] ? "text-felt-gold" : "text-felt-cream/30 hover:text-felt-cream/60"}`}
-              >
-                {locked[role] ? <Lock size={14} /> : <LockOpen size={14} />}
-                {locked[role] ? "Figé" : "Figer"}
-              </button>
-            </div>
-            <div className="space-y-1.5">
-              {permKeys.map((k) => (
-                <label key={k} className="flex items-center justify-between gap-3 py-1 text-sm text-felt-cream/70">
-                  <span>{PERMISSION_LABELS[k]}</span>
-                  <input
-                    type="checkbox"
-                    checked={!!perms[role]?.[k]}
-                    disabled={!!locked[role]}
-                    onChange={() => toggle(role, k)}
-                    className="cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 shrink-0"
-                  />
-                </label>
-              ))}
-            </div>
-          </div>
-        ))}
       </div>
     </div>
   );
