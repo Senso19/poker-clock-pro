@@ -48,6 +48,40 @@ Si un jour vous créez un compte autrement qu'en passant par la table
 | 8 | `securite_retirer_droits_excessifs_anon` | `TRUNCATE`, `TRIGGER`, `REFERENCES` retirés sur les 25 tables. Table des permissions en lecture seule. |
 | 9 | `securite_retirer_fonctions_declencheur_de_api` | Les deux fonctions de déclencheur sortent de l'API. |
 
+| 10 | `securite_clore_tournoi_par_celui_qui_elimine` | Fonction `clore_tournoi()` : clore est la conséquence d'une élimination, pas un acte de gestion. |
+| 11 | `securite_inscription_et_mot_de_passe_oublie` | `inscrire_compte()` et `demander_reinitialisation()` : deux gestes d'un visiteur sans compte, que la règle sur `accounts` bloquait forcément. Le code du club est désormais vérifié en base. |
+| 12 | `securite_rls_alleger_les_lectures` | `FOR ALL` inclut la LECTURE : chaque table avait deux règles de lecture. Séparées en INSERT / UPDATE / DELETE. |
+| 13 | `securite_rls_evaluer_les_permissions_une_seule_fois` | **85 ms → 1,5 ms** pour lire 500 inscrits. Voir ci-dessous. |
+
+## Les deux pièges de performance de la RLS
+
+**`FOR ALL` inclut `SELECT`.** Une règle d'écriture déclarée `FOR ALL`
+s'ajoute aux règles de lecture, et PostgreSQL les combine par OU : chaque
+lecture évaluait donc les deux. Il faut déclarer explicitement
+`FOR INSERT` / `FOR UPDATE` / `FOR DELETE`.
+
+**Une fonction dans une règle est appelée À CHAQUE LIGNE.** Lire les 500
+inscrits d'un gros tournoi prenait **85 ms**, contre 0,87 ms avant la RLS —
+`ma_permission()` était évaluée 500 fois alors que son verdict ne dépend que
+du demandeur. En l'enfermant dans une sous-requête scalaire, PostgreSQL la
+sort de la boucle :
+
+```sql
+-- 85 ms pour 500 lignes
+USING (public.ma_permission('viewAllTournaments') OR ...)
+
+-- 1,5 ms pour 500 lignes
+USING ((SELECT public.ma_permission('viewAllTournaments')) OR ...)
+```
+
+Même parade que le `(select auth.uid())` recommandé par Supabase. Toute
+nouvelle règle doit suivre cette forme.
+
+**Un test de visibilité par ligne coûte cher.** Pour les tables liées à un
+tournoi, la règle commence par `viewAllTournaments` — vrai pour un membre et
+au-dessus, c'est-à-dire la quasi-totalité du trafic. Le détail par tournoi
+n'est évalué que pour un visiteur ou un invité, sur des listes courtes.
+
 ## Le piège de l'auto-promotion
 
 La règle d'écriture sur `accounts` laisse un membre modifier SA fiche — ce
