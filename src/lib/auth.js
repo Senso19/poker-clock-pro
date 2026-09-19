@@ -121,6 +121,32 @@ export async function fetchSessionAccount() {
 }
 
 /**
+ * Prévient à chaque changement de session : connexion, déconnexion, et
+ * surtout PERTE de session.
+ *
+ * Le jeton expire au bout d'une heure. Le client le renouvelle tout seul,
+ * mais un renouvellement peut échouer — réseau coupé dans la salle, machine
+ * en veille toute une nuit sur un tournoi de plusieurs jours. Sans cette
+ * écoute, la session tombait en silence : l'écran gardait ses boutons, la
+ * base ne voyait plus qu'un visiteur, et les gestes de la soirée ne
+ * partaient plus sans qu'aucun message ne l'indique.
+ *
+ * Rend une fonction pour arrêter d'écouter.
+ */
+export function surChangementDeSession(quand) {
+  // Sans client d'authentification (bancs d'essai, rendu hors navigateur),
+  // il n'y a pas de session à surveiller : on ne fait rien plutôt que de
+  // faire tomber toute l'application au montage.
+  if (typeof supabase.auth?.onAuthStateChange !== "function") return () => {};
+  const { data } = supabase.auth.onAuthStateChange((evenement, session) => {
+    // INITIAL_SESSION double le chargement initial, déjà fait par ailleurs.
+    if (evenement === "INITIAL_SESSION") return;
+    quand(session?.user?.id ?? null, evenement);
+  });
+  return () => data?.subscription?.unsubscribe();
+}
+
+/**
  * « Mot de passe oublié » : le joueur demande, l'administrateur agit.
  *
  * On ne dit JAMAIS si le pseudo existe — sinon cette page servirait à

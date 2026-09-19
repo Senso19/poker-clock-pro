@@ -1,5 +1,10 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { fetchSessionAccount, logout as logoutFn } from "../lib/auth.js";
+import {
+  fetchSessionAccount,
+  fetchAccountByAuthUserId,
+  surChangementDeSession,
+  logout as logoutFn,
+} from "../lib/auth.js";
 
 const AccountContext = createContext({
   account: null,
@@ -29,6 +34,24 @@ export function AccountProvider({ children }) {
 
   useEffect(() => {
     refresh();
+  }, []);
+
+  // Une session perdue doit se VOIR. Le jeton expire toutes les heures et se
+  // renouvelle seul, mais le renouvellement peut échouer : réseau coupé dans
+  // la salle, machine en veille une nuit entière sur un tournoi de plusieurs
+  // jours. Sans cette écoute, l'écran gardait ses boutons pendant que la base
+  // ne voyait plus qu'un visiteur — l'horloge affichait l'heure sans plus
+  // rien enregistrer, et les éliminations ne partaient plus.
+  // Repasser le compte à null renvoie à l'écran de connexion : une panne
+  // franche vaut mieux qu'une soirée perdue en silence.
+  useEffect(() => {
+    return surChangementDeSession(async (authUserId) => {
+      if (!authUserId) {
+        setAccount(null);
+        return;
+      }
+      setAccount(await fetchAccountByAuthUserId(authUserId));
+    });
   }, []);
 
   async function logout() {
