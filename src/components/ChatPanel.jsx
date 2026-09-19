@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePolling } from "../lib/usePolling.js";
 import ClubLoader from "./ClubLoader.jsx";
 import { useAccount } from "../context/AccountContext.jsx";
-import { fetchMessages, sendMessage, deleteMessage } from "../lib/chat.js";
+import { fetchMessages, sendMessage, deleteMessage, empreinteDuChat } from "../lib/chat.js";
 import { fetchClubSettings, roleEffectif, canPostChat, canManageAccounts } from "../lib/auth.js";
 import { lirePseudoVisiteur, enregistrerPseudoVisiteur } from "../lib/chatVisiteur.js";
 import { useConfirm } from "../context/ConfirmContext.jsx";
@@ -88,8 +88,22 @@ export default function ChatPanel() {
     return () => clearInterval(t);
   }, []);
 
-  async function load() {
+  // Empreinte du dernier état chargé : « nombre de messages | date du plus
+  // récent ». Tant qu'elle ne bouge pas, il n'y a rien à retélécharger.
+  const empreinteRef = useRef(null);
+
+  async function load({ forcer = false } = {}) {
     try {
+      if (!forcer) {
+        const empreinte = await empreinteDuChat();
+        if (empreinte === empreinteRef.current) {
+          setLoading(false);
+          return;
+        }
+        empreinteRef.current = empreinte;
+      } else {
+        empreinteRef.current = null;
+      }
       setMessages(await fetchMessages());
     } catch {
       // silencieux
@@ -116,7 +130,7 @@ export default function ChatPanel() {
         pseudo: nomAffiche,
         body,
       });
-      await load();
+      await load({ forcer: true });
     } catch {
       // silencieux
     }
@@ -129,6 +143,9 @@ export default function ChatPanel() {
     try {
       await deleteMessage(id);
       setMessages((prev) => prev.filter((m) => m.id !== id));
+      // L'empreinte vient de changer sous nos pieds : on la réapprendra au
+      // prochain tour plutôt que de croire l'état inchangé.
+      empreinteRef.current = null;
     } catch {
       // silencieux
     }
