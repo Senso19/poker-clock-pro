@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { usePolling } from "../lib/usePolling.js";
 import { supabase } from "../lib/supabase.js";
+import { chargerAvatars, avecAvatars } from "../lib/avatarsCache.js";
 import { sortByPlayerLabel } from "../lib/players.js";
 import { computeBreakMoves, computeRebalanceMoves, applyTableMoves } from "../lib/tableBalance.js";
 import ToastStack from "../components/ToastStack.jsx";
@@ -77,16 +78,21 @@ export function TableBalanceProvider({ tournamentId, tournament, surveiller = fa
   }, []);
 
   const chargerInscriptions = useCallback(async () => {
+    // Sans avatar_data : ces images en base64 pèsent seize fois le reste
+    // de la requête (493 ko contre 31 ko sur un tournoi de 80 inscrits) et
+    // ne changent jamais en cours de partie. Elles sont chargées à part,
+    // et rarement — voir avatarsCache.js.
     const { data } = await supabase
       .from("registrations")
-      .select("*, players(id, full_name, first_name, last_name, club, pseudo), accounts(avatar_data, pseudo, club_name)")
+      .select("*, players(id, full_name, first_name, last_name, club, pseudo), accounts(pseudo, club_name)")
       .eq("tournament_id", tournamentId)
       .order("registered_at", { ascending: true });
+    await chargerAvatars((data || []).map((r) => r.account_id));
     // Tri alphabétique sur le nom affiché. Il se fait ici et pas en SQL :
     // le libellé vient de plusieurs tables jointes (pseudo du joueur, à
     // défaut celui du compte, à défaut le nom complet), et localeCompare
     // gère les accents, que l'ordre SQL par défaut classe mal.
-    const triees = sortByPlayerLabel(data);
+    const triees = avecAvatars(sortByPlayerLabel(data));
     setRegistrations(triees);
     return triees;
   }, [tournamentId]);

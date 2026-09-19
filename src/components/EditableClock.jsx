@@ -3,6 +3,7 @@ import { saveClubTheme } from "../lib/clubSettings.js";
 import { supabase } from "../lib/supabase.js";
 import { useTheme } from "../context/ThemeContext.jsx";
 import { fetchCurrentTournament } from "../lib/tournaments.js";
+import { chargerAvatars, avecAvatars } from "../lib/avatarsCache.js";
 import { saveClockState, oublierEtatClockEcrit, secondsUntilScheduledStart, COUNTDOWN_WINDOW_HOURS, advanceForElapsed } from "../lib/clockState.js";
 import { playSound, SOUND_OPTIONS } from "../lib/sounds.js";
 import { addAnnouncement, fetchRecentAnnouncements } from "../lib/announcements.js";
@@ -116,10 +117,6 @@ const RANKING_ROWS = 0;
 // (deux requêtes par étape) : on ne le relit donc pas au rythme du reste
 // de l'horloge. Il ne bouge de toute façon qu'à la fin d'une étape.
 const CHAMP_RANKING_REFRESH_MS = 120000;
-// Intervalle du tour complet des avatars (voir chargerAvatars). Cinq
-// minutes : assez rare pour ne plus rien peser, assez fréquent pour qu'un
-// changement de photo apparaisse sans rechargement.
-const AVATARS_REFRESH_MS = 300000;
 // Espace vertical entre deux annonces empilées, et taille en dessous de
 // laquelle on préfère faire défiler la liste plutôt que de tasser encore.
 const ANNOUNCEMENT_GAP = 6;
@@ -726,31 +723,6 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
     addAnnouncement(tournamentId, next, "manual");
   }
 
-  /**
-   * Avatars des membres, gardés de côté et rechargés rarement.
-   *
-   * Ce sont des images en base64 stockées dans la colonne, ~92 kB pièce.
-   * Elles étaient jointes aux inscriptions ET aux éliminations, relues
-   * toutes les 5 secondes : sur un tournoi de 80 joueurs, ~470 kB par
-   * sondage, soit de l'ordre de 340 Mo par heure sur l'écran de la salle —
-   * pour des images qui ne changent quasiment jamais en cours de partie.
-   *
-   * On ne demande donc que les avatars encore inconnus, et on refait le
-   * tour complet toutes les AVATARS_REFRESH_MS pour qu'un membre qui
-   * change de photo finisse par apparaître sans rechargement de page.
-   */
-  const avatarsRef = useRef({ parCompte: new Map(), dernierTourComplet: 0 });
-
-  async function chargerAvatars(idsComptes) {
-    const cache = avatarsRef.current;
-    const tourComplet = Date.now() - cache.dernierTourComplet > AVATARS_REFRESH_MS;
-    const aDemander = idsComptes.filter((id) => tourComplet || !cache.parCompte.has(id));
-    if (aDemander.length === 0) return;
-    const { data } = await supabase.from("accounts").select("id, avatar_data").in("id", aDemander);
-    for (const compte of data || []) cache.parCompte.set(compte.id, compte.avatar_data || null);
-    if (tourComplet) cache.dernierTourComplet = Date.now();
-  }
-
   async function fetchRegsAndElims(tId) {
     const { data: regs } = await supabase
       .from("registrations")
@@ -763,19 +735,14 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
       .eq("undone", false)
       .order("finish_position", { ascending: true });
 
-    const idsComptes = [
-      ...new Set(
-        [...(regs || []).map((r) => r.account_id), ...(elims || []).map((e) => e.registrations?.account_id)].filter(Boolean)
-      ),
-    ];
-    await chargerAvatars(idsComptes);
-
-    // On réinjecte l'avatar sous la forme que produisait la jointure, pour
-    // que tout ce qui lit `.accounts.avatar_data` continue de marcher.
-    const avecAvatar = (r) =>
-      r ? { ...r, accounts: { avatar_data: avatarsRef.current.parCompte.get(r.account_id) || null } } : r;
-    setRegistrations((regs || []).map(avecAvatar));
-    setEliminations((elims || []).map((e) => ({ ...e, registrations: avecAvatar(e.registrations) })));
+    // Les avatars viennent du cache partagé : la vue des tables regarde
+    // les mêmes comptes, il n'y a aucune raison de les demander deux fois.
+    await chargerAvatars([
+      ...(regs || []).map((r) => r.account_id),
+      ...(elims || []).map((e) => e.registrations?.account_id),
+    ]);
+    setRegistrations(avecAvatars(regs));
+    setEliminations((elims || []).map((e) => ({ ...e, registrations: avecAvatars([e.registrations])[0] })));
   }
 
   /**
