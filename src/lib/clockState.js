@@ -19,6 +19,11 @@ import { supabase } from "./supabase.js";
 // différent et repart en base.
 const dernierEtatEcrit = new Map();
 
+// Horodatage de NOTRE dernière écriture réussie, par tournoi. Sert à
+// reconnaître qu'une modification venue d'un autre appareil est plus
+// récente que la nôtre (voir synchroniserEtatHorloge).
+const notreDerniereEcriture = new Map();
+
 export async function saveClockState(tournamentId, { levelIndex, secondsLeft, isRunning }) {
   const connu = dernierEtatEcrit.get(tournamentId);
   if (connu && connu.levelIndex === levelIndex && connu.secondsLeft === secondsLeft && connu.isRunning === isRunning) {
@@ -40,6 +45,57 @@ export async function saveClockState(tournamentId, { levelIndex, secondsLeft, is
     throw error;
   }
   dernierEtatEcrit.set(tournamentId, { levelIndex, secondsLeft, isRunning });
+  notreDerniereEcriture.set(tournamentId, Date.parse(payload.clock_updated_at));
+}
+
+/**
+ * synchroniserEtatHorloge — ce que les AUTRES appareils ont fait de
+ * l'horloge depuis notre dernière écriture.
+ *
+ * Chaque écran ouvert sur un tournoi fait battre son horloge dans son coin
+ * et enregistre son état toutes les cinq secondes. Tant que personne ne
+ * touche à rien, tous disent la même chose. Mais une pause posée depuis un
+ * téléphone était écrasée cinq secondes plus tard par l'écran du
+ * vidéoprojecteur, qui continuait de compter sans jamais relire la base :
+ * l'état n'était lu qu'à l'ouverture de l'écran.
+ *
+ * On relit donc quatre petites colonnes avant d'écrire. Si l'horodatage en
+ * base est postérieur à notre propre dernière écriture, c'est quelqu'un
+ * d'autre qui a agi : on adopte son état, en rattrapant le temps écoulé
+ * depuis. Sinon, c'est nous le plus récent et l'appelant enregistre.
+ *
+ * Rend l'état à adopter, ou null s'il n'y a rien à adopter.
+ *
+ * Une réserve : l'horodatage est posé par l'appareil qui écrit. Deux
+ * machines dont les horloges système diffèrent nettement se départageront
+ * mal. C'est déjà l'hypothèse que fait le rattrapage du temps écoulé à
+ * l'ouverture, qui compare cet horodatage à l'heure locale.
+ */
+export async function synchroniserEtatHorloge(tournamentId, levels) {
+  const { data } = await supabase
+    .from("tournaments")
+    .select("clock_level_index, clock_seconds_left, clock_is_running, clock_updated_at")
+    .eq("id", tournamentId)
+    .maybeSingle();
+  if (!data || data.clock_seconds_left == null || !data.clock_updated_at) return null;
+
+  const distant = Date.parse(data.clock_updated_at);
+  const notre = notreDerniereEcriture.get(tournamentId) || 0;
+  if (!(distant > notre)) return null;
+
+  let levelIndex = data.clock_level_index || 0;
+  let secondsLeft = data.clock_seconds_left;
+  if (data.clock_is_running) {
+    const ecoule = Math.max(0, (Date.now() - distant) / 1000);
+    const avance = advanceForElapsed(levelIndex, secondsLeft, ecoule, levels);
+    levelIndex = avance.levelIndex;
+    secondsLeft = avance.secondsLeft;
+  }
+  // On considère cet état comme le nôtre : sans cela, on le ré-adopterait
+  // à chaque tour sans jamais reprendre la main.
+  dernierEtatEcrit.set(tournamentId, { levelIndex, secondsLeft, isRunning: !!data.clock_is_running });
+  notreDerniereEcriture.set(tournamentId, distant);
+  return { levelIndex, secondsLeft, isRunning: !!data.clock_is_running };
 }
 
 /**
@@ -50,6 +106,7 @@ export async function saveClockState(tournamentId, { levelIndex, secondsLeft, is
  */
 export function oublierEtatClockEcrit(tournamentId) {
   dernierEtatEcrit.delete(tournamentId);
+  notreDerniereEcriture.delete(tournamentId);
 }
 
 // Fenêtre, en heures, pendant laquelle l'horloge d'un tournoi encore

@@ -5,7 +5,7 @@ import { useTheme } from "../context/ThemeContext.jsx";
 import { fetchCurrentTournament } from "../lib/tournaments.js";
 import { chargerAvatars, avecAvatars } from "../lib/avatarsCache.js";
 import { useTableBalance } from "../context/TableBalanceContext.jsx";
-import { saveClockState, oublierEtatClockEcrit, secondsUntilScheduledStart, COUNTDOWN_WINDOW_HOURS, advanceForElapsed } from "../lib/clockState.js";
+import { saveClockState, synchroniserEtatHorloge, oublierEtatClockEcrit, secondsUntilScheduledStart, COUNTDOWN_WINDOW_HOURS, advanceForElapsed } from "../lib/clockState.js";
 import { playSound, SOUND_OPTIONS } from "../lib/sounds.js";
 import { addAnnouncement, fetchRecentAnnouncements } from "../lib/announcements.js";
 import { computeFinishPositions, computeTournamentPoints, fetchChampionshipStandings } from "../lib/points.js";
@@ -440,6 +440,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   const [tournamentMeta, setTournamentMeta] = useState(null);
   const [nowTs, setNowTs] = useState(() => Date.now());
   const intervalRef = useRef(null);
+  const levelsRef = useRef([]);
   const clockStateRef = useRef({ levelIndex: 0, secondsLeft: 0, isRunning: false });
 
   /**
@@ -540,12 +541,29 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   // pour toujours écrire la valeur la plus récente sans redémarrer l'intervalle.
   useEffect(() => {
     clockStateRef.current = { levelIndex, secondsLeft, isRunning };
+    // Les niveaux aussi : l'intervalle de synchronisation ne se relance
+    // jamais, il capturerait sinon la structure telle qu'elle était à
+    // l'ouverture et rattraperait le temps avec d'anciennes durées.
+    levelsRef.current = levels;
   }, [levelIndex, secondsLeft, isRunning]);
 
   useEffect(() => {
     if (effectiveDesignOnly || !tournamentId) return;
-    const t = setInterval(() => {
-      saveClockState(tournamentId, clockStateRef.current).catch(() => {});
+    const t = setInterval(async () => {
+      try {
+        // Un autre appareil a-t-il bougé l'horloge ? Si oui on adopte son
+        // état plutôt que d'écraser sa décision avec la nôtre.
+        const distant = await synchroniserEtatHorloge(tournamentId, levelsRef.current);
+        if (distant) {
+          setLevelIndex(distant.levelIndex);
+          setSecondsLeft(distant.secondsLeft);
+          setIsRunning(distant.isRunning);
+          return;
+        }
+        await saveClockState(tournamentId, clockStateRef.current);
+      } catch {
+        /* réseau : on retentera dans cinq secondes */
+      }
     }, 5000);
     return () => clearInterval(t);
   }, [effectiveDesignOnly, tournamentId]);

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase.js";
 import { fetchCurrentTournament } from "../lib/tournaments.js";
-import { saveClockState, secondsUntilScheduledStart, COUNTDOWN_WINDOW_HOURS, advanceForElapsed } from "../lib/clockState.js";
+import { saveClockState, synchroniserEtatHorloge, secondsUntilScheduledStart, COUNTDOWN_WINDOW_HOURS, advanceForElapsed } from "../lib/clockState.js";
 import { canControlClock } from "../lib/auth.js";
 import { formatTime, formatCountdown, formatChips } from "../lib/format.js";
 import { computeFinishPositions } from "../lib/points.js";
@@ -53,6 +53,7 @@ export default function MobileClockView({ levels, canEdit: canEditOverride }) {
   }, [dureeNiveauSec]);
 
   const intervalRef = useRef(null);
+  const levelsRef = useRef([]);
   const clockStateRef = useRef({ levelIndex: 0, secondsLeft: 0, isRunning: false });
 
   useEffect(() => {
@@ -104,12 +105,29 @@ export default function MobileClockView({ levels, canEdit: canEditOverride }) {
 
   useEffect(() => {
     clockStateRef.current = { levelIndex, secondsLeft, isRunning };
+    // Les niveaux aussi : l'intervalle de synchronisation ne se relance
+    // jamais, il capturerait sinon la structure telle qu'elle était à
+    // l'ouverture et rattraperait le temps avec d'anciennes durées.
+    levelsRef.current = levels;
   }, [levelIndex, secondsLeft, isRunning]);
 
   useEffect(() => {
     if (!tournamentId) return;
-    const t = setInterval(() => {
-      saveClockState(tournamentId, clockStateRef.current).catch(() => {});
+    const t = setInterval(async () => {
+      try {
+        // Un autre appareil a-t-il bougé l'horloge ? Si oui on adopte son
+        // état plutôt que d'écraser sa décision avec la nôtre.
+        const distant = await synchroniserEtatHorloge(tournamentId, levelsRef.current);
+        if (distant) {
+          setLevelIndex(distant.levelIndex);
+          setSecondsLeft(distant.secondsLeft);
+          setIsRunning(distant.isRunning);
+          return;
+        }
+        await saveClockState(tournamentId, clockStateRef.current);
+      } catch {
+        /* réseau : on retentera dans cinq secondes */
+      }
     }, 5000);
     return () => clearInterval(t);
   }, [tournamentId]);
