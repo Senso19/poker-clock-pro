@@ -16,6 +16,28 @@ et enregistrées dans son historique. Ce fichier dit où on en est.
 | 2 | `securite_fonctions_identite_et_permissions` | `mon_compte()`, `mon_role()`, `ma_permission()` : la base sait enfin qui demande. Table `role_permissions_defaut`, extraite du code et non recopiée. |
 | 3 | `securite_connexion_de_secours` | `connexion_de_secours(pseudo, mdp)` : vérifie un mot de passe sans jamais le renvoyer. Filet le temps de la bascule. |
 | 4 | `securite_effacer_mots_de_passe_en_clair` | Déclencheur qui synchronise l'identité Auth à chaque écriture et **efface le mot de passe en clair**. Plus rien à voler dans `accounts`. |
+| 5 | `securite_corriger_jetons_auth_nuls` | Correctif indispensable, voir ci-dessous. |
+
+## Le piège des jetons nuls
+
+Créer un utilisateur directement dans `auth.users` en SQL ne suffit pas :
+le service d'authentification de Supabase (GoTrue, en Go) lit plusieurs
+colonnes de jetons comme des chaînes **non nulles**. Laissées à NULL, toute
+connexion échoue avec :
+
+```
+error finding user: Scan error on column "confirmation_token":
+converting NULL to string is unsupported
+```
+
+Quatre colonnes doivent valoir `''` et non NULL : `confirmation_token`,
+`recovery_token`, `email_change_token_new`, `email_change`. Les autres
+(`email_change_token_current`, `phone_change`, `phone_change_token`,
+`reauthentication_token`) ont déjà `''` par défaut.
+
+Le déclencheur `accounts_sync_identite` les pose désormais à la création.
+Si un jour vous créez un compte autrement qu'en passant par la table
+`accounts`, pensez-y.
 
 ## Reste à faire
 
