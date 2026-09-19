@@ -460,6 +460,7 @@ function ChampionshipEditor({ onCreate, onCancel, loading, initial = null }) {
   const [formulaText, setFormulaText] = useState(initial?.formula_text || DEFAULT_FORMULA);
   const [bestStages, setBestStages] = useState(initial?.best_stages_count ?? "");
   const [countRebuys, setCountRebuys] = useState(!!initial?.count_rebuys_in_ranking);
+  const [publicView, setPublicView] = useState(!!initial?.public_view);
   const [previewPlayers, setPreviewPlayers] = useState(20);
   const [bannerImage, setBannerImage] = useState(initial?.banner_image || null);
 
@@ -568,6 +569,15 @@ function ChampionshipEditor({ onCreate, onCancel, loading, initial = null }) {
           Compter les réentrées dans le classement (variable n inclut les recaves)
         </label>
 
+        {/* L'accès public n'existait que dans l'en-tête d'un championnat
+            déjà ouvert : personne ne le trouvait. Il est désormais ici
+            aussi, au même endroit que pour un tournoi — dans les réglages,
+            là où on le cherche. Les deux cases commandent le même drapeau. */}
+        <label className="flex items-center gap-2 text-sm text-felt-cream/70 mb-6">
+          <input type="checkbox" checked={publicView} onChange={(e) => setPublicView(e.target.checked)} />
+          Accès public (visible sans être membre du club)
+        </label>
+
         <div className="flex gap-2">
           {onCancel && (
             <button onClick={onCancel} className="px-4 py-2 text-felt-cream/60 hover:text-felt-cream">
@@ -582,6 +592,7 @@ function ChampionshipEditor({ onCreate, onCancel, loading, initial = null }) {
                 formulaText: formulaText.trim() || DEFAULT_FORMULA,
                 bestStagesCount: bestStages ? Number(bestStages) : null,
                 countRebuysInRanking: countRebuys,
+                publicView,
                 bannerImage,
               })
             }
