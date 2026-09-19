@@ -399,9 +399,13 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   const bgFileRef = useRef(null);
   const tournamentBgFileRef = useRef(null);
   const containerRef = useRef(null);
+  // La surface réellement offerte par l'écran. L'horloge, elle, garde la
+  // taille de sa référence et vient s'y inscrire : c'est ce qui préserve
+  // ses proportions sur un écran très large (voir plus bas).
+  const surfaceRef = useRef(null);
   // Échelle automatique du contenu : voir useClockScale. Elle se combine
   // au zoom manuel, qui reste un réglage propre à chaque appareil.
-  const clockScale = useClockScale(containerRef, designSize);
+  const clockScale = useClockScale(surfaceRef, designSize);
   const toolbarDrag = useRef(null);
   // Empreinte de la disposition actuellement affichée, pour repérer qu'un
   // autre appareil l'a modifiée sans relire les ~884 kB à chaque sondage.
@@ -1325,12 +1329,36 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   // en pourcentage et couvrent toujours la même part de l'écran. Le
   // rapport texte/panneau est ainsi rigoureusement identique partout.
   const zoomTotal = Math.round(clockZoom * clockScale * 1000) / 1000;
+  // La référence en vigueur : celle calibrée par l'admin, sinon CLOCK_DESIGN.
+  const reference = designSize?.w && designSize?.h ? designSize : CLOCK_DESIGN;
   return (
     <div
-      ref={containerRef}
-      className="relative w-full h-full overflow-hidden"
-      style={zoomTotal !== 1 ? { ...clockBgStyle, zoom: zoomTotal } : clockBgStyle}
+      ref={surfaceRef}
+      className="relative w-full h-full overflow-hidden flex items-center justify-center"
+      style={clockBgStyle}
     >
+      {/*
+        L'horloge garde EXACTEMENT les proportions de sa référence et se
+        centre, au lieu de s'étirer sur toute la largeur.
+
+        Avant, les panneaux étaient placés en pourcentage d'un conteneur
+        large comme l'écran, tandis que le texte suivait la hauteur : sur un
+        21:9, le texte se retrouvait 14 % plus petit par rapport à des
+        panneaux devenus très larges. En donnant à la boîte la taille de la
+        référence et en la laissant simplement mettre à l'échelle, le
+        rapport texte/panneau devient identique sur tous les écrans, et il
+        reste deux bandes au fond du club sur les côtés d'un écran très
+        large.
+      */}
+      <div
+        ref={containerRef}
+        className="relative overflow-hidden shrink-0"
+        style={{
+          width: reference.w,
+          height: reference.h,
+          ...(zoomTotal !== 1 ? { zoom: zoomTotal } : {}),
+        }}
+      >
       {bgImageLayerStyle && <div className="absolute inset-0 pointer-events-none" style={bgImageLayerStyle} />}
       {bgTintStyle && <div className="absolute inset-0 pointer-events-none" style={bgTintStyle} />}
       {stripeBars.map((bar, i) => (
@@ -2141,6 +2169,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
         @keyframes pcp-scroll-left { from { transform: translateX(100%); } to { transform: translateX(-100%); } }
         .animate-pcp-scroll-left { animation-name: pcp-scroll-left; animation-timing-function: linear; animation-iteration-count: infinite; }
       `}</style>
+      </div>
     </div>
   );
 }

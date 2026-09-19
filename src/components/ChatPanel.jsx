@@ -41,7 +41,6 @@ export default function ChatPanel() {
   const [maxLength, setMaxLength] = useState(DEFAULT_MAX_LENGTH);
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
   const [, setTick] = useState(0);
-  const bottomRef = useRef(null);
 
   useEffect(() => {
     fetchClubSettings()
@@ -69,8 +68,16 @@ export default function ChatPanel() {
 
   usePolling(load, 3000, { actif: visible });
 
+  // On fait défiler la LISTE DES MESSAGES elle-même, et rien d'autre.
+  //
+  // scrollIntoView() faisait défiler le premier ancêtre défilable — ici la
+  // barre latérale entière, puisque le chat y est logé. À l'arrivée des
+  // messages, la barre partait donc tout en bas et il fallait remonter
+  // pour retrouver Tournois et Championnats.
+  const listeRef = useRef(null);
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const liste = listeRef.current;
+    if (liste) liste.scrollTop = liste.scrollHeight;
   }, [messages.length]);
 
   // Force un nouveau rendu chaque seconde pour que le compte à rebours du
@@ -132,7 +139,7 @@ export default function ChatPanel() {
 
   return (
     <div ref={zoneRef} className="flex flex-col h-full min-h-0 font-body text-felt-cream">
-      <div className="flex-1 min-h-0 overflow-y-auto px-1 py-2 space-y-3">
+      <div ref={listeRef} className="flex-1 min-h-0 overflow-y-auto px-1 py-2 space-y-3">
         {loading ? (
           <ClubLoader size={44} label={null} />
         ) : messages.length === 0 ? (
@@ -169,7 +176,6 @@ export default function ChatPanel() {
             );
           })
         )}
-        <div ref={bottomRef} />
       </div>
 
       <div className="border-t border-felt-cream/10 pt-2 mt-1 shrink-0">
