@@ -4,12 +4,30 @@ import { upsertClubSettings } from "./clubSettings.js";
 /**
  * auth.js — comptes joueurs avec rôles (admin, tournament_director, floor,
  * table_captain, player). Validation par code secret défini par l'admin
- * (club_settings.registration_code). Protection au niveau app (comme les
- * autres outils internes du club) : pas de hash de mot de passe, pas de
- * vraie sécurité serveur — suffisant pour un usage interne en club.
+ * (club_settings.registration_code).
+ *
+ * L'authentification est celle de Supabase : chaque compte a une identité
+ * réelle, son mot de passe est haché et ne quitte jamais le serveur. La
+ * session ouverte porte un jeton, et ce jeton est ce qui permettra aux
+ * règles de sécurité de la base de savoir QUI demande — l'ancienne version
+ * comparait le mot de passe dans le navigateur et la base ne voyait qu'un
+ * anonyme, toujours le même.
+ *
+ * On se connecte toujours avec son PSEUDO : l'adresse d'authentification
+ * en est dérivée ici même, sans jamais interroger la base, pour qu'aucune
+ * correspondance pseudo → e-mail ne soit exposée. Les vrais e-mails des
+ * membres restent dans accounts.email, pour les notifications.
  */
 
 const SESSION_KEY = "pcp_account_id";
+
+// Doit rester identique à public.email_auth_du_pseudo() en base : les deux
+// calculent l'adresse du même compte, chacune de son côté.
+const DOMAINE_AUTH = "@membres.19pokerclub.fr";
+
+export function emailAuthDuPseudo(pseudo) {
+  return String(pseudo || "").replace(/[^a-zA-Z0-9]/g, "").toLowerCase() + DOMAINE_AUTH;
+}
 
 export function getStoredAccountId() {
   try {
@@ -71,20 +89,80 @@ export async function signup({ firstName, lastName, pseudo, email, password, ava
     if (error.message?.includes("duplicate")) throw new Error("Ce pseudo est déjà pris.");
     throw error;
   }
-  storeAccountId(data.id);
-  return data;
+  // L'identité Supabase du nouveau compte est créée par la base (déclencheur
+  // accounts_sync_identite). On enchaîne donc sur une vraie connexion, pour
+  // que le nouvel inscrit reparte avec une session comme les autres.
+  try {
+    return await login(pseudo, password);
+  } catch {
+    storeAccountId(data.id);
+    return data;
+  }
 }
 
+export async function fetchAccountByAuthUserId(authUserId) {
+  const { data } = await supabase.from("accounts").select("*").eq("auth_user_id", authUserId).maybeSingle();
+  return data || null;
+}
+
+/**
+ * Connexion par pseudo.
+ *
+ * Deux voies, dans cet ordre :
+ *
+ *   1. Supabase Auth, la bonne — elle ouvre une vraie session dont le jeton
+ *      permettra à la base d'appliquer les permissions côté serveur.
+ *
+ *   2. Une vérification côté base (connexion_de_secours), au cas où la
+ *      première échouerait. Elle compare le mot de passe au condensat rangé
+ *      dans auth.users, sans jamais le renvoyer. Elle n'ouvre pas de
+ *      session : c'est un filet, pas une porte dérobée — elle existe pour
+ *      qu'une panne d'authentification n'enferme personne dehors, et elle
+ *      sera retirée une fois la première voie confirmée en service.
+ */
 export async function login(pseudo, password) {
-  const { data, error } = await supabase
-    .from("accounts")
-    .select("*")
-    .ilike("pseudo", pseudo.trim())
-    .maybeSingle();
-  if (error) throw error;
-  if (!data || data.password !== password) throw new Error("Pseudo ou mot de passe incorrect.");
-  storeAccountId(data.id);
-  return data;
+  const { data: session, error: erreurAuth } = await supabase.auth.signInWithPassword({
+    email: emailAuthDuPseudo(pseudo),
+    password,
+  });
+  if (!erreurAuth && session?.user) {
+    const compte = await fetchAccountByAuthUserId(session.user.id);
+    if (compte) {
+      storeAccountId(null); // la session Supabase remplace l'ancienne
+      return compte;
+    }
+    // Session ouverte mais aucun compte en face : on ne la laisse pas traîner.
+    await supabase.auth.signOut();
+  }
+
+  const { data: id } = await supabase.rpc("connexion_de_secours", {
+    p_pseudo: String(pseudo || "").trim(),
+    p_mdp: password,
+  });
+  if (!id) throw new Error("Pseudo ou mot de passe incorrect.");
+  const compte = await fetchAccountById(id);
+  storeAccountId(id);
+  return compte;
+}
+
+/**
+ * Le compte du visiteur au chargement de la page : session Supabase
+ * d'abord, ancienne session locale ensuite — le temps que tout le monde se
+ * soit reconnecté au moins une fois.
+ */
+export async function fetchSessionAccount() {
+  try {
+    const { data } = await supabase.auth.getSession();
+    const authUserId = data?.session?.user?.id;
+    if (authUserId) {
+      const compte = await fetchAccountByAuthUserId(authUserId);
+      if (compte) return compte;
+    }
+  } catch {
+    // on retombe sur l'ancienne voie
+  }
+  const id = getStoredAccountId();
+  return id ? await fetchAccountById(id) : null;
 }
 
 /**
@@ -145,8 +223,13 @@ export async function ignorerDemandeReinitialisation(accountId) {
   if (error) throw error;
 }
 
-export function logout() {
+export async function logout() {
   storeAccountId(null);
+  try {
+    await supabase.auth.signOut();
+  } catch {
+    // Une session déjà expirée côté serveur ne doit pas empêcher de sortir.
+  }
 }
 
 export async function fetchAllAccounts() {

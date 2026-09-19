@@ -1,7 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
 
 // Projet Supabase partagé (réutilisé pour mariage, gestion financière, poker-clock-pro).
-// La clé "anon" est publique par nature (protection au niveau app, pas RLS).
+//
+// La clé "anon" est publique par nature : elle voyage dans le code de la
+// page, n'importe quel visiteur l'a. Ce qu'elle autorise ne doit donc pas
+// dépendre de l'application — ce sont les règles de sécurité de la base
+// (RLS) qui en décident, à partir du jeton de la session ouverte par
+// Supabase Auth.
 const supabaseUrl =
   import.meta.env.VITE_SUPABASE_URL || "https://gpmpghjqkhuobcnqgasm.supabase.co";
 const supabaseAnonKey =

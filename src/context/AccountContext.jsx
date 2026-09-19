@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { getStoredAccountId, fetchAccountById, logout as logoutFn } from "../lib/auth.js";
+import { fetchSessionAccount, logout as logoutFn } from "../lib/auth.js";
 
 const AccountContext = createContext({
   account: null,
@@ -13,19 +13,13 @@ export function AccountProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   async function refresh() {
-    const id = getStoredAccountId();
-    if (!id) {
-      setAccount(null);
-      setLoading(false);
-      return;
-    }
     try {
       // Filet de sécurité : si la requête réseau reste bloquée (coupure,
       // connexion lente, souci ponctuel côté serveur), on n'attend pas
       // indéfiniment — on bascule sur l'écran de connexion après 10s au
       // lieu de rester coincé sur "Chargement…" pour toujours.
       const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 10000));
-      const acc = await Promise.race([fetchAccountById(id), timeout]);
+      const acc = await Promise.race([fetchSessionAccount(), timeout]);
       setAccount(acc);
     } catch {
       setAccount(null);
@@ -37,8 +31,8 @@ export function AccountProvider({ children }) {
     refresh();
   }, []);
 
-  function logout() {
-    logoutFn();
+  async function logout() {
+    await logoutFn();
     setAccount(null);
   }
 
