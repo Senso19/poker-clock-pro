@@ -109,22 +109,36 @@ Pour changer un rôle à la main, il faut d'abord
 - Un `SELECT` qui rend zéro ligne peut vouloir dire « interdit » **ou**
   « table vide ». Il faut insérer une ligne de contrôle avant de conclure.
 
+## Les données nominatives : fermées par les COLONNES
+
+Un visiteur ne peut plus lire les noms, prénoms et e-mails des membres, ni
+les e-mails et téléphones du fichier des joueurs.
+
+La RLS ne pouvait rien ici : elle filtre des LIGNES, et ces lignes doivent
+rester lisibles pour afficher un pseudo et une photo à côté d'un joueur.
+Ce sont donc les colonnes qui ont été retirées, et au seul rôle `anon`.
+
+**Piège rencontré** : un droit SELECT sur la TABLE prime sur toute
+révocation par colonne. `REVOKE SELECT (email) ... FROM anon` n'avait
+strictement aucun effet tant que `anon` gardait SELECT sur toute la table.
+Il faut retirer le droit global, PUIS accorder les colonnes voulues :
+
+```sql
+REVOKE SELECT ON public.accounts FROM anon;
+GRANT SELECT (id, pseudo, club_name, avatar_data) ON public.accounts TO anon;
+```
+
+Conséquence : toute nouvelle colonne d'`accounts` ou de `players` sera
+invisible au visiteur par défaut. Si un affichage public en a besoin, il
+faut l'accorder explicitement.
+
 ## Ce qui reste ouvert, sciemment
 
-**Les données nominatives restent lisibles** avec la clé publique :
-`accounts` (noms, prénoms, e-mails), `players` (le fichier des joueurs) et
-`form_submissions` (les inscriptions). Restreindre ces lectures demande de
-retravailler plusieurs requêtes de l'application :
-
-- `TableBalanceContext` joint `accounts(pseudo, club_name)` aux inscriptions ;
-- `avatarsCache` lit `accounts(id, avatar_data)` ;
-- **la vérification des doublons du formulaire public lit
-  `form_submissions`** — et si cette lecture était refusée, elle ne
-  planterait pas : elle cesserait simplement de détecter les doublons, en
-  silence. C'est le piège à éviter absolument.
-
-La voie propre est une vue des champs publics et une fonction serveur pour
-le contrôle des doublons. Ce n'est pas fait.
+**`form_submissions` reste lisible** : la vérification des doublons du
+formulaire public lit cette table. Si cette lecture était refusée, elle ne
+planterait pas — elle cesserait simplement de détecter les doublons, EN
+SILENCE, pendant vos inscriptions de festival. La voie propre est une
+fonction serveur qui rende un booléen ; ce n'est pas fait.
 
 **Protection contre les mots de passe éventés** : Supabase sait refuser les
 mots de passe connus des fuites publiques (HaveIBeenPwned). C'est une case à
