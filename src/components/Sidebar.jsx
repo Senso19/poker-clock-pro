@@ -595,9 +595,13 @@ export default function Sidebar({ tab, setTab, onRequestLogin }) {
         style={{ backgroundColor: sidebarColor }}
         className="sm:hidden fixed top-0 inset-x-0 z-30 flex items-center gap-3 px-4 border-b border-felt-gold/10 h-[calc(56px+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)]"
       >
+        {/* 44 x 44 px : la taille minimale d'une cible tactile. Le bouton
+            ne faisait que 26 x 20 et il fallait viser. Le retrait négatif à
+            gauche garde le pictogramme aligné sur le bord malgré sa boîte
+            élargie. */}
         <button
           onClick={() => setMobileOpen(true)}
-          className="text-felt-cream text-xl leading-none px-1"
+          className="-ml-2 w-11 h-11 shrink-0 flex items-center justify-center text-felt-cream text-2xl leading-none"
           aria-label="Ouvrir le menu"
         >
           ☰
@@ -617,21 +621,29 @@ export default function Sidebar({ tab, setTab, onRequestLogin }) {
       )}
       <div
         style={{ backgroundColor: sidebarColor }}
+        // Fermé, le tiroir est glissé hors de l'écran — mais son bord
+        // droit affleure x = 0 et sa croix débordait sur l'écran. Il perd
+        // donc aussi les gestes : sans quoi cette lisière invisible
+        // captait les touchers près du bord gauche, là même où se trouve
+        // le bouton d'ouverture.
+        aria-hidden={!mobileOpen}
         className={`sm:hidden fixed inset-y-0 left-0 z-50 w-64 max-w-[80vw] flex flex-col transform transition-transform duration-200 pt-[env(safe-area-inset-top)] ${
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
+          mobileOpen ? "translate-x-0" : "-translate-x-full pointer-events-none"
         }`}
       >
         <div className="flex items-center justify-between">
           <div className="flex-1">
             <ClubHeader />
           </div>
-          <button
-            onClick={() => setMobileOpen(false)}
-            className="text-felt-cream/50 hover:text-felt-cream text-lg px-4"
-            aria-label="Fermer le menu"
-          >
-            ✕
-          </button>
+          {mobileOpen && (
+            <button
+              onClick={() => setMobileOpen(false)}
+              className="w-11 h-11 shrink-0 flex items-center justify-center text-felt-cream/50 hover:text-felt-cream text-lg"
+              aria-label="Fermer le menu"
+            >
+              ✕
+            </button>
+          )}
         </div>
         <GuestBanner />
         {renderNavList(handleNav)}
