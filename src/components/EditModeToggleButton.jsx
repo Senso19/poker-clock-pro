@@ -1,16 +1,21 @@
 import { useAccount } from "../context/AccountContext.jsx";
 import { useEditMode } from "../context/EditModeContext.jsx";
+import { roleEffectif, canManageClubSettings } from "../lib/auth.js";
 
 /**
- * EditModeToggleButton — bouton flottant, visible uniquement par l'admin,
- * qui active/désactive le mode personnalisation des tableaux dans toute
- * l'app (voir CustomizablePanel).
+ * EditModeToggleButton — bouton flottant qui active le mode
+ * personnalisation des tableaux dans toute l'application (voir
+ * CustomizablePanel).
+ *
+ * Réservé à qui peut modifier les paramètres du club : personnaliser
+ * l'affichage engage tout le club, pas seulement celui qui règle. Le rôle
+ * était écrit en dur, donc invisible dans la matrice des droits.
  */
 export default function EditModeToggleButton() {
   const { account } = useAccount();
   const { isEditMode, setIsEditMode } = useEditMode();
 
-  if (account?.role !== "admin") return null;
+  if (!canManageClubSettings(roleEffectif(account))) return null;
 
   return (
     <button

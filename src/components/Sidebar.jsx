@@ -8,7 +8,7 @@ import { useTheme } from "../context/ThemeContext.jsx";
 import { useEditMode } from "../context/EditModeContext.jsx";
 import {
   canManageTournaments, canManageAccounts, canManageOwnClub, roleEffectif, roleLabel,
-  canViewTournaments, canViewChampionships, canUseChat, canContactAdmin,
+  canViewTournaments, canViewChampionships, canUseChat, canContactAdmin, canEliminatePlayers,
   canManageTemplates, canManageRegistrations, canManageClubSettings,
   fetchClubSettings, fetchPendingAccounts, fetchContactMessages, fetchPasswordResetRequests,
 } from "../lib/auth.js";
@@ -67,7 +67,12 @@ export default function Sidebar({ tab, setTab, onRequestLogin }) {
   const manage = canManageTournaments(role);
   const manageAccounts = canManageAccounts(role);
   const manageOwnClub = canManageOwnClub(role);
-  const isStaffOnly = account?.role === "floor" || account?.role === "table_captain";
+  // L'onglet « Éliminer » est l'écran de ceux qui sortent les joueurs sans
+  // gérer les tournois — le floor, le chef de table. Celui qui gère les
+  // tournois le fait depuis la fiche du tournoi, l'onglet ferait double
+  // emploi. C'était écrit en dur sur deux rôles, ici ET dans App.jsx : la
+  // matrice ne commandait rien, et les deux copies pouvaient diverger.
+  const ecranElimination = canEliminatePlayers(role) && !manage;
   const [showProfile, setShowProfile] = useState(false);
   const [showContact, setShowContact] = useState(false);
   const [showPending, setShowPending] = useState(false);
@@ -251,7 +256,7 @@ export default function Sidebar({ tab, setTab, onRequestLogin }) {
       case "myclub":
         return manageOwnClub;
       case "eliminate":
-        return isStaffOnly;
+        return ecranElimination;
       default:
         return !!account;
     }

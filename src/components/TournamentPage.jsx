@@ -103,7 +103,9 @@ export default function TournamentPage({ tournamentId, onBack }) {
   // floor tient la salle sans avoir à toucher à la structure.
   const role = roleEffectif(account);
   const editStructure = manage && canManageStructure(role);
-  const editSeating = (manage || canManageSeating(role)) && canManageSeating(role);
+  // (manage || X) && X se réduit à X : la première moitié ne changeait
+  // rien. Gérer les sièges est un droit à part, c'est lui qui décide.
+  const editSeating = canManageSeating(role);
   // Idem pour le contrôle de l'horloge : un gestionnaire de club l'a sur ses
   // tournois interclubs, en plus des rôles à qui la matrice l'accorde déjà.
   const clockControl = canControlClock(account?.role) || (isClubManager(account?.role) && !!tournament.is_interclub);

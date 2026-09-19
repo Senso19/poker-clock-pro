@@ -3,7 +3,7 @@ import { usePolling } from "../lib/usePolling.js";
 import ClubLoader from "./ClubLoader.jsx";
 import { useAccount } from "../context/AccountContext.jsx";
 import { fetchMessages, sendMessage, deleteMessage } from "../lib/chat.js";
-import { fetchClubSettings, roleEffectif, canPostChat } from "../lib/auth.js";
+import { fetchClubSettings, roleEffectif, canPostChat, canManageAccounts } from "../lib/auth.js";
 import { lirePseudoVisiteur, enregistrerPseudoVisiteur } from "../lib/chatVisiteur.js";
 import { useConfirm } from "../context/ConfirmContext.jsx";
 import EditableButton from "./EditableButton.jsx";
@@ -24,7 +24,9 @@ export default function ChatPanel() {
   // supporter son absence. La ligne plus bas lisait account.role et
   // faisait planter l'écran dès qu'on le proposait sans connexion.
   const role = roleEffectif(account);
-  const isAdmin = role === "admin";
+  // Supprimer le message d'autrui est un acte de modération : il suit le
+  // droit de gérer les membres, réservé à l'administrateur.
+  const isAdmin = canManageAccounts(role);
   const peutEcrire = canPostChat(role);
   // Le visiteur écrit sous un pseudo qu'il se donne, gardé 24 h sur son
   // appareil. Sans compte ET sans pseudo, on lui demande d'abord le sien.

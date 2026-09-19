@@ -5,7 +5,7 @@ import InstallAppPrompt from "./components/InstallAppPrompt.jsx";
 import EditModeToggleButton from "./components/EditModeToggleButton.jsx";
 import { useTheme } from "./context/ThemeContext.jsx";
 import { useAccount } from "./context/AccountContext.jsx";
-import { canManageTournaments, canManageAccounts, canManageOwnClub } from "./lib/auth.js";
+import { canManageTournaments, canManageAccounts, canManageOwnClub, canEliminatePlayers, roleEffectif } from "./lib/auth.js";
 import { useIsMobile } from "./lib/useIsMobile.js";
 import { isStandalone } from "./lib/installPrompt.js";
 import ClubLoader from "./components/ClubLoader.jsx";
@@ -36,12 +36,16 @@ function TabFallback() {
  */
 export default function App({ onRequestLogin }) {
   const { account } = useAccount();
-  const manage = canManageTournaments(account?.role);
-  const manageAccounts = canManageAccounts(account?.role);
-  const manageOwnClub = canManageOwnClub(account?.role);
-  const isStaffOnly = account?.role === "floor" || account?.role === "table_captain";
+  // Le rôle effectif : sans compte, ou avec un compte que personne n'a
+  // encore confirmé, c'est « visiteur ». Même lecture que dans la barre
+  // latérale, pour que les deux ne puissent pas diverger.
+  const role = roleEffectif(account);
+  const manage = canManageTournaments(role);
+  const manageAccounts = canManageAccounts(role);
+  const manageOwnClub = canManageOwnClub(role);
+  const ecranElimination = canEliminatePlayers(role) && !manage;
 
-  const [tab, setTab] = useState(isStaffOnly ? "eliminate" : "tournaments");
+  const [tab, setTab] = useState(ecranElimination ? "eliminate" : "tournaments");
   const [openTournamentId, setOpenTournamentId] = useState(null);
   const { theme } = useTheme();
   const isMobile = useIsMobile();
@@ -86,7 +90,7 @@ export default function App({ onRequestLogin }) {
             ) : (
               <TournamentsGrid onOpen={setOpenTournamentId} />
             ))}
-          {tab === "eliminate" && isStaffOnly && <EliminationView />}
+          {tab === "eliminate" && ecranElimination && <EliminationView />}
           {tab === "championship" && <ChampionshipView />}
           {tab === "templates" && manage && <StructureTemplatesManager />}
           {tab === "accounts" && manageAccounts && <AccountsAdmin />}

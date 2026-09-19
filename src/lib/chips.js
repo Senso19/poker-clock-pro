@@ -76,6 +76,19 @@ export function normaliserJeu(jeu) {
   return [...new Set(valeurs)].sort((a, b) => a - b);
 }
 
+/**
+ * Le jeu donné, ou la mallette par défaut s'il est vide.
+ *
+ * Sans cette réserve, un jeu vide retombait sur un 25 solitaire : faute de
+ * coupure supérieure vers laquelle monter, tout multiple de 25 redevenait
+ * permis et 75, 150, 250 ou 350 réapparaissaient — précisément les paliers
+ * que le club refuse.
+ */
+function jeuOuDefaut(jeu) {
+  const valeurs = normaliserJeu(jeu);
+  return valeurs.length ? valeurs : normaliserJeu(defaultChipSet());
+}
+
 /** La plus petite valeur du jeu — celle qui décide du premier niveau. */
 export function plusPetitJeton(jeu) {
   const j = normaliserJeu(jeu);
@@ -158,9 +171,13 @@ export const BLIND_LADDER = [
  * 1800 qui sont, eux, de vrais multiples de 100.
  */
 export function pasDesBlinds(jeu) {
-  const valeurs = normaliserJeu(jeu);
-  const base = valeurs.length ? valeurs[0] : 25;
-  return valeurs[1] || base * 4;
+  const valeurs = jeuOuDefaut(jeu);
+  const base = valeurs[0];
+  // Jeu à une seule coupure : elle ne sera jamais échangée, faute de plus
+  // grosse vers laquelle monter. Tout multiple de cette coupure reste donc
+  // payable — un pas plus large aurait écarté sans raison des paliers
+  // comme 1500 ou 2500 pour un jeu qui n'a que des jetons de 500.
+  return valeurs[1] || base;
 }
 
 /**
@@ -200,8 +217,8 @@ export function rondeur(valeur) {
  * suivante.
  */
 export function echelleDesBlinds(jeu) {
-  const valeurs = normaliserJeu(jeu);
-  const base = valeurs.length ? valeurs[0] : 25;
+  const valeurs = jeuOuDefaut(jeu);
+  const base = valeurs[0];
   const pas = pasDesBlinds(valeurs);
   return BLIND_LADDER.filter((v) => v === base || v === base * 2 || (v > base * 2 && v % pas === 0));
 }

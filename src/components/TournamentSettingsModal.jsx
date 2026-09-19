@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase.js";
 import { fetchChampionships, assignTournamentToChampionship } from "../lib/points.js";
 import { useAccount } from "../context/AccountContext.jsx";
+import { roleEffectif, canManageClubSettings } from "../lib/auth.js";
 
 /**
  * TournamentSettingsModal — "Réglages tournoi" ouvert via l'icône ⚙ à côté
@@ -11,6 +12,9 @@ import { useAccount } from "../context/AccountContext.jsx";
  */
 export default function TournamentSettingsModal({ tournament, onClose, onSaved }) {
   const { account } = useAccount();
+  // Ouvrir un tournoi aux clubs invités décide qui le verra depuis
+  // l'extérieur : c'est un réglage de club, pas de tournoi.
+  const peutOuvrirAuxClubs = canManageClubSettings(roleEffectif(account));
   const [championships, setChampionships] = useState([]);
   const [championshipId, setChampionshipId] = useState(tournament.championship_id || "");
   const [stageLabel, setStageLabel] = useState(tournament.stage_label || "");
@@ -78,7 +82,7 @@ export default function TournamentSettingsModal({ tournament, onClose, onSaved }
           manage_payouts: managePayouts,
           force_finished: forceFinished,
           public_view: publicView,
-          ...(account?.role === "admin" ? { is_interclub: isInterclub } : {}),
+          ...(peutOuvrirAuxClubs ? { is_interclub: isInterclub } : {}),
         })
         .eq("id", tournament.id);
       if (updErr) throw updErr;
@@ -204,7 +208,7 @@ export default function TournamentSettingsModal({ tournament, onClose, onSaved }
             <input type="checkbox" checked={forceFinished} onChange={(e) => setForceFinished(e.target.checked)} />
             Forcer le statut "Terminé"
           </label>
-          {account?.role === "admin" && (
+          {peutOuvrirAuxClubs && (
             <label className="flex items-center gap-2 text-sm text-felt-cream/80 pt-2 border-t border-felt-cream/10 mt-1">
               <input type="checkbox" checked={isInterclub} onChange={(e) => setIsInterclub(e.target.checked)} />
               Tournoi interclubs

@@ -12,6 +12,7 @@ import {
   fetchClubSettings,
   setAccountClubName,
   ROLE_LABELS,
+  roleLabel,
   PERMISSION_LABELS,
   PERMISSION_GROUPS,
   ALL_PERMISSION_KEYS,
@@ -177,7 +178,10 @@ export default function AccountsAdmin() {
               )}
               <div className="pcp-body text-[11px] text-felt-cream/40 truncate">
                 {a.is_owner ? "Administrateur" : ROLE_LABELS[a.role] || a.role}
-                {a.club_name && ` — ${a.role === "club_manager" ? "gestionnaire du" : "membre du"} ${a.club_name}`}
+                {/* Le libellé vient de roleLabel, comme partout ailleurs :
+                    il disait encore « gestionnaire du », terme abandonné
+                    lors du passage à « Joueur <club> ». */}
+                {a.club_name && ` — ${roleLabel(a)}`}
               </div>
             </button>
             <div className="flex items-center gap-3 shrink-0 ml-auto sm:ml-0">

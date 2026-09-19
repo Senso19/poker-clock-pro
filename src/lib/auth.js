@@ -408,7 +408,7 @@ export const PERMISSION_GROUPS = [
     cles: ["viewPublicTournaments", "viewAllTournaments", "viewInterclubTournaments", "viewPublicChampionships", "viewAllChampionships"],
   },
   { titre: "Communication", cles: ["useChat", "postChat", "contactAdmin"] },
-  { titre: "Table et horloge", cles: ["controlClock", "eliminateAnyone", "manageSeating"] },
+  { titre: "Table et horloge", cles: ["controlClock", "eliminatePlayers", "eliminateAnyone", "manageSeating"] },
   {
     titre: "Gestion",
     cles: ["manageTournaments", "manageStructure", "manageChampionships", "manageTemplates", "manageRegistrations", "manageClubSettings", "manageAccounts"],
@@ -422,7 +422,7 @@ const ETAT_MAJOR = {
   viewPublicTournaments: true, viewAllTournaments: true, viewInterclubTournaments: true,
   viewPublicChampionships: true, viewAllChampionships: true,
   useChat: true, postChat: true, contactAdmin: true,
-  controlClock: true, eliminateAnyone: true, manageSeating: true,
+  controlClock: true, eliminatePlayers: true, eliminateAnyone: true, manageSeating: true,
   manageTournaments: true, manageStructure: true, manageChampionships: true,
   manageTemplates: true, manageRegistrations: true, manageClubSettings: true,
   manageAccounts: false,
@@ -433,7 +433,7 @@ const MEMBRE = {
   viewPublicTournaments: true, viewAllTournaments: true, viewInterclubTournaments: true,
   viewPublicChampionships: true, viewAllChampionships: true,
   useChat: true, postChat: true, contactAdmin: true,
-  controlClock: false, eliminateAnyone: false, manageSeating: false,
+  controlClock: false, eliminatePlayers: false, eliminateAnyone: false, manageSeating: false,
   manageTournaments: false, manageStructure: false, manageChampionships: false,
   manageTemplates: false, manageRegistrations: false, manageClubSettings: false,
   manageAccounts: false,
@@ -446,12 +446,12 @@ const DEFAULT_ROLE_PERMISSIONS = {
   // tournoi ni structure.
   floor: {
     ...MEMBRE,
-    controlClock: true, eliminateAnyone: true, manageSeating: true,
+    controlClock: true, eliminatePlayers: true, eliminateAnyone: true, manageSeating: true,
   },
   // Le chef de table n'élimine qu'à ses propres tables — c'est
   // précisément ce que « Éliminer n'importe quel joueur » décoché veut
   // dire (voir EliminationView).
-  table_captain: { ...MEMBRE, eliminateAnyone: false },
+  table_captain: { ...MEMBRE, eliminatePlayers: true, eliminateAnyone: false },
   // Le membre du club voit tous les tournois et tous les championnats,
   // publics ou non.
   player: { ...MEMBRE },
@@ -491,7 +491,8 @@ export const PERMISSION_LABELS = {
   postChat: "Écrire dans le chat",
   contactAdmin: "Contacter l'administrateur",
   controlClock: "Contrôler l'horloge",
-  eliminateAnyone: "Éliminer n'importe quel joueur",
+  eliminatePlayers: "Éliminer des joueurs",
+  eliminateAnyone: "Éliminer n'importe quel joueur (pas seulement ses tables)",
   manageSeating: "Gérer les tables et les sièges",
   manageTournaments: "Créer et modifier les tournois",
   manageStructure: "Modifier la structure des blindes",
@@ -613,6 +614,15 @@ export function canManageAccounts(role) {
 
 export function canControlClock(role) {
   return hasPermission(role, "controlClock");
+}
+
+/**
+ * Accéder à l'écran d'élimination. Distinct de « éliminer n'importe quel
+ * joueur », qui n'en règle que la PORTÉE : le chef de table élimine, mais
+ * seulement à ses tables.
+ */
+export function canEliminatePlayers(role) {
+  return hasPermission(role, "eliminatePlayers");
 }
 
 export function canEliminateAnyone(role) {
