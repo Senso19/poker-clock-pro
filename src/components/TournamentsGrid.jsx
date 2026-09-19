@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import ClubLoader from "./ClubLoader.jsx";
 import { supabase } from "../lib/supabase.js";
-import { fetchAllTournaments, deleteTournament } from "../lib/tournaments.js";
+import { fetchAllTournaments, deleteTournament, fetchTournamentBlueprint } from "../lib/tournaments.js";
 import { useAccount } from "../context/AccountContext.jsx";
 import { canManageTournaments, canManageTournament, canParticipate, isClubMember, roleEffectif, canViewPublicTournaments, canViewAllTournaments, canViewInterclubTournaments } from "../lib/auth.js";
 import { fetchChampionships } from "../lib/points.js";
@@ -220,6 +220,10 @@ export default function TournamentsGrid({ onOpen }) {
   async function handleDuplicate(t) {
     setOpenMenuId(null);
     try {
+      // La liste ne transporte pas la structure ni la mise en page de
+      // l'horloge (trop lourdes pour être chargées pour tous les tournois) :
+      // on les relit ici, pour le seul tournoi qu'on duplique.
+      const lourdes = await fetchTournamentBlueprint(t.id);
       const { data: created, error: insErr } = await supabase
         .from("tournaments")
         .insert({
@@ -241,10 +245,10 @@ export default function TournamentsGrid({ onOpen }) {
           track_knockouts: t.track_knockouts,
           manage_payouts: t.manage_payouts,
           manage_players: t.manage_players,
-          structure_config: t.structure_config,
-          clock_layout: t.clock_layout,
+          structure_config: lourdes.structure_config,
+          clock_layout: lourdes.clock_layout,
           is_interclub: t.is_interclub,
-          clock_background: t.clock_background,
+          clock_background: lourdes.clock_background,
           max_tables: t.max_tables,
           // Volontairement pas copiés : joueurs/inscriptions (aucune ligne
           // "registrations" n'est créée), places tirées, horloge démarrée,

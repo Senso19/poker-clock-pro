@@ -107,7 +107,6 @@ export default function ChatPanel() {
       await sendMessage({
         accountId: account?.id ?? null,
         pseudo: nomAffiche,
-        avatarData: account?.avatar_data ?? null,
         body,
       });
       await load();
