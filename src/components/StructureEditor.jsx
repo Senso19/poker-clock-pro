@@ -227,43 +227,63 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
     });
   }
 
+  /**
+   * L'ante suit la blinde qui le pilote (réglage « Type d'ante ») TANT
+   * QU'ON NE L'A PAS SAISI SOI-MÊME. On reconnaît une saisie manuelle à
+   * ceci : sa valeur ne correspond plus à celle de sa blinde avant la
+   * modification. Dans ce cas on n'y touche jamais.
+   */
+  function anteSuitSaBlinde(avantModif, apresModif) {
+    if (!config.antesEnabled) return apresModif;
+    const pilote = config.anteType === "sb" ? "smallBlind" : "bigBlind";
+    const avant = Number(avantModif[pilote]) || 0;
+    const apres = Number(apresModif[pilote]) || 0;
+    const ante = Number(avantModif.ante) || 0;
+    if (apres && (!ante || ante === avant)) return { ...apresModif, ante: apres };
+    return apresModif;
+  }
+
   function updateLevel(index, field, value) {
     setLevels((prev) =>
       prev.map((l, i) => {
         if (i !== index) return l;
         const suivant = { ...l, [field]: value, isNew: false };
-        // Saisir la small blind d'un niveau dont la big blind est encore
-        // vierge la remplit au double : c'est la structure courante, et
-        // c'est le geste qu'on fait juste après avoir ajouté ou inséré un
-        // niveau. L'ante suit la BB tout seul quand il est activé (la
-        // colonne Ante se calcule, elle ne se saisit pas).
-        //
-        // Une big blind déjà saisie n'est JAMAIS écrasée : un niveau
-        // 400/500, voulu tel quel, le reste même si on retouche sa SB.
-        if (field === "smallBlind" && !Number(l.bigBlind)) {
-          const sb = Number(value);
-          if (Number.isFinite(sb) && sb > 0) suivant.bigBlind = sb * 2;
-        }
-        // L'ante suit la blinde qui le pilote (réglage « Type d'ante »)
-        // TANT QU'ON NE L'A PAS SAISI SOI-MÊME. On reconnaît une saisie
-        // manuelle à ceci : la valeur ne correspond plus à celle de sa
-        // blinde avant la frappe. Dans ce cas on n'y touche jamais —
-        // c'est la même réserve que pour la big blind au-dessus.
-        if (field !== "ante" && config.antesEnabled) {
-          const pilote = config.anteType === "sb" ? "smallBlind" : "bigBlind";
-          const avant = Number(l[pilote]) || 0;
-          const apres = Number(suivant[pilote]) || 0;
-          const ante = Number(l.ante) || 0;
-          if (apres && (!ante || ante === avant)) suivant.ante = apres;
-        }
-        return suivant;
+        return field === "ante" ? suivant : anteSuitSaBlinde(l, suivant);
       })
     );
   }
 
+  /**
+   * Quitter la cellule de la small blind remplit la big blind au double,
+   * si elle est encore vierge.
+   *
+   * À LA SORTIE DE LA CELLULE, et non à chaque frappe : en saisissant
+   * « 300 » on passe par « 3 » puis « 30 », ce qui posait une big blind de
+   * 6 — dès lors elle n'était plus vierge, et ni « 30 » ni « 300 » ne la
+   * corrigeaient. On lisait 300/6.
+   *
+   * Une big blind déjà saisie n'est jamais écrasée : un niveau 400/500,
+   * voulu tel quel, le reste même si on retouche sa small blind.
+   */
+  function completerBigBlind(index) {
+    setLevels((prev) =>
+      prev.map((l, i) => {
+        if (i !== index || l.isBreak || Number(l.bigBlind)) return l;
+        const sb = Number(l.smallBlind);
+        if (!Number.isFinite(sb) || sb <= 0) return l;
+        return anteSuitSaBlinde(l, { ...l, bigBlind: sb * 2 });
+      })
+    );
+  }
+
+
   function addLevel(afterIndex = null) {
     setLevels((prev) => {
-      const newLevel = { smallBlind: 0, bigBlind: 0, ante: 0, durationMinutes: 0, isNew: true };
+      // Cases vides, et non des zéros : sinon cliquer dans la cellule
+      // place le curseur devant le « 0 » déjà là, et taper « 300 » écrit
+      // « 3000 ». C'est le même travers que les cases qu'on efface — une
+      // cellule vierge doit être vierge.
+      const newLevel = { smallBlind: "", bigBlind: "", ante: "", durationMinutes: "", isNew: true };
       if (afterIndex == null) return [...prev, newLevel];
       const next = [...prev];
       next.splice(afterIndex + 1, 0, newLevel);
@@ -846,6 +866,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                                 type="number"
                                 value={level.smallBlind}
                                 onChange={(e) => updateLevel(i, "smallBlind", e.target.value)}
+                                onBlur={() => completerBigBlind(i)}
                                 style={{ backgroundColor: "var(--pcp-cell-bg, #14181C)", color: "var(--pcp-cell-text, #EDEAE3)" }}
                                 className="w-24 border border-felt-cream/10 rounded px-2 py-1.5 text-sm text-right font-medium"
                               />

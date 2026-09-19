@@ -149,26 +149,18 @@ export const BLIND_LADDER = [
 ];
 
 /**
- * Au bout de combien de fois sa propre valeur une coupure quitte la table.
+ * La coupure qui donne le PAS des blinds au-delà des deux premiers niveaux.
  *
- * C'est le chip race : les petits jetons sont échangés en cours de partie,
- * sinon il en faudrait des piles entières pour suivre les blinds. Vingt
- * fois la valeur du jeton est le repère usuel — les 25 servent jusqu'aux
- * environs de 500/1000, les 100 jusqu'aux environs de 2000/4000.
+ * Le plus petit jeton ne sert qu'à ouvrir : 25/50 puis 50/100, et il quitte
+ * la table. Tout ce qui suit se compte donc en coupures du cran au-dessus —
+ * pour une mallette 25/100/500, en multiples de 100. C'est ce qui écarte
+ * 75/150, 150/300, 250/500 et 350/700, tout en gardant 600, 700, 1200 et
+ * 1800 qui sont, eux, de vrais multiples de 100.
  */
-export const SEUIL_CHIP_RACE = 20;
-
-/**
- * La plus petite coupure encore en jeu quand la small blind vaut `sb`.
- * C'est elle qui fixe le pas des blinds : tant que les 25 circulent, un
- * niveau 75/150 se paie ; une fois échangés, il ne se paie plus et les
- * blinds deviennent des multiples de 100.
- */
-export function plusPetitJetonEnJeu(jeu, sb) {
+export function pasDesBlinds(jeu) {
   const valeurs = normaliserJeu(jeu);
-  if (!valeurs.length) return 25;
-  const encore = valeurs.filter((d) => Number(sb) < d * SEUIL_CHIP_RACE);
-  return encore.length ? encore[0] : valeurs[valeurs.length - 1];
+  const base = valeurs.length ? valeurs[0] : 25;
+  return valeurs[1] || base * 4;
 }
 
 /**
@@ -177,40 +169,66 @@ export function plusPetitJetonEnJeu(jeu, sb) {
  * Le premier niveau vaut le plus petit jeton : 25 → 25/50, 100 → 100/200,
  * 500 → 500/1000. Un club sans jetons de 25 n'a que faire d'un 25/50.
  *
- * Ensuite chaque palier doit être payable avec ce qui reste sur la table.
- * Les 25 permettent 25/50, 50/100, 75/150 ; une fois échangés, plus aucune
- * valeur en 25 ni en 50 ne passe et l'on saute à des multiples de 100.
- * Puis les 100 partent à leur tour, et ainsi de suite.
+ * Puis son double, dernier niveau où ce jeton sert encore — 50/100. Après
+ * quoi il est échangé et tous les paliers sont des multiples de la coupure
+ * suivante.
  */
 export function echelleDesBlinds(jeu) {
   const valeurs = normaliserJeu(jeu);
   const base = valeurs.length ? valeurs[0] : 25;
-  return BLIND_LADDER.filter((v) => v >= base && v % plusPetitJetonEnJeu(valeurs, v) === 0);
+  const pas = pasDesBlinds(valeurs);
+  return BLIND_LADDER.filter((v) => v === base || v === base * 2 || (v > base * 2 && v % pas === 0));
 }
 
 /**
  * Les échanges de jetons qu'une structure impose.
  *
- * Pour chaque coupure qui cesse d'être payable, le niveau à partir duquel
- * elle ne sert plus. C'est une INDICATION pour le directeur de tournoi :
- * aucun niveau n'est créé, aucune numérotation ne bouge.
+ * Déduits des niveaux eux-mêmes, et non d'un seuil arbitraire : une
+ * coupure quitte la table au premier niveau à partir duquel plus aucune
+ * blind, ni aucun ante, n'a besoin d'elle — c'est-à-dire dès que tout ce
+ * qui suit se paie avec la coupure du cran au-dessus.
+ *
+ * C'est une INDICATION pour le directeur de tournoi : aucun niveau n'est
+ * créé, aucune numérotation ne bouge.
  */
 export function chipRaces(jeu, niveaux) {
   const valeurs = normaliserJeu(jeu);
+  const lignes = niveaux || [];
+  const montants = lignes.map((l) =>
+    l.isBreak ? [] : [Number(l.smallBlind) || 0, Number(l.bigBlind) || 0, Number(l.ante) || 0].filter((v) => v > 0)
+  );
+
   const races = [];
-  let precedente = null;
-  (niveaux || []).forEach((l, i) => {
-    if (l.isBreak) return;
-    const minimale = plusPetitJetonEnJeu(valeurs, Number(l.smallBlind) || 0);
-    if (precedente != null && minimale > precedente) {
-      // Toutes les coupures passées sous le seuil d'un coup, pas seulement
-      // la première : une structure rapide peut en retirer deux à la fois.
-      const sorties = valeurs.filter((d) => d >= precedente && d < minimale);
-      if (sorties.length) races.push({ position: i, jetons: sorties });
+  for (let k = 0; k < valeurs.length - 1; k++) {
+    const coupure = valeurs[k];
+    const suivante = valeurs[k + 1];
+    // Le premier niveau à partir duquel tout est payable sans cette
+    // coupure, c'est-à-dire multiple de la suivante.
+    let position = -1;
+    for (let i = 0; i < lignes.length; i++) {
+      if (lignes[i].isBreak) continue;
+      const toutLeReste = montants.slice(i).flat();
+      if (toutLeReste.length && toutLeReste.every((v) => v % suivante === 0)) {
+        position = i;
+        break;
+      }
     }
-    precedente = minimale;
-  });
-  return races;
+    // Jamais échangée dans cette structure (elle sert jusqu'au bout), ou
+    // déjà inutile dès le premier niveau : rien à signaler.
+    if (position <= 0) continue;
+    const precedent = montants.slice(0, position).flat();
+    if (!precedent.some((v) => v % suivante !== 0)) continue;
+    races.push({ position, jetons: [coupure] });
+  }
+
+  // Deux coupures qui sortent au même niveau font un seul échange.
+  const groupees = [];
+  for (const r of races.sort((a, b) => a.position - b.position)) {
+    const dernier = groupees[groupees.length - 1];
+    if (dernier && dernier.position === r.position) dernier.jetons.push(...r.jetons);
+    else groupees.push({ ...r, jetons: [...r.jetons] });
+  }
+  return groupees;
 }
 
 /**
