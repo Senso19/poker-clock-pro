@@ -74,6 +74,36 @@ export async function fetchAccountByAuthUserId(authUserId) {
   return data || null;
 }
 
+const IDENTIFIANTS_REFUSES = "Pseudo ou mot de passe incorrect.";
+
+/**
+ * Traduit un refus d'authentification en message utile.
+ *
+ * Tout ramener à « pseudo ou mot de passe incorrect » était commode mais
+ * trompeur : le jour où le service d'authentification refuse pour une autre
+ * raison — règle de mot de passe durcie, trop de tentatives, panne — chaque
+ * membre conclurait qu'il s'est trompé et le signalerait comme tel.
+ *
+ * Un identifiant refusé reste volontairement vague : préciser « ce pseudo
+ * n'existe pas » ferait de l'écran de connexion un annuaire du club.
+ */
+export function messageDeRefus(erreur) {
+  const code = erreur?.code || "";
+  if (code === "invalid_credentials" || /invalid login credentials/i.test(erreur?.message || "")) {
+    return IDENTIFIANTS_REFUSES;
+  }
+  if (code === "weak_password") {
+    return "Votre mot de passe ne respecte plus les règles du club. Demandez à l'administrateur de le réinitialiser.";
+  }
+  if (code === "over_request_rate_limit" || erreur?.status === 429) {
+    return "Trop de tentatives. Patientez une minute avant de réessayer.";
+  }
+  if (code === "user_banned") return "Ce compte est suspendu. Contactez l'administrateur.";
+  // Panne, coupure réseau, service indisponible : on le dit, plutôt que de
+  // laisser croire à une faute de frappe.
+  return `Connexion impossible pour le moment (${erreur?.message || "raison inconnue"}).`;
+}
+
 /**
  * Connexion par pseudo.
  *
@@ -92,12 +122,13 @@ export async function login(pseudo, password) {
     email: emailAuthDuPseudo(pseudo),
     password,
   });
-  if (erreurAuth || !session?.user) throw new Error("Pseudo ou mot de passe incorrect.");
+  if (erreurAuth) throw new Error(messageDeRefus(erreurAuth));
+  if (!session?.user) throw new Error(IDENTIFIANTS_REFUSES);
   const compte = await fetchAccountByAuthUserId(session.user.id);
   if (!compte) {
     // Session ouverte mais aucun compte en face : on ne la laisse pas traîner.
     await supabase.auth.signOut();
-    throw new Error("Pseudo ou mot de passe incorrect.");
+    throw new Error(IDENTIFIANTS_REFUSES);
   }
   storeAccountId(null); // plus aucune session locale : c'est le jeton qui fait foi
   return compte;
@@ -781,10 +812,6 @@ export function isClubPlayer(role) {
   return role === "club_player";
 }
 
-/** Rattaché à un club invité, à un titre ou à l'autre. */
-export function estDUnClubInvite(role) {
-  return isClubManager(role) || isClubPlayer(role);
-}
 
 // Membres d'un club donné (créés par son gestionnaire), pour "Mon club".
 export async function fetchClubMembers(clubName) {
