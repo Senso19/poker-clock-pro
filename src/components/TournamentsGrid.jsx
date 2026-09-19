@@ -3,7 +3,7 @@ import ClubLoader from "./ClubLoader.jsx";
 import { supabase } from "../lib/supabase.js";
 import { fetchAllTournaments, deleteTournament } from "../lib/tournaments.js";
 import { useAccount } from "../context/AccountContext.jsx";
-import { canManageTournaments, canManageTournament, canParticipate, isClubMember, roleEffectif, canViewAllTournaments, canViewInterclubTournaments } from "../lib/auth.js";
+import { canManageTournaments, canManageTournament, canParticipate, isClubMember, roleEffectif, canViewPublicTournaments, canViewAllTournaments, canViewInterclubTournaments } from "../lib/auth.js";
 import { fetchChampionships } from "../lib/points.js";
 import { fetchStructureTemplates, saveLevels, saveStructureConfig, fetchLevels } from "../lib/levels.js";
 import { fetchClockTemplates, applyClockTemplateToTournament } from "../lib/clockTemplates.js";
@@ -71,7 +71,11 @@ export default function TournamentsGrid({ onOpen }) {
       setTournaments(
         canViewAllTournaments(role)
           ? list
-          : list.filter((t) => t.public_view || (t.is_interclub && canViewInterclubTournaments(role)))
+          : list.filter(
+              (t) =>
+                (t.public_view && canViewPublicTournaments(role)) ||
+                (t.is_interclub && canViewInterclubTournaments(role))
+            )
       );
       setChampionships(await fetchChampionships());
       fetchStructureTemplates().then(setStructureTemplates).catch(() => {});

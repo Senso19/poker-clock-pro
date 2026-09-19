@@ -8,7 +8,7 @@ import { useTheme } from "../context/ThemeContext.jsx";
 import { useEditMode } from "../context/EditModeContext.jsx";
 import {
   canManageTournaments, canManageAccounts, canManageOwnClub, roleEffectif, roleLabel,
-  canViewChampionships, canUseChat, canContactAdmin,
+  canViewTournaments, canViewChampionships, canUseChat, canContactAdmin,
   canManageTemplates, canManageRegistrations, canManageClubSettings,
   fetchClubSettings, fetchPendingAccounts, fetchContactMessages, fetchPasswordResetRequests,
 } from "../lib/auth.js";
@@ -233,7 +233,7 @@ export default function Sidebar({ tab, setTab, onRequestLogin }) {
     if (key.startsWith("space-")) return true;
     switch (key) {
       case "tournaments":
-        return true; // au minimum les tournois publics, pour tout le monde
+        return canViewTournaments(role);
       case "championship":
         return canViewChampionships(role);
       case "chat":

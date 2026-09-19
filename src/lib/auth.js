@@ -405,7 +405,7 @@ export function roleLabel(account) {
 export const PERMISSION_GROUPS = [
   {
     titre: "Consultation",
-    cles: ["viewAllTournaments", "viewInterclubTournaments", "viewPublicChampionships", "viewAllChampionships"],
+    cles: ["viewPublicTournaments", "viewAllTournaments", "viewInterclubTournaments", "viewPublicChampionships", "viewAllChampionships"],
   },
   { titre: "Communication", cles: ["useChat", "postChat", "contactAdmin"] },
   { titre: "Table et horloge", cles: ["controlClock", "eliminateAnyone", "manageSeating"] },
@@ -419,7 +419,7 @@ export const ALL_PERMISSION_KEYS = PERMISSION_GROUPS.flatMap((g) => g.cles);
 
 // Les droits d'un rôle qui voit et fait tout sauf la gestion des comptes.
 const ETAT_MAJOR = {
-  viewAllTournaments: true, viewInterclubTournaments: true,
+  viewPublicTournaments: true, viewAllTournaments: true, viewInterclubTournaments: true,
   viewPublicChampionships: true, viewAllChampionships: true,
   useChat: true, postChat: true, contactAdmin: true,
   controlClock: true, eliminateAnyone: true, manageSeating: true,
@@ -430,7 +430,7 @@ const ETAT_MAJOR = {
 
 // Ce que voit un membre du club : tout, mais il ne touche à rien.
 const MEMBRE = {
-  viewAllTournaments: true, viewInterclubTournaments: true,
+  viewPublicTournaments: true, viewAllTournaments: true, viewInterclubTournaments: true,
   viewPublicChampionships: true, viewAllChampionships: true,
   useChat: true, postChat: true, contactAdmin: true,
   controlClock: false, eliminateAnyone: false, manageSeating: false,
@@ -482,6 +482,7 @@ const DEFAULT_ROLE_PERMISSIONS = {
 };
 
 export const PERMISSION_LABELS = {
+  viewPublicTournaments: "Voir les tournois en accès public",
   viewAllTournaments: "Voir tous les tournois",
   viewInterclubTournaments: "Voir les tournois interclubs",
   viewPublicChampionships: "Voir les championnats publics",
@@ -532,8 +533,20 @@ export function canManageTournaments(role) {
 }
 
 // Les tournois internes du club, en plus des publics.
+// Les tournois que le club a marqués « Accès public ». Le socle : sans
+// lui, l'onglet Tournois n'a plus rien à montrer et disparaît.
+export function canViewPublicTournaments(role) {
+  return hasPermission(role, "viewPublicTournaments");
+}
+
+// Les tournois internes du club, en plus des publics.
 export function canViewAllTournaments(role) {
   return hasPermission(role, "viewAllTournaments");
+}
+
+// L'onglet Tournois n'a de sens que pour qui peut en voir au moins un.
+export function canViewTournaments(role) {
+  return canViewPublicTournaments(role) || canViewAllTournaments(role) || canViewInterclubTournaments(role);
 }
 
 // Les tournois marqués « interclub », ouverts aux clubs invités.
