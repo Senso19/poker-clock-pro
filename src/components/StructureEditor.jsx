@@ -740,10 +740,14 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                 </thead>
                 <tbody>
                   {levels.map((level, i) => {
-                    const rowStart = cumulative;
+                    // Le temps affiché est celui de la FIN du niveau, pas
+                    // de son début : c'est l'heure de jeu à laquelle on
+                    // passe au suivant. Un premier niveau de 25 minutes se
+                    // lit donc (0:25) — on sait d'un coup d'œil quand la
+                    // pause tombe, ce que (0:00) ne disait pas.
                     cumulative += Number(level.durationMinutes) || 0;
-                    const h = Math.floor(rowStart / 60);
-                    const m = rowStart % 60;
+                    const h = Math.floor(cumulative / 60);
+                    const m = cumulative % 60;
                     const elapsed = `${h}:${String(m).padStart(2, "0")}`;
                     return (
                       <tr
