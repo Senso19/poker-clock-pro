@@ -92,6 +92,28 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
     setConfig((prev) => recomputeAutoFields({ ...prev, ...patch }));
   }
 
+  /**
+   * Cocher « Antes » remplit la colonne à partir des blindes, pour les
+   * niveaux qui n'ont pas encore d'ante à eux. Tant que cette colonne se
+   * calculait, la question ne se posait pas ; maintenant qu'elle se
+   * saisit, une structure enregistrée sans antes afficherait une colonne
+   * de zéros à remplir à la main, ligne par ligne.
+   *
+   * Les antes déjà saisis sont conservés : décocher puis recocher la case
+   * ne doit pas effacer le travail.
+   */
+  function activerAntes(actif) {
+    updateDriver({ antesEnabled: actif });
+    if (!actif) return;
+    setLevels((prev) =>
+      prev.map((l) => {
+        if (l.isBreak || Number(l.ante)) return l;
+        const pilote = Number(config.anteType === "sb" ? l.smallBlind : l.bigBlind) || 0;
+        return pilote ? { ...l, ante: pilote } : l;
+      })
+    );
+  }
+
   function setFieldMode(fieldKey, fieldMode) {
     setConfig((prev) => {
       const next = { ...prev, fields: { ...prev.fields, [fieldKey]: { ...prev.fields[fieldKey] } } };
@@ -135,6 +157,18 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
         if (field === "smallBlind" && !Number(l.bigBlind)) {
           const sb = Number(value);
           if (Number.isFinite(sb) && sb > 0) suivant.bigBlind = sb * 2;
+        }
+        // L'ante suit la blinde qui le pilote (réglage « Type d'ante »)
+        // TANT QU'ON NE L'A PAS SAISI SOI-MÊME. On reconnaît une saisie
+        // manuelle à ceci : la valeur ne correspond plus à celle de sa
+        // blinde avant la frappe. Dans ce cas on n'y touche jamais —
+        // c'est la même réserve que pour la big blind au-dessus.
+        if (field !== "ante" && config.antesEnabled) {
+          const pilote = config.anteType === "sb" ? "smallBlind" : "bigBlind";
+          const avant = Number(l[pilote]) || 0;
+          const apres = Number(suivant[pilote]) || 0;
+          const ante = Number(l.ante) || 0;
+          if (apres && (!ante || ante === avant)) suivant.ante = apres;
         }
         return suivant;
       })
@@ -193,7 +227,10 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
   function niveauxNettoyes() {
     return levels.map(({ isNew, ...l }) => {
       if (l.isBreak) return l;
-      const ante = config.antesEnabled ? Number(config.anteType === "sb" ? l.smallBlind : l.bigBlind) || 0 : 0;
+      // On enregistre l'ante TEL QU'IL EST AFFICHÉ : il est saisissable,
+      // le recalculer ici jetterait la valeur voulue. Antes décochés, il
+      // repart à zéro.
+      const ante = config.antesEnabled ? Number(l.ante) || 0 : 0;
       return { ...l, ante };
     });
   }
@@ -323,7 +360,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
     try {
       const cleanLevels = levels.map(({ isNew, ...l }) => {
         if (l.isBreak) return l;
-        const ante = config.antesEnabled ? Number(config.anteType === "sb" ? l.smallBlind : l.bigBlind) || 0 : 0;
+        const ante = config.antesEnabled ? Number(l.ante) || 0 : 0;
         return { ...l, ante };
       });
       const t = await saveStructureTemplate(templateName.trim(), cleanLevels, config);
@@ -478,7 +515,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
               <input
                 type="checkbox"
                 checked={config.antesEnabled}
-                onChange={(e) => updateDriver({ antesEnabled: e.target.checked })}
+                onChange={(e) => activerAntes(e.target.checked)}
               />
             </DriverField>
             {config.antesEnabled && (
@@ -690,8 +727,14 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                               />
                             </td>
                             {config.antesEnabled && (
-                              <td style={{ paddingTop: "var(--pcp-row-pad, 16px)", paddingBottom: "var(--pcp-row-pad, 16px)" }} className="pr-3 text-right text-felt-cream/60">
-                                {chips(config.anteType === "sb" ? level.smallBlind : level.bigBlind)}
+                              <td style={{ paddingTop: "var(--pcp-row-pad, 16px)", paddingBottom: "var(--pcp-row-pad, 16px)" }} className="pr-3 text-right">
+                                <input
+                                  type="number"
+                                  value={level.ante ?? ""}
+                                  onChange={(e) => updateLevel(i, "ante", e.target.value)}
+                                  style={{ backgroundColor: "var(--pcp-cell-bg, #14181C)", color: "var(--pcp-cell-text, #EDEAE3)" }}
+                                  className="w-24 border border-felt-cream/10 rounded px-2 py-1.5 text-sm text-right font-medium"
+                                />
                               </td>
                             )}
                           </>
