@@ -1,5 +1,5 @@
 import { supabase } from "./supabase.js";
-import { echelleDesBlinds, plusPetitJeton, defaultChipSet } from "./chips.js";
+import { echelleDesBlinds, plusPetitJeton, defaultChipSet, rondeur } from "./chips.js";
 export { fetchActiveTournament } from "./tournaments.js";
 
 /**
@@ -294,7 +294,34 @@ export function generateBlindLevels(config) {
     let targetIdx = Math.round(startIdx + frac * (endIdx - startIdx));
     if (i > 0 && targetIdx <= idx) targetIdx = idx + 1;
     targetIdx = Math.min(targetIdx, echelle.length - 1);
-    idx = targetIdx;
+
+    // La position idéale est rarement la plus jolie valeur. On regarde le
+    // palier juste avant et juste après, et on retient le plus FRANC des
+    // trois : 500/1000 ou 2000/4000 s'annoncent au micro, 700/1400 ou
+    // 1800/3600 beaucoup moins. L'écart d'un cran est sans conséquence sur
+    // la durée, alors que la lisibilité, elle, se voit toute la soirée.
+    //
+    // Un seul cran de latitude : au-delà, on déformerait la progression que
+    // le tapis et la durée ont dictée.
+    // Le premier niveau, lui, ne se discute pas : il vaut le plus petit
+    // jeton du jeu. C'est la seule occasion où celui-ci sert, et 25/50 est
+    // moins « rond » que 50/100 — sans cette réserve, l'ouverture y
+    // passait.
+    const premier = i === 0 ? startIdx : Math.max(idx + 1, targetIdx - 1);
+    // Jamais au-delà du point d'arrivée : sans cette borne, le coup de
+    // pouce vers une valeur ronde pouvait atteindre le haut de l'échelle
+    // avant le dernier niveau, et les derniers paliers se répétaient.
+    const dernier = i === 0 ? startIdx : Math.min(endIdx, echelle.length - 1, targetIdx + 1);
+    let choix = i === 0 ? startIdx : targetIdx;
+    for (let k = premier; k <= dernier; k++) {
+      const mieuxRond = rondeur(echelle[k]) < rondeur(echelle[choix]);
+      const aussiRondMaisPlusProche =
+        rondeur(echelle[k]) === rondeur(echelle[choix]) && Math.abs(k - targetIdx) < Math.abs(choix - targetIdx);
+      if (mieuxRond || aussiRondMaisPlusProche) choix = k;
+    }
+    // Un niveau est toujours plus haut que le précédent, tant que
+    // l'échelle le permet.
+    idx = i === 0 ? choix : Math.min(Math.max(choix, idx + 1), echelle.length - 1);
 
     const sb = echelle[idx];
     const bb = sb * 2;

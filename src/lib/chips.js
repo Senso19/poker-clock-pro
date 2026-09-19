@@ -164,6 +164,32 @@ export function pasDesBlinds(jeu) {
 }
 
 /**
+ * À quel point un palier « tombe rond ».
+ *
+ * 500/1000 et 2000/4000 s'annoncent au micro et se comptent d'un coup
+ * d'œil ; 700/1400 et 1800/3600 beaucoup moins. Les deux restent
+ * utilisables — une structure longue a besoin de ces paliers
+ * intermédiaires pour monter en douceur — mais à position équivalente, on
+ * préfère le rond.
+ *
+ * Le rang ne dépend que de la mantisse : 2000 est aussi rond que 2, et
+ * 1800 aussi bancal que 18. Plus le rang est bas, plus la valeur est
+ * franche.
+ */
+const RANGS_DE_RONDEUR = { 1: 0, 2: 1, 5: 2, 1.5: 3, 3: 3, 4: 4, 2.5: 5, 6: 6, 8: 6, 1.2: 7, 1.8: 7, 7: 8 };
+
+export function rondeur(valeur) {
+  let m = Number(valeur) || 0;
+  if (m <= 0) return 99;
+  while (m >= 10) m /= 10;
+  while (m < 1) m *= 10;
+  // Deux décimales suffisent : les mantisses de l'échelle sont toutes des
+  // 1, 1,2, 1,5, 1,8, 2, 2,5, 3, 4, 5, 6, 7 ou 8.
+  const rang = RANGS_DE_RONDEUR[Math.round(m * 100) / 100];
+  return rang == null ? 9 : rang;
+}
+
+/**
  * L'échelle permise par un jeu de jetons donné.
  *
  * Le premier niveau vaut le plus petit jeton : 25 → 25/50, 100 → 100/200,
