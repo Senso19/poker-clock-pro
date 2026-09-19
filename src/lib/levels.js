@@ -1,4 +1,5 @@
 import { supabase } from "./supabase.js";
+import { echelleDesBlinds, plusPetitJeton, defaultChipSet } from "./chips.js";
 export { fetchActiveTournament } from "./tournaments.js";
 
 /**
@@ -123,30 +124,16 @@ export async function saveStructureConfig(tournamentId, config) {
   if (error) throw error;
 }
 
-/**
- * Les paliers de blinds utilisables.
- *
- * Tous sont des multiples de 50 : le 25 n'a sa place qu'au tout premier
- * niveau, 25/50. Au-delà, une small blind de 125 ou de 175 obligerait à
- * garder des jetons de 25 en circulation alors qu'ils ont été échangés —
- * la caisse ne peut plus rendre la monnaie et personne ne sait payer la
- * blind. Ce sont les deux seules valeurs retirées de cette échelle.
- *
- * Tout le reste est conservé, 700, 1200 et 1800 compris : ces paliers
- * intermédiaires sont ce qui permet à une structure longue de monter en
- * douceur au lieu de doubler à chaque niveau.
- */
-const CHIP_LADDER = [
-  25, 50, 100, 150, 200, 250, 300, 350, 400, 500, 600, 700, 800, 1000, 1200, 1500, 1800, 2000, 2500, 3000,
-  4000, 5000, 6000, 8000, 10000, 12000, 15000, 20000, 25000, 30000, 40000, 50000, 60000, 80000, 100000, 125000,
-  150000, 200000, 250000, 300000, 400000, 500000,
-];
+// L'échelle des blinds n'est plus une constante : elle dépend des jetons
+// dont le club dispose (voir chips.js). Un jeu qui démarre à 100 ne doit
+// pas produire de niveau 25/50, ni de 250 qui demanderait des jetons de 50.
 
-function nearestLadderIndex(val) {
+
+function nearestLadderIndex(val, echelle) {
   let bestIdx = 0;
   let bestDiff = Infinity;
-  for (let i = 0; i < CHIP_LADDER.length; i++) {
-    const diff = Math.abs(CHIP_LADDER[i] - val);
+  for (let i = 0; i < echelle.length; i++) {
+    const diff = Math.abs(echelle[i] - val);
     if (diff < bestDiff) {
       bestDiff = diff;
       bestIdx = i;
@@ -204,6 +191,10 @@ export function defaultStructureConfig() {
     tournamentType: "freezeout",
     antesEnabled: true,
     anteType: "bb",
+    // Le jeu de jetons du club : c'est lui qui décide des blinds possibles
+    // et du premier niveau (voir chips.js).
+    chipSet: defaultChipSet(),
+    chipCounts: {},
     halfAnteIfFewPlayers: false,
     keepAntesHeadsUp: false,
     fields: {},
@@ -253,7 +244,11 @@ export function totalChipsInPlay(config) {
 }
 
 export function generateBlindLevels(config) {
-  const startingSmallBlind = Number(config.fields?.startingSmallBlind?.value) || 25;
+  // L'échelle et le premier niveau découlent du jeu de jetons : un club
+  // dont la plus petite coupure est 100 commence à 100/200.
+  const jeu = config.chipSet?.length ? config.chipSet : defaultChipSet();
+  const echelle = echelleDesBlinds(jeu);
+  const startingSmallBlind = Number(config.fields?.startingSmallBlind?.value) || plusPetitJeton(jeu);
   const minutesPerLevel = Number(config.fields?.minutesPerLevel?.value) || 20;
   const durationHours = Number(config.durationHours) || 4;
   const antesEnabled = !!config.antesEnabled;
@@ -261,7 +256,7 @@ export function generateBlindLevels(config) {
 
   // La durée prévue donne le NOMBRE de niveaux.
   const numberOfLevels = Math.max(6, Math.round((durationHours * 60) / (minutesPerLevel || 20)));
-  const startIdx = nearestLadderIndex(startingSmallBlind);
+  const startIdx = nearestLadderIndex(startingSmallBlind, echelle);
 
   // Le tapis de départ et le nombre de joueurs donnent, eux, le POINT
   // D'ARRIVÉE — c'est ce qui manquait : la structure montait d'un facteur
@@ -281,7 +276,7 @@ export function generateBlindLevels(config) {
   const diviseurFinal = antesEnabled ? 28 : 20;
   let endIdx;
   if (totalChips > 0) {
-    endIdx = nearestLadderIndex(totalChips / diviseurFinal / 2);
+    endIdx = nearestLadderIndex(totalChips / diviseurFinal / 2, echelle);
   } else {
     // Sans joueurs ni tapis renseignés, on retombe sur l'ancien repère :
     // une progression d'environ x120 sur l'ensemble de la structure.
@@ -290,7 +285,7 @@ export function generateBlindLevels(config) {
   // Chaque niveau doit monter : il faut au moins autant de paliers que de
   // niveaux, et jamais plus que l'échelle n'en contient.
   endIdx = Math.max(endIdx, startIdx + numberOfLevels - 1);
-  endIdx = Math.min(endIdx, CHIP_LADDER.length - 1);
+  endIdx = Math.min(endIdx, echelle.length - 1);
 
   const levels = [];
   let idx = startIdx;
@@ -298,10 +293,10 @@ export function generateBlindLevels(config) {
     const frac = numberOfLevels > 1 ? i / (numberOfLevels - 1) : 0;
     let targetIdx = Math.round(startIdx + frac * (endIdx - startIdx));
     if (i > 0 && targetIdx <= idx) targetIdx = idx + 1;
-    targetIdx = Math.min(targetIdx, CHIP_LADDER.length - 1);
+    targetIdx = Math.min(targetIdx, echelle.length - 1);
     idx = targetIdx;
 
-    const sb = CHIP_LADDER[idx];
+    const sb = echelle[idx];
     const bb = sb * 2;
     let ante = 0;
     if (antesEnabled && i > 0) {

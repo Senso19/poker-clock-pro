@@ -5,6 +5,9 @@ import { useTheme } from "../context/ThemeContext.jsx";
 import { formatChips } from "../lib/format.js";
 import CustomizablePanel from "./CustomizablePanel.jsx";
 import EditableButton from "./EditableButton.jsx";
+import { ChipSetRow, ChipSetsModal, ChipDistributionModal, ChipPastille } from "./ChipSetPicker.jsx";
+import { DEFAULT_CHIP_SETS, defaultChipSet, placerChipRaces, repartitionConseillee, tapisDeLaRepartition, chipLabel } from "../lib/chips.js";
+import { saveClubTheme } from "../lib/clubSettings.js";
 import { useConfirm } from "../context/ConfirmContext.jsx";
 import { useIsMobile } from "../lib/useIsMobile.js";
 import {
@@ -35,7 +38,7 @@ import {
  */
 export default function StructureEditor({ onSaved, mode = "tournament", template = null }) {
   const confirmAction = useConfirm();
-  const { theme } = useTheme();
+  const { theme, setTheme } = useTheme();
   // Les champs de saisie gardent le nombre entier — on ne peut pas taper
   // "10K" dans un champ numérique — mais les colonnes calculées suivent le
   // réglage "Montants abrégés".
@@ -53,6 +56,7 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
   const [templates, setTemplates] = useState([]);
   const [showTemplates, setShowTemplates] = useState(false);
   const [insertModalType, setInsertModalType] = useState(null); // null | "level" | "break"
+  const [chipModal, setChipModal] = useState(null); // null | "jeux" | "repartition"
   // Empreinte de la structure telle qu'elle est en base, et état de
   // l'enregistrement automatique affiché à côté du bouton.
   const dernierEnregistreRef = useRef(null);
@@ -98,6 +102,74 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
    * une case vide y vaut donc zéro comme avant — elle ne l'affiche
    * simplement plus.
    */
+  /**
+   * Le jeu de jetons du tournoi, et la bibliothèque des jeux du club.
+   *
+   * La bibliothèque vit dans les réglages du club : le matériel ne change
+   * pas d'un tournoi à l'autre, il n'y a pas de raison de le ressaisir.
+   * Le jeu CHOISI, lui, appartient à la structure — deux tournois du même
+   * club peuvent sortir des mallettes différentes.
+   */
+  const jeuDeJetons = config.chipSet?.length ? config.chipSet : defaultChipSet();
+  const jeuxDeJetons = theme.chipSets?.length ? theme.chipSets : DEFAULT_CHIP_SETS;
+
+  function enregistrerJeux(jeux) {
+    setTheme({ ...theme, chipSets: jeux });
+    saveClubTheme({ ...theme, chipSets: jeux }).catch(() => {});
+  }
+
+  function choisirJeu(jeu) {
+    if (!jeu) return;
+    // Changer de mallette change le tapis : la répartition est refaite sur
+    // les nouvelles coupures, en visant le tapis actuel.
+    const tapisActuel = Number(config.fields?.startingStack?.value) || 0;
+    const counts = repartitionConseillee(jeu, tapisActuel);
+    setConfig((prev) => {
+      const suivant = { ...prev, chipSet: jeu, chipCounts: counts };
+      const tapis = tapisDeLaRepartition(counts);
+      if (tapis > 0) suivant.fields = { ...prev.fields, startingStack: { mode: "manual", value: tapis } };
+      return suivant;
+    });
+  }
+
+  function ouvrirRepartition() {
+    // Première ouverture : on propose une répartition qui compose le tapis
+    // déjà saisi, plutôt qu'une grille de zéros.
+    if (!config.chipCounts || Object.keys(config.chipCounts).length === 0) {
+      const tapis = Number(config.fields?.startingStack?.value) || 0;
+      setConfig((prev) => ({ ...prev, chipCounts: repartitionConseillee(jeuDeJetons, tapis) }));
+    }
+    setChipModal("repartition");
+  }
+
+  function changerRepartition(counts) {
+    // Le tapis de départ EST la somme des jetons posés devant le joueur :
+    // on ne le saisit plus à côté, il se déduit.
+    const tapis = tapisDeLaRepartition(counts);
+    setConfig((prev) => ({
+      ...prev,
+      chipCounts: counts,
+      fields: { ...prev.fields, startingStack: { mode: "manual", value: tapis } },
+    }));
+  }
+
+  // Les échanges de jetons imposés par la structure en cours, posés de
+  // préférence sur une pause. Simple indication pour le directeur de
+  // tournoi : aucun niveau n'est créé.
+  const echanges = config.chipRaceEnabled ? placerChipRaces(jeuDeJetons, levels, config.chipRaceOverrides) : [];
+
+  // L'administrateur peut déplacer un échange où il le souhaite ; « Auto »
+  // rend la main au placement automatique.
+  function deplacerEchange(jetons, position) {
+    const cle = String(jetons[0]);
+    setConfig((prev) => {
+      const overrides = { ...(prev.chipRaceOverrides || {}) };
+      if (position === "") delete overrides[cle];
+      else overrides[cle] = Number(position);
+      return { ...prev, chipRaceOverrides: overrides };
+    });
+  }
+
   function nombreOuVide(valeur) {
     return valeur === "" ? "" : Number(valeur);
   }
@@ -514,6 +586,16 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                 className="flex-1 border border-felt-cream/10 rounded-md px-4 py-2.5 text-base"
               />
             </DriverField>
+            <DriverField label="Jeu de jetons">
+              <div className="flex-1 min-w-0">
+                <ChipSetRow
+                  jeu={jeuDeJetons}
+                  jeux={jeuxDeJetons}
+                  onChoisir={choisirJeu}
+                  onModifier={() => setChipModal("jeux")}
+                />
+              </div>
+            </DriverField>
             <DriverField label="Type de tournoi">
               <select
                 value={config.tournamentType}
@@ -530,6 +612,14 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                 type="checkbox"
                 checked={config.antesEnabled}
                 onChange={(e) => activerAntes(e.target.checked)}
+              />
+            </DriverField>
+            <DriverField label="Chip race">
+              <input
+                type="checkbox"
+                checked={!!config.chipRaceEnabled}
+                onChange={(e) => updateDriver({ chipRaceEnabled: e.target.checked })}
+                title="Signaler les niveaux où une coupure doit être échangée"
               />
             </DriverField>
             {config.antesEnabled && (
@@ -564,6 +654,12 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
 
             <AutoField label="Petite blind initiale" fieldKey="startingSmallBlind" config={config} setFieldMode={setFieldMode} setFieldValue={setFieldValue} />
             <AutoField label="Tapis de départ" fieldKey="startingStack" config={config} setFieldMode={setFieldMode} setFieldValue={setFieldValue} />
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
+              <span className="sm:w-56 shrink-0" />
+              <button onClick={ouvrirRepartition} className="self-start text-sm text-felt-gold hover:underline font-display">
+                ◑ Répartition de jetons
+              </button>
+            </div>
             <AutoField label="Temps par niveau (min)" fieldKey="minutesPerLevel" config={config} setFieldMode={setFieldMode} setFieldValue={setFieldValue} />
             <AutoField label="Réinscriptions Anticipées" fieldKey="expectedReentries" config={config} setFieldMode={setFieldMode} setFieldValue={setFieldValue} />
             <AutoField label="Jetons de réentrée" fieldKey="reentryChips" config={config} setFieldMode={setFieldMode} setFieldValue={setFieldValue} />
@@ -669,7 +765,26 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
                         }
                         className={level.isNew ? "bg-felt-gold/20 ring-1 ring-inset ring-felt-gold/60" : ""}
                       >
-                        <td style={{ paddingTop: "var(--pcp-row-pad, 16px)", paddingBottom: "var(--pcp-row-pad, 16px)" }} className="pl-4 pr-2 text-felt-gold/70 rounded-l-md text-lg font-display">{i + 1}</td>
+                        <td style={{ paddingTop: "var(--pcp-row-pad, 16px)", paddingBottom: "var(--pcp-row-pad, 16px)" }} className="pl-4 pr-2 text-felt-gold/70 rounded-l-md text-lg font-display">
+                          <span className="flex items-center gap-1.5">
+                            {i + 1}
+                            {/* Échange de jetons à ce niveau. C'est une
+                                INDICATION pour le directeur de tournoi, pas
+                                une ligne de structure : elle ne décale
+                                aucune numérotation et ne consomme pas de
+                                temps. */}
+                            {echanges
+                              .filter((r) => r.position === i)
+                              .map((r) => (
+                                <span key={r.jetons.join("-")} title={`Chip race : retirer les jetons de ${r.jetons.join(", ")}`} className="flex items-center gap-0.5">
+                                  {r.jetons.map((v) => (
+                                    <ChipPastille key={v} valeur={v} taille={18} />
+                                  ))}
+                                  <span className="text-xs text-felt-gold">⇄</span>
+                                </span>
+                              ))}
+                          </span>
+                        </td>
                         {level.isBreak ? (
                           <>
                             <td style={{ paddingTop: "var(--pcp-row-pad, 16px)", paddingBottom: "var(--pcp-row-pad, 16px)" }} className="pr-3">
@@ -767,6 +882,40 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
               </table>
             </div>
 
+            {echanges.length > 0 && (
+              <div className="mt-4 pt-3 border-t border-felt-cream/10 font-body">
+                <div className="text-sm text-felt-gold font-display mb-2">⇄ Échanges de jetons</div>
+                <div className="space-y-1.5">
+                  {echanges.map((r) => (
+                    <div key={r.jetons.join("-")} className="flex flex-wrap items-center gap-2 text-sm text-felt-cream/60">
+                      <span className="flex items-center gap-1">
+                        {r.jetons.map((v) => (
+                          <ChipPastille key={v} valeur={v} taille={20} />
+                        ))}
+                      </span>
+                      <span>retirer les {r.jetons.map(chipLabel).join(" et les ")} —</span>
+                      <select
+                        value={r.automatique ? "" : String(r.position)}
+                        onChange={(e) => deplacerEchange(r.jetons, e.target.value)}
+                        style={{ backgroundColor: "var(--pcp-cell-bg, #14181C)", color: "var(--pcp-cell-text, #EDEAE3)" }}
+                        className="border border-felt-cream/10 rounded px-2 py-1 text-sm"
+                      >
+                        <option value="">Auto (pendant une pause)</option>
+                        {levels.map((l, i) => (
+                          <option key={i} value={i}>
+                            {l.isBreak ? `Pause après le niveau ${i}` : `Niveau ${i + 1} (${l.smallBlind}/${l.bigBlind})`}
+                          </option>
+                        ))}
+                      </select>
+                      {r.automatique && levels[r.position]?.isBreak && (
+                        <span className="text-felt-cream/40">posé sur la pause</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <EditableButton
               groupKey="structure-toolbar"
               id="append-level"
@@ -779,6 +928,18 @@ export default function StructureEditor({ onSaved, mode = "tournament", template
           </CustomizablePanel>
         </div>
       </div>
+      {chipModal === "jeux" && (
+        <ChipSetsModal jeux={jeuxDeJetons} onChange={enregistrerJeux} onClose={() => setChipModal(null)} />
+      )}
+      {chipModal === "repartition" && (
+        <ChipDistributionModal
+          jeu={jeuDeJetons}
+          counts={config.chipCounts || {}}
+          tapisVise={Number(config.fields?.startingStack?.value) || 0}
+          onChange={changerRepartition}
+          onClose={() => setChipModal(null)}
+        />
+      )}
       {insertModalType && (
         <InsertPositionModal
           type={insertModalType}
