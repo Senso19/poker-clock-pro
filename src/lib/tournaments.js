@@ -14,10 +14,15 @@ import { getCurrentTournamentId, setCurrentTournamentId } from "./currentTournam
  * un nom, une date et un badge, traînait donc l'intégralité des horloges
  * archivées. Seule la duplication a besoin de ces trois colonnes, et elle
  * les relit pour le seul tournoi concerné (fetchTournamentBlueprint).
+ *
+ * `current_level_index` et `level_started_at` sont absentes aussi : ce sont
+ * les restes de l'ancienne horloge, remplacées par les colonnes clock_*.
+ * Plus rien ne les lit, et supabase/migration-colonnes-orphelines.sql les
+ * supprime quand vous le lancerez.
  */
 const COLONNES_LISTE = [
   "id", "name", "date", "buy_in", "rebuy_amount", "addon_amount", "starting_stack",
-  "status", "current_level_index", "level_started_at", "created_at", "championship_id",
+  "status", "created_at", "championship_id",
   "stage_label", "registration_open", "scheduled_at", "clock_level_index",
   "clock_seconds_left", "clock_is_running", "clock_updated_at", "max_players",
   "players_per_table", "final_table_size", "reserved_seats", "location",
