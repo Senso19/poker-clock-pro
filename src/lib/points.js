@@ -72,7 +72,7 @@ export async function fetchChampionships() {
   return data || [];
 }
 
-export async function createChampionship({ name, formulaText, bestStagesCount = null, countRebuysInRanking = false, bannerImage = null, publicView = false }) {
+export async function createChampionship({ name, formulaText, bestStagesCount = null, countRebuysInRanking = false, bannerImage = null, publicView = false, isInterclub = false }) {
   const { data, error } = await supabase
     .from("championships")
     .insert({
@@ -81,6 +81,7 @@ export async function createChampionship({ name, formulaText, bestStagesCount = 
       best_stages_count: bestStagesCount,
       count_rebuys_in_ranking: countRebuysInRanking,
       public_view: publicView,
+      is_interclub: isInterclub,
       banner_image: bannerImage,
     })
     .select()
@@ -98,13 +99,14 @@ export async function createChampionship({ name, formulaText, bestStagesCount = 
  * résultats des étapes. Une correction de formule s'applique donc
  * rétroactivement à tout le championnat, ce qui est bien le but.
  */
-export async function updateChampionship(id, { name, formulaText, bestStagesCount, countRebuysInRanking, bannerImage, publicView }) {
+export async function updateChampionship(id, { name, formulaText, bestStagesCount, countRebuysInRanking, bannerImage, publicView, isInterclub }) {
   const patch = {};
   if (name !== undefined) patch.name = name;
   if (formulaText !== undefined) patch.formula_text = formulaText || DEFAULT_FORMULA;
   if (bestStagesCount !== undefined) patch.best_stages_count = bestStagesCount;
   if (countRebuysInRanking !== undefined) patch.count_rebuys_in_ranking = countRebuysInRanking;
   if (publicView !== undefined) patch.public_view = publicView;
+  if (isInterclub !== undefined) patch.is_interclub = isInterclub;
   if (bannerImage !== undefined) patch.banner_image = bannerImage;
   const { error } = await supabase.from("championships").update(patch).eq("id", id);
   if (error) throw error;

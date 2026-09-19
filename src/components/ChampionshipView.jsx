@@ -14,7 +14,10 @@ import {
   updateChampionshipBanner,
 } from "../lib/points.js";
 import { useAccount } from "../context/AccountContext.jsx";
-import { canManageTournaments, canManageChampionships, roleEffectif, canViewAllChampionships } from "../lib/auth.js";
+import {
+  canManageTournaments, canManageChampionships, roleEffectif,
+  canViewAllChampionships, canViewPublicChampionships, canViewInterclubChampionships,
+} from "../lib/auth.js";
 import ChampionshipDetailPage from "./ChampionshipDetailPage.jsx";
 import CustomizablePanel from "./CustomizablePanel.jsx";
 import { useConfirm } from "../context/ConfirmContext.jsx";
@@ -82,11 +85,20 @@ export default function ChampionshipView() {
     setLoading(true);
     try {
       let list = await fetchChampionships();
-      // Le membre du club voit tous les championnats ; l'invité et le
-      // joueur d'un club invité, seulement ceux marqués « Accès public ».
-      // Le visiteur, lui, n'arrive même pas jusqu'ici : l'onglet ne lui
-      // est pas proposé.
-      if (!canViewAllChampionships(role)) list = list.filter((c) => c.public_view);
+      // Le membre du club voit tous les championnats. L'invité, ceux
+      // marqués « Accès public ». Un club invité — joueur ou gestionnaire —
+      // voit ceux marqués « interclub », et eux seuls. Le visiteur n'arrive
+      // même pas jusqu'ici : l'onglet ne lui est pas proposé.
+      //
+      // Ce filtre décide de l'affichage ; la règle de sécurité de la base
+      // applique exactement la même condition, elle.
+      if (!canViewAllChampionships(role)) {
+        list = list.filter(
+          (c) =>
+            (c.public_view && canViewPublicChampionships(role)) ||
+            (c.is_interclub && canViewInterclubChampionships(role))
+        );
+      }
       if (list.length === 0) {
         setSummaries([]);
         if (manage) setShowCreate(true);
@@ -461,6 +473,7 @@ function ChampionshipEditor({ onCreate, onCancel, loading, initial = null }) {
   const [bestStages, setBestStages] = useState(initial?.best_stages_count ?? "");
   const [countRebuys, setCountRebuys] = useState(!!initial?.count_rebuys_in_ranking);
   const [publicView, setPublicView] = useState(!!initial?.public_view);
+  const [isInterclub, setIsInterclub] = useState(!!initial?.is_interclub);
   const [previewPlayers, setPreviewPlayers] = useState(20);
   const [bannerImage, setBannerImage] = useState(initial?.banner_image || null);
 
@@ -573,9 +586,17 @@ function ChampionshipEditor({ onCreate, onCancel, loading, initial = null }) {
             déjà ouvert : personne ne le trouvait. Il est désormais ici
             aussi, au même endroit que pour un tournoi — dans les réglages,
             là où on le cherche. Les deux cases commandent le même drapeau. */}
-        <label className="flex items-center gap-2 text-sm text-felt-cream/70 mb-6">
+        <label className="flex items-center gap-2 text-sm text-felt-cream/70 mb-2">
           <input type="checkbox" checked={publicView} onChange={(e) => setPublicView(e.target.checked)} />
           Accès public (visible sans être membre du club)
+        </label>
+        {/* Un championnat interclub est visible par les clubs invités —
+            joueurs comme gestionnaires — sans l'être du grand public. Les
+            deux cases sont indépendantes : un championnat peut être l'un,
+            l'autre, les deux, ou ni l'un ni l'autre. */}
+        <label className="flex items-center gap-2 text-sm text-felt-cream/70 mb-6">
+          <input type="checkbox" checked={isInterclub} onChange={(e) => setIsInterclub(e.target.checked)} />
+          Championnat interclub (visible par les clubs invités)
         </label>
 
         <div className="flex gap-2">
@@ -593,6 +614,7 @@ function ChampionshipEditor({ onCreate, onCancel, loading, initial = null }) {
                 bestStagesCount: bestStages ? Number(bestStages) : null,
                 countRebuysInRanking: countRebuys,
                 publicView,
+                isInterclub,
                 bannerImage,
               })
             }

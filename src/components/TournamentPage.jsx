@@ -5,7 +5,7 @@ import { supabase } from "../lib/supabase.js";
 import { selectTournament } from "../lib/tournaments.js";
 import { fetchLevels, defaultStructure } from "../lib/levels.js";
 import { useAccount } from "../context/AccountContext.jsx";
-import { canManageTournament, canControlClock, isClubManager, roleEffectif, canManageStructure, canManageSeating } from "../lib/auth.js";
+import { canManageTournament, canControlClock, canManageInterclubTournaments, roleEffectif, canManageStructure, canManageSeating } from "../lib/auth.js";
 import { useIsMobile } from "../lib/useIsMobile.js";
 import { useTheme } from "../context/ThemeContext.jsx";
 import { formatChips } from "../lib/format.js";
@@ -108,7 +108,10 @@ export default function TournamentPage({ tournamentId, onBack }) {
   const editSeating = canManageSeating(role);
   // Idem pour le contrôle de l'horloge : un gestionnaire de club l'a sur ses
   // tournois interclubs, en plus des rôles à qui la matrice l'accorde déjà.
-  const clockControl = canControlClock(account?.role) || (isClubManager(account?.role) && !!tournament.is_interclub);
+  const clockControl = canControlClock(account?.role) ||
+    // Le gestionnaire d'un club invité pilote l'horloge de SON tournoi
+    // interclub, et d'aucun autre.
+    (canManageInterclubTournaments(account?.role) && !!tournament.is_interclub);
 
   // La surveillance de l'équilibre des tables vit ici, autour des onglets,
   // et non plus dans l'onglet Joueurs : un onglet n'est monté que pendant
