@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase.js";
 import { useTheme } from "../context/ThemeContext.jsx";
 import { fetchCurrentTournament } from "../lib/tournaments.js";
 import { chargerAvatars, avecAvatars } from "../lib/avatarsCache.js";
+import { useTableBalance } from "../context/TableBalanceContext.jsx";
 import { saveClockState, oublierEtatClockEcrit, secondsUntilScheduledStart, COUNTDOWN_WINDOW_HOURS, advanceForElapsed } from "../lib/clockState.js";
 import { playSound, SOUND_OPTIONS } from "../lib/sounds.js";
 import { addAnnouncement, fetchRecentAnnouncements } from "../lib/announcements.js";
@@ -437,8 +438,24 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   const intervalRef = useRef(null);
   const clockStateRef = useRef({ levelIndex: 0, secondsLeft: 0, isRunning: false });
 
-  const [registrations, setRegistrations] = useState([]);
-  const [eliminations, setEliminations] = useState([]);
+  /**
+   * Inscriptions et éliminations : celles du contexte quand il existe.
+   *
+   * La page d'un tournoi monte déjà TableBalanceProvider, qui relit ces
+   * deux tables toutes les cinq secondes pour les onglets Joueurs et
+   * Tables. L'horloge faisait EXACTEMENT la même lecture de son côté, sur
+   * la même page : deux fois la même réponse, soit 169 ko chacune à 500
+   * inscrits, vingt-quatre fois par minute.
+   *
+   * Hors de ce fournisseur — vue publique, éditeur de modèle — le contexte
+   * vaut null : l'horloge garde alors sa propre lecture, inchangée.
+   */
+  const balance = useTableBalance();
+  const [registrationsLocales, setRegistrations] = useState([]);
+  const [eliminationsLocales, setEliminations] = useState([]);
+  const suitLeContexte = !!balance && !effectiveDesignOnly;
+  const registrations = suitLeContexte ? balance.registrations : registrationsLocales;
+  const eliminations = suitLeContexte ? balance.eliminations : eliminationsLocales;
   const [sponsorIdx, setSponsorIdx] = useState(0);
   // Les annonces récentes (les plus récentes d'abord) et, à part, la
   // liste du tirage des places : le tirage a désormais son propre panneau
@@ -493,7 +510,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
   useEffect(() => {
     if (effectiveDesignOnly || !tournamentId) return;
     const t = setInterval(() => {
-      fetchRegsAndElims(tournamentId);
+      if (!suitLeContexte) fetchRegsAndElims(tournamentId);
       syncLayoutIfChanged(tournamentId).catch(() => {});
     }, 5000);
     return () => clearInterval(t);
@@ -803,7 +820,7 @@ export default function EditableClock({ levels, canEdit, designOnly = false, tem
       setDesignSize(m.designSize);
     }
     setTournamentBg(t.clock_background || null);
-    await fetchRegsAndElims(t.id);
+    if (!suitLeContexte) await fetchRegsAndElims(t.id);
 
     if (t.clock_seconds_left != null) {
       let li = t.clock_level_index || 0;

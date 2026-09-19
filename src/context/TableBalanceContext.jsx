@@ -98,13 +98,21 @@ export function TableBalanceProvider({ tournamentId, tournament, surveiller = fa
   }, [tournamentId]);
 
   const chargerEliminations = useCallback(async () => {
+    // L'inscription est jointe pour que l'horloge puisse afficher le nom et
+    // la photo du dernier éliminé sans refaire la requête de son côté. Les
+    // éliminations se comptent par dizaines, jamais par centaines : la
+    // jointure ne pèse rien, un second sondage si.
     const { data } = await supabase
       .from("eliminations")
-      .select("*")
+      .select("*, registrations!eliminations_registration_id_fkey(id, account_id, players(full_name))")
       .eq("tournament_id", tournamentId)
       .eq("undone", false)
       .order("eliminated_at", { ascending: true });
-    const lignes = data || [];
+    // Les avatars des éliminés sont demandés ici aussi : rien ne garantit
+    // que les inscriptions aient été chargées d'abord, et le cache rend la
+    // main aussitôt quand il les connaît déjà.
+    await chargerAvatars((data || []).map((e) => e.registrations?.account_id));
+    const lignes = (data || []).map((e) => ({ ...e, registrations: avecAvatars([e.registrations])[0] }));
     setEliminations(lignes);
     return lignes;
   }, [tournamentId]);
